@@ -94,6 +94,17 @@ Optional:
 - Technical terms defined in the field
 - Acronyms and their definitions
 
+### 1b. Use Proper Typographic Characters
+
+**ALWAYS use Unicode typographic characters, NEVER ASCII substitutes:**
+- Em dash: `—` (U+2014), NOT `--`. Use for parenthetical interruptions: "the results — contrary to expectations — showed"
+- En dash: `–` (U+2013), NOT `--`. Use for number ranges: "2022–2024", "ages 18–29", "pp. 2366–2375"
+- Left/right double quotes: `"` `"` (U+201C/U+201D), NOT `"` (U+0022)
+- Left/right single quotes: `'` `'` (U+2018/U+2019), NOT `'` (U+0027)
+- Non-breaking space before units where appropriate
+
+**Rule:** When generating or transforming text, always output proper Unicode punctuation. Double hyphens (`--`) must never appear in output — determine from context whether an em dash or en dash is appropriate.
+
 ### 2. Maintain Academic Tone
 
 **Balance:**
@@ -261,6 +272,7 @@ S1_em_dash:
     - "Use colon for elaboration"
     - "Create separate sentence"
   threshold: "Max 1-2 per document"
+  typographic_rule: "When em dashes are retained, ALWAYS use Unicode — (U+2014), NEVER ASCII --. For number ranges, use en dash – (U+2013)."
 
 S2_excessive_bold:
   strategy: "remove_most"

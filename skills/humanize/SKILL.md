@@ -39,6 +39,17 @@ NEVER skip G5 rescan between passes.
 Each pass is: G6 transform → G5 rescan → F5 verify → Checkpoint
 ```
 
+### Typographic Character Mandate
+
+```
+NEVER output ASCII substitutes for typographic characters.
+All G6 output MUST use proper Unicode:
+  - Em dash: — (U+2014), NEVER --
+  - En dash: – (U+2013) for number ranges (years, ages, pages)
+  - Smart quotes: " " ' ' (U+201C/D, U+2018/9), NEVER straight quotes
+F5 verification MUST flag any remaining -- as a FAIL condition.
+```
+
 ---
 
 ## Pipeline Overview

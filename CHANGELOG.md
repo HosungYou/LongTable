@@ -4,6 +4,29 @@ All notable changes to Diverga (formerly Research Coordinator) will be documente
 
 ---
 
+## [10.1.1] - 2026-02-23 (Typographic Enforcement + Zotero Removal)
+
+### Overview
+
+**Diverga v10.1.1** — Enforces proper typographic characters (Unicode em dash, en dash, smart quotes) across G6 output and F5 verification. Removes Zotero MCP from `.mcp.json`.
+
+### Changes
+
+- **Typographic enforcement in CLAUDE.md**: Added "Typographic Character Enforcement" subsection to Humanization Pipeline documentation
+- **Zotero MCP removed**: Deleted `zotero` entry from `.mcp.json` (3 servers remain: diverga, humanizer, context7)
+- **G6 SKILL.md**: "Use Proper Typographic Characters" rule already present (Section 1b)
+- **Humanize SKILL.md**: "Typographic Character Mandate" block already present
+
+### Updated Files
+
+| File | Changes |
+|------|---------|
+| `CLAUDE.md` | Added typographic enforcement section, removed zotero from MCP count |
+| `CHANGELOG.md` | This entry |
+| `.mcp.json` | Removed `zotero` MCP server entry |
+
+---
+
 ## [10.1.0] - 2026-02-23 (Humanize Orchestration Skill)
 
 ### Overview
