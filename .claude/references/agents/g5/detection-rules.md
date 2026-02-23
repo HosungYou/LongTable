@@ -1,10 +1,10 @@
-# AI Pattern Detection Rules v2.0
+# AI Pattern Detection Rules v3.0
 
 ## Overview
 
 This document consolidates detection rules, scoring algorithms, and threshold settings for the G5-AcademicStyleAuditor agent.
 
-v2.0 adds quantitative stylometric metrics (burstiness, MTLD, sentence length range, paragraph opener diversity), four structural detection patterns (S7-S10), a composite scoring formula, and non-native speaker calibration.
+v3.0 adds discourse-level pattern detection (D1-D4), v3.0 composite scoring with 6 components (discourse_penalty, psycholinguistic_penalty), 9 new quantitative metrics, section-conditional weighting, and 7 discipline-specific calibration profiles.
 
 **Reference**: Full literature background at https://github.com/HosungYou/humanizer
 
@@ -32,25 +32,28 @@ FOR each pattern category (C, L, S, M, H, A):
 ### Phase 2: Quantitative Metric Calculation
 
 ```
-# Burstiness (CV of sentence lengths)
-sentences = tokenize_into_sentences(text)
-lengths = [word_count(s) for s in sentences]
-CV = std_dev(lengths) / mean(lengths)
+# Original metrics (v2.0)
+CV = compute_burstiness(text)
+mtld_value = compute_MTLD(text)
+length_range = compute_sentence_length_range(text)
+opener_diversity = compute_paragraph_opener_diversity(text)
+
+# New metrics (v3.0) -- via humanizer_discourse() MCP tool
+hapax_rate = compute_hapax_rate(text)
+contraction_density = compute_contraction_density(text)
+paragraph_length_variance = compute_paragraph_length_variance(text)
+surprisal_proxy = compute_surprisal_proxy(text)
+surprisal_autocorrelation = compute_surprisal_autocorrelation(text)
+connective_diversity = compute_connective_diversity(text)
+pronoun_density = compute_pronoun_density(text)
+question_ratio = compute_question_ratio(text)
+abstract_noun_ratio = compute_abstract_noun_ratio(text)
+
+# Compute penalty components
 burstiness_penalty = max(0, (0.45 - CV) / 0.45 * 100)
-
-# MTLD (Measure of Textual Lexical Diversity)
-mtld_value = calculate_MTLD(text, ttr_threshold=0.72)
 vocab_diversity_penalty = max(0, (80 - mtld_value) / 80 * 100)
-
-# Sentence Length Range
-length_range = max(lengths) - min(lengths)
-# Scoring: 0 penalty if range > 25, scaled penalty up to range = 0
-
-# Paragraph Opener Diversity
-paragraphs = split_into_paragraphs(text)
-first_3_words = [get_first_n_words(p, 3) for p in paragraphs]
-opener_diversity = len(set(first_3_words)) / len(paragraphs)
-# Scoring: 0 penalty if diversity > 0.70, scaled penalty below
+discourse_penalty = compute_discourse_penalty(connective_diversity, question_ratio, pronoun_density)
+psycholinguistic_penalty = compute_psycholinguistic_penalty(hapax_rate, contraction_density, abstract_noun_ratio, surprisal_proxy)
 ```
 
 ### Phase 3: Structural Pattern Detection
@@ -59,86 +62,138 @@ opener_diversity = len(set(first_3_words)) / len(paragraphs)
 FOR each structural pattern (S7, S8, S9, S10):
     SCAN text for structural indicators
     IF indicator found:
-        LOG structural pattern instance with:
-            - Pattern ID
-            - Location (section, paragraph range)
-            - Matched structure description
-            - Risk level
-            - Suggested narrative alternative
+        LOG structural pattern instance
 
 structural_penalty = normalize_0_100(
     S7_score * 12 + S8_score * 10 + S9_score * 8 + S10_score * 10
 )
 ```
 
-### Phase 4: Composite Scoring
+### Phase 3.5: Discourse Pattern Detection (NEW in v3.0)
 
 ```
-total_score = 0
-category_scores = {}
+FOR each discourse pattern (D1, D2, D3, D4):
+    SCAN text for discourse-level indicators
+    IF indicator found:
+        LOG discourse pattern instance with:
+            - Pattern ID (D1-D4)
+            - Location (section)
+            - Evidence
+            - Risk level
+            - Suggested DT strategy
 
-FOR each detected pattern:
-    base_score = pattern_weights[pattern_id]
+D1: Connective Overuse
+    IF formal_connectives_per_section > 3 OR connective_diversity < 0.50:
+        FLAG D1 (Weight: 10, Risk: HIGH)
 
-    # Apply modifiers
-    IF pattern is clustered with others:
-        base_score *= 1.5  # Clustering bonus
+D2: Question Absence
+    IF discussion_questions == 0 AND discussion_words > 500:
+        FLAG D2 (Weight: 8, Risk: MEDIUM)
 
-    IF context makes pattern more suspicious:
-        base_score *= context_multiplier
+D3: First-Person Absence
+    IF pronoun_density_non_methods < 0.01:
+        FLAG D3 (Weight: 6, Risk: MEDIUM)
 
-    IF multiple instances of same pattern:
-        base_score *= (1 + 0.2 * (count - 1))  # Diminishing returns
+D4: Monotonic Rhetorical Sequence
+    IF discussion_follows_default_5_step_template:
+        FLAG D4 (Weight: 10, Risk: HIGH)
+```
 
-    total_score += base_score
-    category_scores[category] += base_score
+### Phase 4: Composite Scoring (v3.0)
 
+```
 # Normalize pattern score to 0-100 scale
 pattern_score = min(100, total_score / max_expected_score * 100)
 
-# Composite formula (v2.0)
-AI_Probability = (0.60 * pattern_score)
-              + (0.20 * burstiness_penalty)
+# Apply section-conditional multipliers
+IF section == "Discussion":
+    pattern_score *= 1.1
+ELIF section == "Abstract":
+    pattern_score *= 1.05
+ELIF section == "Methods":
+    pattern_score *= 0.8
+
+# Composite formula (v3.0 -- 6 components)
+AI_Probability = (0.40 * pattern_score)
+              + (0.15 * burstiness_penalty)
               + (0.10 * vocab_diversity_penalty)
               + (0.10 * structural_penalty)
+              + (0.15 * discourse_penalty)
+              + (0.10 * psycholinguistic_penalty)
 ```
 
 ---
 
-## Quantitative Metrics
+## Discourse Pattern Rules (NEW in v3.0)
 
-Four stylometric metrics supplement pattern-based detection. These capture statistical properties of text that pattern matching alone cannot detect.
+### D1: Connective Overuse (Weight: 10, Risk: HIGH)
 
-### Metric Definitions
-
-| Metric | Method | Human Baseline | AI Typical | Weight | Scoring |
-|--------|--------|----------------|------------|--------|---------|
-| **Burstiness (CV)** | SD(sentence_lengths) / Mean(sentence_lengths) | > 0.45 | < 0.30 | 15 | `max(0, (0.45 - CV) / 0.45 * 100)` |
-| **MTLD** | Mean length of sequential word strings maintaining TTR > 0.72 | > 80 | < 60 | 10 | `max(0, (80 - MTLD) / 80 * 100)` |
-| **Sentence Length Range** | max(word_count) - min(word_count) | > 25 words | < 15 words | 5 | `max(0, (25 - range) / 25 * 100)` |
-| **Paragraph Opener Diversity** | unique_first_3_words / total_paragraphs | > 0.70 | < 0.50 | 8 | `max(0, (0.70 - diversity) / 0.70 * 100)` |
-
-### Supplementary Metric: Fano Factor
-
+**Detection**:
 ```
-Fano_Factor = Variance(sentence_lengths) / Mean(sentence_lengths)
+formal_connectives = ["furthermore", "moreover", "in addition", "additionally",
+                      "consequently", "subsequently", "nevertheless", ...]
+connectives_found = find_all(formal_connectives, text)
+connective_diversity = unique(connectives_found) / len(connectives_found)
 
-Interpretation:
-  Fano > 1  : super-Poissonian (bursty, human-like)
-  Fano = 1  : Poisson (random baseline)
-  Fano < 1  : sub-Poissonian (regular, AI-like)
+IF connectives_per_section > 3:
+    FLAG "Excessive formal connectives"
+IF connective_diversity < 0.50:
+    FLAG "Low connective diversity"
 ```
 
-The Fano Factor is reported for diagnostic purposes but not included in the composite score formula.
+### D2: Question Absence (Weight: 8, Risk: MEDIUM)
 
-### Research Basis
+**Detection**:
+```
+discussion_text = extract_section("Discussion", text)
+question_marks = count("?", discussion_text)
+discussion_words = word_count(discussion_text)
 
-- GPTZero uses perplexity + burstiness as its two primary signals
-- MTLD is the only length-invariant vocabulary diversity metric (McCarthy & Jarvis, 2010)
-- Fano Factor > 1 indicates human-like variance in sentence production
-- Paragraph opener repetition is a strong structural indicator of AI generation
+IF question_marks == 0 AND discussion_words > 500:
+    FLAG "No rhetorical questions in Discussion"
+```
 
-See `.claude/references/agents/g5/quantitative-metrics.md` for full calculation methods and pseudocode.
+### D3: First-Person Absence (Weight: 6, Risk: MEDIUM)
+
+**Detection**:
+```
+first_person = ["i ", "we ", "my ", "our ", "us "]
+non_methods = extract_sections(["Introduction", "Discussion", "Conclusion"], text)
+
+pronoun_count = count_all(first_person, non_methods)
+sentence_count = count_sentences(non_methods)
+pronoun_density = pronoun_count / sentence_count
+
+IF pronoun_density < 0.01:
+    FLAG "No authorial voice outside Methods"
+```
+
+### D4: Monotonic Rhetorical Sequence (Weight: 10, Risk: HIGH)
+
+**Detection**:
+```
+discussion = extract_section("Discussion", text)
+moves = detect_rhetorical_moves(discussion)
+# Moves: RESTATE, COMPARE, IMPLICATION, LIMITATION, FUTURE
+
+IF moves == [RESTATE, COMPARE, IMPLICATION, LIMITATION, FUTURE]:
+    FLAG "Predictable AI rhetorical sequence"
+IF every_subsection_follows_same_sequence(discussion):
+    FLAG "Monotonic subsection structure"
+```
+
+---
+
+## Section-Conditional Weights (NEW in v3.0)
+
+| Section | Score Multiplier | Rationale |
+|---------|-----------------|-----------|
+| Abstract | 1.05x | High scrutiny, condensed language |
+| Introduction | 1.0x | Standard |
+| Methods | 0.8x | Formulaic language expected |
+| Results | 0.9x | Technical reporting expected |
+| Discussion | 1.1x | Most benefit from discourse analysis |
+| Conclusion | 1.05x | Similar to Discussion |
 
 ---
 
@@ -169,7 +224,7 @@ See `.claude/references/agents/g5/quantitative-metrics.md` for full calculation 
 | S4 | 2 | Title Case Overuse |
 | S5 | 20 | Emoji Usage |
 | S6 | 2 | Quote Inconsistency |
-| **Style (Structural — v2.0)** |
+| **Style (Structural -- v2.0)** |
 | S7 | 12 | Enumeration as Prose |
 | S8 | 10 | Repetitive Paragraph Openers |
 | S9 | 8 | Formulaic Section Structure |
@@ -189,38 +244,11 @@ See `.claude/references/agents/g5/quantitative-metrics.md` for full calculation 
 | A4 | 15 | Citation Hedging |
 | A5 | 3 | Contribution Enumeration |
 | A6 | 3 | Limitation Disclaimers |
-
----
-
-## Structural Detection Patterns (S7-S10)
-
-These patterns were discovered empirically: after vocabulary-level cleaning (Rounds 1-2), these structural patterns accounted for the remaining 60%+ AI probability. They operate at paragraph/section level and resist word-level humanization.
-
-### S7: Enumeration as Prose (Weight: 12, Risk: HIGH)
-
-**Definition**: Ordinal markers ("First,...Second,...Third,...Finally,...") embedded within flowing paragraph text, not formatted as bullet or numbered lists. This creates a hidden list structure that AI detectors recognize as a generation fingerprint.
-
-**Detection**: Scan for 3+ sequential ordinal markers (First/Second/Third/Additionally/Finally/Moreover; Korean: 첫째/둘째/셋째) within paragraph prose. Also detect "There are N key [findings/contributions/implications]" followed by enumeration.
-
-### S8: Repetitive Paragraph Openers (Weight: 10, Risk: HIGH)
-
-**Definition**: More than 3 paragraphs in the same section starting with the same syntactic template, most commonly "The [noun]..." (e.g., "The results showed...", "The analysis revealed...", "The findings suggest...").
-
-**Detection**: Extract first 3 words of each paragraph. Flag if >3 paragraphs share the pattern "The [X]..." or any other repeated opening template within a single section.
-
-### S9: Formulaic Section Structure (Weight: 8, Risk: MEDIUM)
-
-**Definition**: Discussion section following a rigid template without deviation: (1) restate findings, (2) compare to prior literature, (3) state implications, (4) acknowledge limitations, (5) suggest future research. Each subsection mechanically repeats this sequence.
-
-**Detection**: Analyze rhetorical move sequence in Discussion. Flag if section follows the restate-compare-implications-limitations-future template with predictable transitions ("Consistent with prior research...", "These findings have implications for...", "Several limitations warrant acknowledgment...").
-
-### S10: Hypothesis Checklist Pattern (Weight: 10, Risk: HIGH)
-
-**Definition**: Sequential hypothesis confirmation statements in mechanical list format: "H1 was supported (p < .001). H2 was partially supported. H3 was not supported."
-
-**Detection**: Find sequential hypothesis labels (H1, H2, H3... or Hypothesis 1, Hypothesis 2...) each followed by a support/non-support verdict within 2-3 sentences. Flag when 3+ hypotheses are listed sequentially with mechanical confirmation language.
-
-See `.claude/references/agents/g5/structural-patterns.md` for full pattern definitions with examples.
+| **Discourse (v3.0)** |
+| D1 | 10 | Connective Overuse |
+| D2 | 8 | Question Absence |
+| D3 | 6 | First-Person Absence |
+| D4 | 10 | Monotonic Rhetorical Sequence |
 
 ---
 
@@ -240,315 +268,144 @@ See `.claude/references/agents/g5/structural-patterns.md` for full pattern defin
 
 | Risk Level | Patterns |
 |------------|----------|
-| **High** | C1, C4, C5, L1-tier1, S5, S7, S8, S10, M1, M2, A3, A4 |
-| **Medium** | C2, C3, L1-tier2, L2, L3, L5, S1, S3, S9, M3, H2, H3 |
+| **High** | C1, C4, C5, L1-tier1, S5, S7, S8, S10, M1, M2, A3, A4, D1, D4 |
+| **Medium** | C2, C3, L1-tier2, L2, L3, L5, S1, S3, S9, M3, H2, H3, D2, D3 |
 | **Low** | C6, L4, L6, S2, S4, S6, H1, A1, A2, A5, A6 |
 
 ---
 
 ## Context Modifiers
 
-Different document sections have different acceptable baselines:
-
-### Section-Based Multipliers
+### Section-Based Multipliers (v3.0 updated)
 
 | Section | Multiplier | Rationale |
 |---------|------------|-----------|
-| Abstract | 1.2 | Highest scrutiny |
-| Introduction | 1.1 | Important for first impression |
+| Abstract | 1.05 | High scrutiny |
+| Introduction | 1.0 | Standard |
 | Literature Review | 1.0 | Some formality expected |
 | Methods | 0.8 | Boilerplate somewhat acceptable |
-| Results | 1.0 | Standard |
-| Discussion | 1.1 | Claims scrutinized |
-| Conclusion | 1.1 | Final impression matters |
+| Results | 0.9 | Technical reporting expected |
+| Discussion | 1.1 | Most benefit from discourse analysis |
+| Conclusion | 1.05 | Final impression matters |
 | Response Letter | 0.9 | Some formality expected |
-
-### Document Type Multipliers
-
-| Type | Multiplier | Notes |
-|------|------------|-------|
-| Journal Article | 1.0 | Standard |
-| Conference Paper | 0.9 | Slightly less formal |
-| Thesis/Dissertation | 1.1 | Higher scrutiny |
-| Grant Proposal | 1.0 | Standard |
-| Blog Post | 0.5 | Informal OK |
-| Social Media | 0.3 | Very informal OK |
-
----
-
-## Clustering Detection
-
-Patterns become more suspicious when they cluster together:
-
-### Vocabulary Clustering
-
-```
-IF (tier1_words >= 2) OR (tier2_words >= 4):
-    cluster_detected = true
-    bonus_score = 20
-
-IF (patterns_in_same_paragraph >= 3):
-    paragraph_cluster = true
-    bonus_score += 10 * (pattern_count - 2)
-```
-
-### Pattern Type Clustering
-
-When multiple pattern categories appear together:
-
-| Combination | Bonus |
-|-------------|-------|
-| Content + Language | +10 |
-| Language + Style | +5 |
-| Content + Communication | +15 |
-| Any 3 categories | +20 |
-| 4+ categories | +30 |
-
----
-
-## Density Calculations
-
-### Words Per Pattern
-
-```
-pattern_density = total_patterns / (word_count / 100)
-
-IF pattern_density > 3:
-    density_flag = "high"
-    score_multiplier = 1.3
-ELIF pattern_density > 2:
-    density_flag = "moderate"
-    score_multiplier = 1.1
-ELSE:
-    density_flag = "normal"
-    score_multiplier = 1.0
-```
-
-### Specific Density Rules
-
-| Metric | Threshold | Action |
-|--------|-----------|--------|
-| AI vocabulary per 100 words | > 3 | Flag as high AI |
-| Em dashes per paragraph | > 2 | Flag S1 |
-| Hedges per sentence | > 2 | Flag H2 |
-| Bold terms per paragraph | > 3 | Flag S2 |
-| Verbose phrases per page | > 5 | Flag H1 |
-
----
-
-## Exception Rules
-
-### Automatic Exceptions
-
-These contexts exempt certain patterns:
-
-| Context | Exempted Patterns | Reason |
-|---------|------------------|--------|
-| Direct quotes | All | Preserving source |
-| Code blocks | All | Not prose |
-| Tables/Figures | S1, S2, S3 | Different format |
-| References section | All | Formatting required |
-| Statistical reporting | L1 ("significant", "robust") | Technical terms |
-
-### Partial Exceptions
-
-| Pattern | Partial Exception | When |
-|---------|------------------|------|
-| A1 | Template phrases | Standard IMRAD |
-| A2 | Methods boilerplate | If followed by specifics |
-| H1 | "In order to" | Complex nested clauses |
-
----
-
-## Non-Native Speaker Calibration
-
-**Research basis**: Liang et al. (2023) found >61% of TOEFL essays misclassified as AI. Non-native academic English naturally shares surface features with AI text -- simpler vocabulary, more regular sentence structures, less idiomatic usage. Stanford (2025) found >20% false positive rates for non-native speakers across major detectors.
-
-This calibration is **opt-in only**.
-
-```yaml
-non_native_calibration:
-  enabled: false  # User must explicitly opt in
-  adjustments:
-    L1_weight: "x 0.7"         # Reduce AI vocabulary flagging by 30%
-    H1_weight: "x 0.8"         # Reduce verbose phrase flagging by 20%
-    burstiness_threshold: 0.35  # Lower baseline from 0.45 for non-native
-  scoring_impact:
-    burstiness_penalty: "max(0, (0.35 - CV) / 0.35 * 100)"  # Adjusted threshold
-    vocab_diversity_penalty: "unchanged"  # MTLD threshold remains at 80
-    pattern_score: "L1 and H1 weights reduced per adjustments above"
-  rationale: >
-    Non-native academic English naturally has lower lexical diversity
-    and more regular sentence patterns. Without calibration, these
-    writers face systematically higher false positive rates exceeding
-    61% in documented studies. The calibration reduces sensitivity to
-    patterns that overlap between non-native human writing and AI
-    generation, while maintaining detection of genuine AI structural
-    fingerprints (S7-S10, M1, M2).
-```
 
 ---
 
 ## Scoring
 
-### Composite Formula (v2.0)
+### Composite Formula (v3.0 -- 6 Components)
 
 ```
-AI_Probability = (0.60 * pattern_score)
-              + (0.20 * burstiness_penalty)
+AI_Probability = (0.40 * pattern_score)
+              + (0.15 * burstiness_penalty)
               + (0.10 * vocab_diversity_penalty)
               + (0.10 * structural_penalty)
+              + (0.15 * discourse_penalty)
+              + (0.10 * psycholinguistic_penalty)
 
 Where:
-  pattern_score           = Normalized 0-100 from Phase 1 pattern detection
-  burstiness_penalty      = max(0, (0.45 - CV) / 0.45 * 100)
-  vocab_diversity_penalty = max(0, (80 - MTLD) / 80 * 100)
-  structural_penalty      = Normalized 0-100 from S7+S8+S9+S10 weighted scores
+  pattern_score               = Normalized 0-100 from Phase 1 pattern detection
+  burstiness_penalty          = max(0, (0.45 - CV) / 0.45 * 100)
+  vocab_diversity_penalty     = max(0, (80 - MTLD) / 80 * 100)
+  structural_penalty          = Normalized 0-100 from S7+S8+S9+S10 weighted scores
+  discourse_penalty           = f(connective_diversity, question_ratio, pronoun_density)
+  psycholinguistic_penalty    = f(hapax_rate, contraction_density, abstract_noun_ratio, surprisal_proxy)
 ```
 
-### Component Weights Rationale
+### v2.0 Backward Compatibility
+
+```
+scoring_version='v2':
+  AI_Probability = (0.60 * pattern_score) + (0.20 * burstiness_penalty)
+                + (0.10 * vocab_diversity_penalty) + (0.10 * structural_penalty)
+```
+
+### Component Weights Rationale (v3.0)
 
 | Component | Weight | Rationale |
 |-----------|--------|-----------|
-| Pattern score | 60% | Core detection signal; 28 validated pattern categories |
-| Burstiness penalty | 20% | Strongest single quantitative discriminator; partially independent of vocabulary patterns |
-| Vocabulary diversity penalty | 10% | Complementary lexical signal; less discriminative in academic text |
-| Structural penalty | 10% | Captures section/paragraph-level AI fingerprints missed by word-level analysis |
+| Pattern score | 40% | Core detection signal; 28 validated categories. Reduced from 60% to accommodate discourse/psycholinguistic signals |
+| Burstiness penalty | 15% | Strong discriminator; reduced from 20% as discourse metrics provide complementary variance signals |
+| Vocabulary diversity penalty | 10% | Complementary lexical signal; unchanged |
+| Structural penalty | 10% | Section/paragraph-level fingerprints; unchanged |
+| Discourse penalty | 15% | NEW: Hardest-to-evade signal (ACL 2024); connective, question, pronoun patterns |
+| Psycholinguistic penalty | 10% | NEW: Sub-word frequency patterns that AI cannot easily mimic |
 
 ---
 
-## Output Thresholds
+## Non-Native Speaker Calibration
 
-### When to Show Warnings
+**Research basis**: Liang et al. (2023) found >61% of TOEFL essays misclassified as AI.
 
-| Condition | Warning Level |
-|-----------|---------------|
-| score > 20 | Show summary |
-| score > 40 | Recommend review |
-| score > 60 | Recommend humanization |
-| score > 80 | Strongly recommend humanization |
-
-### Report Detail Levels
+This calibration is **opt-in only**.
 
 ```yaml
-minimal:  # Quick check
-  show: score, risk_level, pattern_count, burstiness_cv
-
-standard:  # Default
-  show: score, risk_level, high_risk_patterns, quantitative_metrics, recommendation
-
-detailed:  # Full analysis
-  show: all_patterns, quantitative_metrics, structural_patterns, transformations, before_after, category_breakdown
-
-expert:  # For debugging
-  show: all_above + scoring_breakdown + context_analysis + composite_formula_components
-```
-
----
-
-## Confidence Calibration
-
-The AI probability score is calibrated against human judgment:
-
-### Calibration Targets
-
-| Predicted | Expected Outcome |
-|-----------|------------------|
-| 0-20% | 90%+ of texts are human-written |
-| 21-40% | Mixed, needs manual review |
-| 41-60% | 60%+ are AI-assisted |
-| 61-80% | 80%+ are AI-generated |
-| 81-100% | 95%+ are AI-generated |
-
-### Confidence Intervals
-
-```
-score +/- confidence_margin
-
-Where confidence_margin = 10 for most texts
-      confidence_margin = 15 for very short texts (<200 words)
-      confidence_margin = 5 for long texts (>2000 words)
-```
-
----
-
-## False Positive Mitigation
-
-### Known False Positive Triggers
-
-| Pattern | False Positive Risk | Mitigation |
-|---------|---------------------|------------|
-| L1 "framework" | High in theory papers | Context check |
-| L1 "significant" | High in stats papers | Check for p-values |
-| A1 template | High in abstracts | Expected structure |
-| H3 future research | Expected in discussion | Check specificity |
-| S9 formulaic structure | High in IMRAD papers | Check for variation within template |
-| S7 enumeration | Moderate in methods | Acceptable for procedural steps |
-
-### Adjustment Rules
-
-```
-IF text is from established academic author:
-    score *= 0.8  # Reduce suspicion
-
-IF journal has strict style guide:
-    exempt S1, S2, S4 patterns  # Style may be required
-
-IF text is from non-native English speaker:
-    apply non_native_calibration  # See Non-Native Speaker Calibration section
+non_native_calibration:
+  enabled: false
+  adjustments:
+    L1_weight: "x 0.7"
+    H1_weight: "x 0.8"
+    burstiness_threshold: 0.35
+    hapax_threshold: 0.40        # NEW: lowered from 0.50
+    contraction_threshold: 0.05  # NEW: lowered significantly
+  scoring_impact:
+    burstiness_penalty: "max(0, (0.35 - CV) / 0.35 * 100)"
+    psycholinguistic_penalty: "reduced thresholds for hapax and contraction"
 ```
 
 ---
 
 ## Reporting Format
 
-### Quick Summary
+### Quick Summary (v3.0)
 
 ```
-AI Pattern Analysis: 47% probability (composite)
-   Pattern score: 52% | Burstiness CV: 0.31 | MTLD: 58 | Structural: 3 flags
+AI Pattern Analysis: 47% probability (v3.0 composite)
+   Pattern: 42% | Burstiness: 31 | Vocab: 28 | Structural: 55 | Discourse: 62 | Psycholinguistic: 48
    Patterns: 15 found (4 high, 6 medium, 5 low)
-   Recommendation: Review medium-risk patterns + improve sentence length variation
+   Discourse: D1 flagged (connective diversity: 0.38), D4 flagged (monotonic sequence)
+   Recommendation: Review medium-risk patterns + apply DT1/DT4 discourse strategies
 ```
 
-### Standard Report
+### Standard Report (v3.0)
 
 ```
-## AI Pattern Analysis Report v2.0
+## AI Pattern Analysis Report v3.0
 
 ### Summary
 | Metric | Value |
 |--------|-------|
-| AI Probability (composite) | 47% |
-| Pattern Score | 52% |
-| Burstiness CV | 0.31 (AI-typical; human baseline > 0.45) |
-| MTLD | 58 (AI-typical; human baseline > 80) |
-| Sentence Length Range | 18 words (AI-typical; human baseline > 25) |
-| Paragraph Opener Diversity | 0.48 (AI-typical; human baseline > 0.70) |
-| Total Patterns | 15 |
-| High Risk | 4 |
+| AI Probability (v3.0 composite) | 47% |
+| Pattern Score | 42% |
+| Burstiness CV | 0.31 (penalty: 31) |
+| MTLD | 58 (penalty: 28) |
+| Hapax Rate | 0.38 (AI-typical; target > 0.50) |
+| Connective Diversity | 0.38 (AI-typical; target > 0.70) |
+| Question Ratio | 0.00 (AI-typical; target > 0.03) |
+| Discourse Penalty | 62 |
+| Psycholinguistic Penalty | 48 |
 | Structural Patterns | S7 x2, S8 x1 |
+| Discourse Patterns | D1, D4 |
 
-### High-Risk Patterns (Fix These)
-1. [C1] "pivotal study" -> "this study" (line 3)
-2. [L1] "delve", "tapestry" clustered (para 2)
-3. [S7] "First,...Second,...Third,..." enumeration (para 5-6)
-4. [S10] "H1 was supported. H2 was partially..." (Discussion)
-
-### Quantitative Recommendations
-- Increase sentence length variation (current CV: 0.31, target: > 0.45)
-- Add short declarative sentences (3-8 words) at impact points
-- Vary paragraph openers (current diversity: 0.48, target: > 0.70)
+### Component Breakdown
+| Component | Score | Weight | Contribution |
+|-----------|-------|--------|-------------|
+| Pattern | 42 | 0.40 | 16.8 |
+| Burstiness | 31 | 0.15 | 4.65 |
+| Vocabulary | 28 | 0.10 | 2.8 |
+| Structural | 55 | 0.10 | 5.5 |
+| Discourse | 62 | 0.15 | 9.3 |
+| Psycholinguistic | 48 | 0.10 | 4.8 |
+| **Total** | | | **43.85 ≈ 44%** |
 
 ### Recommendation
-[B] Humanize (Balanced) recommended
+[C] Humanize (Aggressive) recommended -- discourse patterns require Layer 4 DT1-DT4
 ```
 
 ---
 
 ## Version History
 
-- **v2.0.0**: Quantitative stylometric metrics (burstiness CV, MTLD, sentence length range, paragraph opener diversity), structural detection patterns S7-S10, composite scoring formula, non-native speaker calibration, updated risk classifications
+- **v3.0.0**: Discourse pattern detection (D1-D4), v3.0 composite scoring (6 components), 9 new metrics, section-conditional weights, 7 discipline profiles, discourse_penalty/psycholinguistic_penalty sub-formulas, backward-compatible scoring_version parameter
+- **v2.0.0**: Quantitative stylometric metrics (burstiness CV, MTLD, sentence length range, paragraph opener diversity), structural detection patterns S7-S10, composite scoring formula, non-native speaker calibration
 - **v1.0.0**: Initial detection rules based on Wikipedia AI Cleanup
-- Calibrated for academic writing contexts
-- Integrated with Diverga v6.0 checkpoint system

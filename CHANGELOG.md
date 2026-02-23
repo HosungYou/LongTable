@@ -4,6 +4,65 @@ All notable changes to Diverga (formerly Research Coordinator) will be documente
 
 ---
 
+## [10.0.0] - 2026-02-23 (Discourse-Level Detection & 4-Layer Humanization)
+
+### Overview
+
+**Diverga v10.0.0** — Major upgrade adding discourse-level AI detection and transformation. G5/G6/F5 agents upgraded to v3.0 with 4-layer humanization pipeline, 13 quantitative metrics, 6-component composite scoring, and DT1-DT4 discourse transformation strategies. Requires Humanizer MCP v3.0.0.
+
+### Breaking Changes
+
+- **G5 composite scoring**: v2.0 formula (4 components) replaced by v3.0 formula (6 components). Pattern weight reduced from 0.60 to 0.40; new discourse_penalty (0.15) and psycholinguistic_penalty (0.10) components added.
+- **G6 transformation layers**: 3-layer pipeline expanded to 4-layer. New Layer 4 (Discourse) with DT1-DT4 strategies.
+- **F5 verification domains**: 7 domains expanded to 8. New Domain 8 (Discourse Naturalness).
+- **Multi-pass pipeline**: 2-pass (vocab/structural) expanded to 3+1 pass (vocab/structural/discourse/polish).
+
+### Key Highlights
+
+- **28 AI pattern categories across 7 domains**: Added Domain 7 (Discourse Patterns) with D1-D4
+- **13 quantitative metrics**: 9 new metrics (hapax rate, contraction density, paragraph length variance, surprisal proxy, surprisal autocorrelation, connective diversity, pronoun density, question ratio, abstract noun ratio)
+- **v3.0 composite scoring**: 6-component formula with discourse and psycholinguistic penalties
+- **4-layer transformation**: Vocabulary -> Phrase -> Structure -> Discourse
+- **DT1-DT4 discourse strategies**: Rhetorical move reordering, digression injection, argument structure diversification, connective reduction
+- **Perturbation naturalization**: Human-like edit patterns (~74% substitution, ~18% deletion, ~8% insertion)
+- **7 discipline profiles**: default, psychology, management, education, stem, humanities, social_sciences
+- **Section-conditional weights**: Discussion 1.1x, Abstract 1.05x, Methods 0.8x
+- **humanizer_discourse() MCP integration**: New MCP tool for discourse-level metrics
+
+### Agent Updates
+
+| Agent | Version | Changes |
+|-------|---------|---------|
+| G5-AcademicStyleAuditor | v3.0.0 | +D1-D4 discourse patterns, v3.0 composite (6 components), section-conditional weights, 7 discipline profiles, humanizer_discourse() integration |
+| G6-AcademicStyleHumanizer | v3.0.0 | +Layer 4 (DT1-DT4), perturbation naturalization, 3+1 pass pipeline, section-conditional Layer escalation |
+| F5-HumanizationVerifier | v3.0.0 | +Domain 8 (Discourse Naturalness), v3.0 composite verification, discourse/psycholinguistic regression checking |
+
+### Reference Document Updates
+
+| Document | Changes |
+|----------|---------|
+| `quantitative-metrics.md` | 13 metrics (9 new), v3.0 composite formula, discipline profiles |
+| `detection-rules.md` | D1-D4 rules, section-conditional weights, v3.0 scoring |
+
+### Requires
+
+- Humanizer MCP v3.0.0 (`humanizer_discourse` tool, v3.0 composite scoring)
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `agents/g5.md` | v3.0.0 — discourse detection, 6-component scoring |
+| `agents/g6.md` | v3.0.0 — Layer 4 DT1-DT4, perturbation naturalization |
+| `agents/f5.md` | v3.0.0 — Domain 8, v3.0 verification |
+| `.claude-plugin/plugin.json` | Version 10.0.0 |
+| `.claude/references/agents/g5/quantitative-metrics.md` | v3.0.0 — 13 metrics |
+| `.claude/references/agents/g5/detection-rules.md` | v3.0.0 — D1-D4, v3.0 scoring |
+| `CHANGELOG.md` | v10.0.0 entry |
+| `CLAUDE.md` | Version references updated |
+
+---
+
 ## [9.2.1] - 2026-02-23 (Zero-Setup MCP — Global Auto-Registration)
 
 ### Overview

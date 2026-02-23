@@ -1,9 +1,10 @@
 # CLAUDE.md
 
-# Diverga v9.2.1 (Zero-Setup MCP — Global Auto-Registration)
+# Diverga v10.0.0 (Discourse-Level Detection & 4-Layer Humanization)
 
 **Beyond Modal: AI Research Assistant That Thinks Creatively**
 
+**v10.0.0**: Discourse-Level Detection & 4-Layer Humanization — G5/G6/F5 v3.0, 28 AI patterns across 7 domains (D1-D4 discourse patterns), 13 quantitative metrics, v3.0 composite scoring (6 components), Layer 4 DT1-DT4 discourse transformation, perturbation naturalization, 7 discipline profiles, section-conditional weights. Requires Humanizer MCP v3.0.0.
 **v9.2.1**: Zero-Setup MCP — All 4 MCP servers (diverga, humanizer, zotero, context7) auto-register via plugin `.mcp.json`. No manual settings.json needed. Uses uvx/npx/bundle strategy from oh-my-claudecode.
 **v9.2.0**: MCP Tool Integration — Humanizer server (4 tools), G5/G6/F5 MCP integration, 5 of 6 gaps resolved, 120 tests passing.
 **v9.1.0**: Humanization Pipeline v2.0 - Multi-pass iterative pipeline (vocab/structural/polish), S7-S10 structural detection, quantitative metrics (burstiness CV, MTLD), section-aware mode escalation, G5/G6/F5 v2.0, 84 TDD tests. Reference: https://github.com/HosungYou/humanizer
@@ -462,9 +463,9 @@ Based on V7 GenAI meta-analysis lessons learned:
 
 | Agent | Purpose | Model |
 |-------|---------|-------|
-| **G5-AcademicStyleAuditor v2.0** | AI pattern detection (24+4 categories) + quantitative metrics | Sonnet |
-| **G6-AcademicStyleHumanizer v2.0** | Transform AI patterns with structural Layer 3 | Opus |
-| **F5-HumanizationVerifier v2.0** | Verify integrity + burstiness + structural coherence | Haiku |
+| **G5-AcademicStyleAuditor v3.0** | AI pattern detection (28 categories, 7 domains) + 13 quantitative metrics + v3.0 composite (6 components) | Sonnet |
+| **G6-AcademicStyleHumanizer v3.0** | 4-layer transformation (vocab/phrase/structure/discourse) with DT1-DT4 + perturbation naturalization | Opus |
+| **F5-HumanizationVerifier v3.0** | 8 verification domains including discourse naturalness + v3.0 composite verification | Haiku |
 
 ### New in v6.2: Parallel Document Processing
 
@@ -609,13 +610,14 @@ Transform AI-generated academic text into natural, human-sounding prose while pr
 
 **Reference Documentation**: https://github.com/HosungYou/humanizer
 
-### Pipeline Stages (v2.0 Multi-Pass)
+### Pipeline Stages (v3.0 Multi-Pass — 4-Layer)
 
 ```
 Content Generation (G2/G3) --> G5 Analysis --> Checkpoint -->
-  Pass 1: G6 Vocab --> F5 Quick --> CP_PASS1_REVIEW -->
-  Pass 2: G6 Structural --> F5 Full --> CP_PASS2_REVIEW -->
-  [Pass 3 optional: G6 Polish --> F5 Full --> CP_FINAL_REVIEW] -->
+  Pass 1: G6 Vocab (Layer 1-2) --> F5 Quick --> CP_PASS1_REVIEW -->
+  Pass 2: G6 Structural (Layer 3) --> F5 Full --> CP_PASS2_REVIEW -->
+  Pass 3: G6 Discourse (Layer 4, DT1-DT4) --> F5 Full --> CP_PASS3_REVIEW -->
+  [Pass 4 optional: G6 Polish --> F5 Full --> CP_FINAL_REVIEW] -->
   Export
 ```
 
@@ -635,11 +637,11 @@ Content Generation (G2/G3) --> G5 Analysis --> Checkpoint -->
 
 ### Transformation Modes
 
-| Mode | Target | Best For |
-|------|--------|----------|
-| **Conservative** | High-risk patterns only (Layer 1-2) | Journal submissions |
-| **Balanced** ⭐ | High + medium-risk + structural (Layer 1-3) | Most academic writing |
-| **Aggressive** | All patterns + deep structural (Layer 1-3) | Blog posts, informal |
+| Mode | Target | Layers | Best For |
+|------|--------|--------|----------|
+| **Conservative** | High-risk patterns only | Layer 1-2 (vocabulary + phrase) | Journal submissions |
+| **Balanced** | High + medium + structural | Layer 1-3 (+ structure) | Most academic writing |
+| **Aggressive** | All patterns + discourse | Layer 1-4 (+ discourse DT1-DT4) | Maximum naturalness |
 
 ### Checkpoints
 
@@ -863,11 +865,12 @@ Meta-Analysis Pipeline:
     → diverga:c6 (extraction)
     → diverga:c7 (validation)
 
-Humanization Pipeline (v2.0 Multi-Pass):
+Humanization Pipeline (v3.0 Multi-Pass — 4-Layer):
   diverga:g5 (audit)
-    → Pass 1: diverga:g6 (vocab) → diverga:g5 (rescan) → diverga:f5 (quick verify)
-    → Pass 2: diverga:g6 (structural) → diverga:g5 (rescan) → diverga:f5 (full verify)
-    → [Pass 3: diverga:g6 (polish) → diverga:g5 (audit) → diverga:f5 (full verify)]
+    → Pass 1: diverga:g6 (vocab, Layer 1-2) → diverga:g5 (rescan) → diverga:f5 (quick verify)
+    → Pass 2: diverga:g6 (structural, Layer 3) → diverga:g5 (rescan) → diverga:f5 (full verify)
+    → Pass 3: diverga:g6 (discourse, Layer 4 DT1-DT4) → diverga:g5 (rescan) → diverga:f5 (full verify)
+    → [Pass 4: diverga:g6 (polish) → diverga:g5 (audit) → diverga:f5 (full verify)]
 ```
 
 ### ⚠️ Parallel Execution Prerequisite Gate
@@ -936,6 +939,9 @@ The Memory System automatically captures context at critical lifecycle events:
 
 ## Version History
 
+- **v10.0.0**: Discourse-Level Detection & 4-Layer Humanization - G5/G6/F5 v3.0, 28 AI patterns (7 domains, D1-D4 discourse), 13 quantitative metrics, v3.0 composite scoring (6 components), Layer 4 DT1-DT4 discourse transformation, perturbation naturalization, 7 discipline profiles, section-conditional weights. Requires Humanizer MCP v3.0.0.
+- **v9.2.1**: Zero-Setup MCP - All 4 MCP servers auto-register via plugin .mcp.json
+- **v9.2.0**: MCP Tool Integration - Humanizer server (4 tools), G5/G6/F5 MCP integration
 - **v9.1.0**: Humanization Pipeline v2.0 - Multi-pass iterative pipeline (vocab/structural/polish), S7-S10 structural detection, quantitative metrics (burstiness CV, MTLD), section-aware mode escalation, G5/G6/F5 v2.0, 84 TDD tests, SDD documentation. Reference: https://github.com/HosungYou/humanizer
 - **v9.0.0**: Architecture — MCP 3-server split (checkpoint/memory/comm, 16 tools), SQLite WAL backend, YAML→SQLite auto-migration, agent messaging, dual backend via `DIVERGA_BACKEND`
 - **v8.5.0**: Agent Teams — Parallel agent execution via TeamCreate/TaskCreate/SendMessage, I0 Team Lead mode, DX tooling (generate.js, sync-version.js, release.js, doctor.js), agents.json SSoT
