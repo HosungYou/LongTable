@@ -428,6 +428,10 @@
     ],
     "level_1": [
       "CP_HUMANIZATION_VERIFY",
+      "CP_PASS1_REVIEW",
+      "CP_PASS2_REVIEW",
+      "CP_PASS3_REVIEW",
+      "CP_FINAL_REVIEW",
       "CP_QUALITY_REVIEW",
       "CP_SCREENING_CRITERIA",
       "CP_SEARCH_STRATEGY",
@@ -469,9 +473,13 @@
     "CP_CODING_APPROACH": "recommended",
     "CP_THEME_VALIDATION": "recommended",
     "CP_HUMANIZATION_REVIEW": "recommended",
+    "CP_PASS1_REVIEW": "recommended",
+    "CP_PASS2_REVIEW": "recommended",
+    "CP_PASS3_REVIEW": "recommended",
     "SCH_RAG_READINESS": "recommended",
     "CP_VISUALIZATION_PREFERENCE": "optional",
     "CP_SEARCH_STRATEGY": "optional",
-    "CP_HUMANIZATION_VERIFY": "optional"
+    "CP_HUMANIZATION_VERIFY": "optional",
+    "CP_FINAL_REVIEW": "optional"
   }
 }

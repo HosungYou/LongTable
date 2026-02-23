@@ -1,21 +1,23 @@
 ---
 name: humanization-pipeline
-version: "2.0.0"
+version: "3.0.0"
 description: |
-  Humanization Pipeline v2.0 - Multi-pass iterative architecture integrating
+  Humanization Pipeline v3.0 - 4-Layer multi-pass iterative architecture integrating
   AI pattern detection and transformation into the Research Coordinator workflow.
-  Connects G5 (Auditor), G6 (Humanizer), and F5 (Verifier) with existing
-  writing agents. Features 3-pass pipeline, section-aware mode escalation,
-  quantitative metrics (burstiness CV, MTLD), and human checkpoints between passes.
+  Connects G5 (Auditor v3.0), G6 (Humanizer v3.0), and F5 (Verifier v3.0) with existing
+  writing agents. Features 3+1 pass pipeline (vocabulary/structure/discourse/polish),
+  section-aware mode escalation, 13 quantitative metrics, DT1-DT4 discourse strategies,
+  perturbation naturalization, and human checkpoints between passes.
+  Orchestrated by /diverga:humanize skill.
 ---
 
-# Humanization Pipeline v2.0
+# Humanization Pipeline v3.0
 
 ## Overview
 
 The Humanization Pipeline provides an optional but recommended step for all AI-generated academic text. It integrates seamlessly with existing Research Coordinator workflows to help researchers produce natural, authentic writing while maintaining academic integrity.
 
-**v2.0 upgrades**: Multi-pass iterative architecture replaces single-pass pipeline. Each pass targets a different transformation layer (vocabulary, structure, polish), with G5 re-scans between passes to measure progress and human checkpoints for score review.
+**v3.0 upgrades**: 4-layer multi-pass architecture with discourse-level transformation. Pass 1 (Layer 1-2: vocabulary/phrase), Pass 2 (Layer 3: structure), Pass 3 (Layer 4: discourse DT1-DT4), Pass 4 (optional: polish). G5 v3.0 with 28 patterns across 7 domains (D1-D4 discourse), 13 quantitative metrics, 6-component composite scoring. F5 v3.0 with 8 verification domains (Domain 8: Discourse Naturalness). Perturbation naturalization for human-like edit patterns. Orchestrated by `/diverga:humanize` skill.
 
 **Reference Documentation**: https://github.com/HosungYou/humanizer
 
@@ -25,8 +27,8 @@ The Humanization Pipeline provides an optional but recommended step for all AI-g
 
 ```
 +-----------------------------------------------------------------------------+
-|                     HUMANIZATION PIPELINE v2.0                               |
-|                     (Multi-Pass Iterative Architecture)                      |
+|                     HUMANIZATION PIPELINE v3.0                               |
+|                     (4-Layer Multi-Pass Architecture)                        |
 +-----------------------------------------------------------------------------+
 |                                                                              |
 |  +-----------------------------------------------------------------------+  |
@@ -45,11 +47,12 @@ The Humanization Pipeline provides an optional but recommended step for all AI-g
 |  |  STAGE 2: INITIAL ANALYSIS                                             |  |
 |  |                               v                                        |  |
 |  |           +----------------------------------+                         |  |
-|  |           |   G5-AcademicStyleAuditor v2.0   |                         |  |
+|  |           |   G5-AcademicStyleAuditor v3.0   |                         |  |
 |  |           |  +----------------------------+  |                         |  |
-|  |           |  | - Pattern Detection (24+4) |  |                         |  |
-|  |           |  | - Quantitative Metrics      |  |                         |  |
-|  |           |  |   (Burstiness CV, MTLD)     |  |                         |  |
+|  |           |  | - Pattern Detection (28,   |  |                         |  |
+|  |           |  |   7 domains, D1-D4)        |  |                         |  |
+|  |           |  | - 13 Quantitative Metrics  |  |                         |  |
+|  |           |  | - v3.0 Composite (6 comp)  |  |                         |  |
 |  |           |  | - Risk Classification       |  |                         |  |
 |  |           |  | - AI Probability Score      |  |                         |  |
 |  |           |  | - Section-Level Scores      |  |                         |  |
@@ -98,14 +101,27 @@ The Humanization Pipeline provides an optional but recommended step for all AI-g
 |  ||                          v                                           ||  |
 |  ||  +----------------------------------------------------------------+ ||  |
 |  ||  | CP_PASS2_REVIEW                                                | ||  |
-|  ||  | "Score now Z%. Target met?"                                    | ||  |
+|  ||  | "Score now Z%. Continue to discourse pass?"                    | ||  |
+|  ||  | [A] Continue  [B] Accept  [C] Manual review                    | ||  |
+|  ||  +----------------------------------------------------------------+ ||  |
+|  ||                          |                                           ||  |
+|  ||                          v                                           ||  |
+|  ||  +----------------------------------------------------------------+ ||  |
+|  ||  | PASS 3: DISCOURSE PASS (Layer 4, DT1-DT4)                     | ||  |
+|  ||  |   G5 Scan (delta) --> G6 (DT1-DT4) --> F5 Full Verify        | ||  |
+|  ||  +----------------------------------------------------------------+ ||  |
+|  ||                          |                                           ||  |
+|  ||                          v                                           ||  |
+|  ||  +----------------------------------------------------------------+ ||  |
+|  ||  | CP_PASS3_REVIEW                                                | ||  |
+|  ||  | "Score now W%. Target met?"                                    | ||  |
 |  ||  | [A] Accept  [B] One more pass  [C] Manual review               | ||  |
 |  ||  +----------------------------------------------------------------+ ||  |
 |  ||                          |                                           ||  |
 |  ||                     (if B selected)                                   ||  |
 |  ||                          v                                           ||  |
 |  ||  +----------------------------------------------------------------+ ||  |
-|  ||  | PASS 3 (Optional): POLISH PASS                                 | ||  |
+|  ||  | PASS 4 (Optional): POLISH PASS                                 | ||  |
 |  ||  |   G5 Scan (audit) --> G6 micro fixes --> F5 Full Verify        | ||  |
 |  ||  +----------------------------------------------------------------+ ||  |
 |  ||                          |                                           ||  |
@@ -154,25 +170,34 @@ The multi-pass architecture replaces the v1.0 single-pass pipeline based on empi
 - **Target**: Structural patterns and sentence-level rhythm
 - **G5 Scan**: Delta scan — measures improvement from Pass 1, identifies remaining structural patterns
 - **G6 Transformation**: S7 enumeration dissolution, S8 paragraph opener variation, S9 discussion architecture, S10 hypothesis narrative, burstiness CV enhancement
-- **F5 Verification**: Full verify — all 7 verification domains
+- **F5 Verification**: Full verify — all 8 verification domains
 - **Expected reduction**: 10-20 additional percentage points
 - **Checkpoint**: CP_PASS2_REVIEW — presents score progression (original -> Pass 1 -> Pass 2), structural metrics (burstiness CV, MTLD)
 
-**Pass 3 (Optional): POLISH PASS**
+**Pass 3: DISCOURSE PASS (Layer 4, DT1-DT4)**
+- **Target**: Discourse-level AI patterns (D1-D4 domains)
+- **G5 Scan**: Delta scan — measures improvement from Pass 2, identifies remaining discourse patterns
+- **G6 Transformation**: DT1 (discourse marker naturalization), DT2 (paragraph transition variation), DT3 (argument flow restructuring), DT4 (rhetorical stance diversification)
+- **F5 Verification**: Full verify — all 8 verification domains (including Domain 8: Discourse Naturalness)
+- **Expected reduction**: 5-15 additional percentage points
+- **Checkpoint**: CP_PASS3_REVIEW — presents score progression (original -> Pass 1 -> Pass 2 -> Pass 3), discourse metrics, perturbation naturalization stats
+
+**Pass 4 (Optional): POLISH PASS**
 - **Target**: Remaining micro-patterns and fine-tuning
 - **G5 Scan**: Audit scan — comprehensive final check
 - **G6 Transformation**: Micro fixes only — remaining hedging, paragraph opener diversity, sentence length outliers
-- **F5 Verification**: Full verify — all 7 verification domains
+- **F5 Verification**: Full verify — all 8 verification domains
 - **Expected reduction**: 5-10 additional percentage points
 - **Checkpoint**: CP_FINAL_REVIEW — presents complete score history, full diff report, F5 verification summary
-- **Trigger**: Only if score target not yet met after Pass 2
+- **Trigger**: Only if score target not yet met after Pass 3
 
 ### Pass Execution Rules
 
 ```yaml
-max_passes: 3
+max_passes: 4
 diminishing_returns_threshold: 5  # Stop if pass reduces less than 5 percentage points
-pass_3_trigger: "score_target_not_met OR user_requested"
+pass_3_default: true  # Discourse pass runs by default in balanced/aggressive modes
+pass_4_trigger: "score_target_not_met OR user_requested"
 between_pass_rescan: true  # MANDATORY G5 re-scan between every pass
 checkpoint_between_passes: true  # Human checkpoint between every pass
 ```
@@ -233,7 +258,8 @@ post_transformation_audit:
   scan_type:
     after_pass_1: "delta"   # Compare to original, focus on changes
     after_pass_2: "delta"   # Compare to Pass 1 output
-    after_pass_3: "full"    # Comprehensive audit of final output
+    after_pass_3: "delta"   # Compare to Pass 2 output, focus on discourse
+    after_pass_4: "full"    # Comprehensive audit of final output
 
   checks:
     - "No new HIGH-RISK patterns introduced"
@@ -264,7 +290,7 @@ post_transformation_audit:
 
 ### Overview
 
-Users can specify a target AI probability score instead of manually selecting modes. The pipeline automatically selects modes and runs passes until the target is met or the 3-pass limit is reached.
+Users can specify a target AI probability score instead of manually selecting modes. The pipeline automatically selects modes and runs passes until the target is met or the 4-pass limit is reached.
 
 ### Configuration
 
@@ -301,7 +327,7 @@ IF baseline_score - target <= 25:
     PLAN: 1-2 passes (vocabulary may suffice)
 
 IF baseline_score - target > 25:
-    PLAN: 2-3 passes (structural transformation likely needed)
+    PLAN: 2-4 passes (structural + discourse transformation likely needed)
 
 AFTER each pass:
     IF current_score <= target:
@@ -394,20 +420,20 @@ export_options:
 humanization:
   enabled: true                    # Master switch
   default_mode: "balanced"         # conservative/balanced/aggressive
-  pipeline_version: "2.0"         # Multi-pass iterative pipeline
+  pipeline_version: "3.0"         # 4-layer multi-pass iterative pipeline
 
   auto_check: true                 # Auto-run G5 on exports
   show_checkpoint: true            # Show CP_HUMANIZATION_REVIEW
   require_verification: false      # Require F5 before export
 
-  # Multi-pass settings (v2.0)
+  # Multi-pass settings (v3.0)
   multi_pass:
-    max_passes: 3
+    max_passes: 4
     inter_pass_checkpoint: true    # Show checkpoint between passes
     auto_stop_threshold: 5         # Stop if pass reduces < 5 percentage points
     mandatory_rescan: true         # G5 re-scan after every pass
 
-  # Score target settings (v2.0)
+  # Score target settings (v3.0)
   score_target:
     enabled: true
     default_target: null           # No default — user specifies
@@ -416,7 +442,7 @@ humanization:
       conference: 40
       working_paper: 50
 
-  # Section-aware escalation (v2.0)
+  # Section-aware escalation (v3.0)
   section_escalation:
     enabled: true
     allow_override: true           # Users can force global mode
@@ -429,7 +455,7 @@ humanization:
   reports:
     include_pattern_report: false  # Add to exports
     include_audit_trail: true      # Keep transformation log
-    include_score_progression: true # v2.0: Show score across passes
+    include_score_progression: true # v3.0: Show score across passes
     save_original: true            # Keep pre-humanization version
 
   ethics:
@@ -486,13 +512,13 @@ sections:
 -> Summary only (score + pattern count)
 
 "Detailed pattern analysis"
--> Full G5 report with all patterns (24+4 categories)
+-> Full G5 report with all patterns (28 patterns, 7 domains, D1-D4 discourse)
 
 "Show flagged vocabulary"
 -> List all AI-typical words found
 
 "Show quantitative metrics"
--> Display burstiness CV, MTLD, sentence length range, opener diversity
+-> Display all 13 metrics: burstiness CV, MTLD, sentence length range, opener diversity, hapax rate, contraction density, paragraph length variance, surprisal proxy, surprisal autocorrelation, connective diversity, pronoun density, question ratio, abstract noun ratio
 ```
 
 ### Transformation Commands
@@ -607,12 +633,29 @@ sections:
 
 ### CP_PASS2_REVIEW (Recommended)
 
-**When:** After Pass 2 (structural), before optional Pass 3
+**When:** After Pass 2 (structural), before Pass 3 (discourse)
 
 **Presents:**
 - Score progression (original -> Pass 1 -> Pass 2)
 - Structural metrics (burstiness CV, MTLD)
 - Remaining pattern count
+- Whether target is met (if target mode)
+
+**Options:**
+```
+[A] Continue to discourse pass
+[B] Accept current state
+[C] Manual review mode
+```
+
+### CP_PASS3_REVIEW (Recommended)
+
+**When:** After Pass 3 (discourse), before optional Pass 4 (polish)
+
+**Presents:**
+- Score progression (original -> Pass 1 -> Pass 2 -> Pass 3)
+- Discourse metrics (DT1-DT4 pattern counts, perturbation stats)
+- Remaining pattern count by domain
 - Whether target is met (if target mode)
 
 **Options:**
@@ -624,12 +667,12 @@ sections:
 
 ### CP_FINAL_REVIEW (Optional)
 
-**When:** After Pass 3 (polish), before export
+**When:** After Pass 4 (polish), before export
 
 **Presents:**
-- Complete score history (all passes)
+- Complete score history (all passes including discourse)
 - Full diff report (original vs final)
-- F5 verification summary
+- F5 verification summary (all 8 domains)
 - Target compliance (if target mode)
 
 **Options:**
@@ -723,26 +766,48 @@ states:
     transitions: [pass3_transforming, complete]
 
   pass3_transforming:
-    description: "Pass 3: G6 applying polish transformations"
+    description: "Pass 3: G6 applying discourse transformations (DT1-DT4)"
     agent: "G6-AcademicStyleHumanizer"
     pass: 3
-    layer: "polish"
+    layer: "discourse"
     transitions: [pass3_rescanning]
 
   pass3_rescanning:
-    description: "G5 final audit scan after Pass 3"
+    description: "G5 re-scanning after Pass 3 (discourse)"
     agent: "G5-AcademicStyleAuditor"
     transitions: [pass3_verifying]
 
   pass3_verifying:
-    description: "F5 full verify after Pass 3"
+    description: "F5 full verify after Pass 3 (discourse)"
+    agent: "F5-HumanizationVerifier"
+    transitions: [awaiting_pass3_review]
+
+  awaiting_pass3_review:
+    description: "Pass 3 complete, awaiting user decision"
+    checkpoint: "CP_PASS3_REVIEW"
+    transitions: [pass4_transforming, complete]
+
+  pass4_transforming:
+    description: "Pass 4: G6 applying polish transformations"
+    agent: "G6-AcademicStyleHumanizer"
+    pass: 4
+    layer: "polish"
+    transitions: [pass4_rescanning]
+
+  pass4_rescanning:
+    description: "G5 final audit scan after Pass 4"
+    agent: "G5-AcademicStyleAuditor"
+    transitions: [pass4_verifying]
+
+  pass4_verifying:
+    description: "F5 full verify after Pass 4"
     agent: "F5-HumanizationVerifier"
     transitions: [awaiting_final_review]
 
   awaiting_final_review:
     description: "Final review checkpoint"
     checkpoint: "CP_FINAL_REVIEW"
-    transitions: [complete, pass2_transforming, idle]
+    transitions: [complete, pass3_transforming, idle]
 
   complete:
     description: "Pipeline finished, ready for export"
@@ -817,7 +882,7 @@ sessions:
   - session_id: "H001"
     timestamp: "2024-10-14T10:30:00Z"
     source: "G2-generated abstract"
-    pipeline_version: "2.0"
+    pipeline_version: "3.0"
 
     g5_initial_analysis:
       ai_probability: 67%
@@ -907,8 +972,8 @@ sessions:
 
 | Situation | Approach |
 |-----------|----------|
-| Score > 60% | Multi-pass recommended (vocabulary + structural) |
-| Score 40-60% | 1-2 passes usually sufficient |
+| Score > 60% | Multi-pass recommended (vocabulary + structural + discourse) |
+| Score 40-60% | 2-3 passes usually sufficient |
 | Score 20-40% | Single vocabulary pass may suffice |
 | Score < 20% | Skip humanization |
 
@@ -948,16 +1013,17 @@ stage_6_enhanced:
 
 ---
 
-## MCP Tool Integration (v2.1)
+## MCP Tool Integration (v3.0)
 
-The humanizer MCP server provides 4 tools for precise quantitative metrics, replacing LLM estimation in the pipeline:
+The humanizer MCP server provides 5 tools for precise quantitative metrics, replacing LLM estimation in the pipeline:
 
 | Tool | Pipeline Stage | Purpose |
 |------|---------------|---------|
-| `humanizer_metrics` | Stage 2 (G5 Analysis) | Exact burstiness CV, MTLD, Fano Factor, opener diversity |
+| `humanizer_metrics` | Stage 2 (G5 Analysis) | Exact burstiness CV, MTLD, Fano Factor, opener diversity + 13 metrics |
 | `humanizer_verify` | After each G6 pass | Regression detection, needs_another_pass recommendation |
 | `humanizer_diff` | Checkpoint reports | Per-metric deltas and improvement percentages |
 | `humanizer_status` | Pipeline start | Baseline metrics with discipline-specific calibration |
+| `humanizer_discourse` | Pass 3 (Discourse) | DT1-DT4 discourse pattern analysis, perturbation stats |
 
 ### Tool Call Sequence in Multi-Pass Flow
 
@@ -966,13 +1032,17 @@ The humanizer MCP server provides 4 tools for precise quantitative metrics, repl
    humanizer_status(text, discipline, target) -> baseline metrics + readiness
 
 2. G5 Analysis (Stage 2):
-   humanizer_metrics(text, pattern_score, structural_penalty, discipline) -> full metrics
+   humanizer_metrics(text, pattern_score, structural_penalty, discipline) -> full 13 metrics
 
-3. After each G6 Pass:
+3. After each G6 Pass (Pass 1-2, 4):
    humanizer_verify(original, humanized, score_before, score_after)
    -> regressions, needs_another_pass, recommendations
 
-4. Checkpoint Reports:
+4. After G6 Pass 3 (Discourse):
+   humanizer_discourse(original, humanized, discourse_patterns)
+   -> DT1-DT4 analysis, perturbation naturalization stats
+
+5. Checkpoint Reports:
    humanizer_diff(original, humanized) -> deltas, improvement_pct, distributions
 ```
 
