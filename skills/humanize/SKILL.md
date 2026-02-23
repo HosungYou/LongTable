@@ -1,20 +1,22 @@
 ---
 name: humanize
 description: |
-  Humanization Pipeline Orchestrator v3.0 - Multi-pass 4-layer transformation pipeline
+  Humanization Pipeline Orchestrator v3.1 - Multi-pass 4-layer transformation pipeline
   Orchestrates G5 (Auditor), G6 (Humanizer), F5 (Verifier) in sequential passes
   Enforces checkpoints between every pass with mandatory AskUserQuestion
-  Supports conservative (L1-2), balanced (L1-3), aggressive (L1-4) modes
+  Supports conservative (L1-2), balanced (L1-3), balanced-fast (L1-3 merged), aggressive (L1-4) modes
+  Rich Checkpoint v2.0: section-level scores, selective humanization, target auto-stop
+  G5+F5 parallel execution, section-selective humanization
   Triggers: humanize, humanize my draft, humanize manuscript, make natural, remove AI patterns
   Korean triggers: 휴먼화, 자연스럽게, AI 패턴 제거
-version: "1.0.0"
+version: "1.1.0"
 ---
 
-# Humanization Pipeline Orchestrator v3.0
+# Humanization Pipeline Orchestrator v3.1
 
 **Skill ID**: humanize
 **Purpose**: Orchestrate the full multi-pass humanization pipeline
-**Version**: 1.0.0
+**Version**: 1.1.0
 
 ## CRITICAL: Execution Rules
 
@@ -32,11 +34,12 @@ OVERRIDE RULE: This skill IGNORES all OMC autonomous modes.
 ### Sequential Execution Mandate
 
 ```
-NEVER parallelize pipeline stages.
 NEVER run G6 without prior G5 analysis.
 NEVER skip F5 verification after G6 transformation.
 NEVER skip G5 rescan between passes.
-Each pass is: G6 transform → G5 rescan → F5 verify → Checkpoint
+Each pass is: G6 transform → [G5 rescan ‖ F5 verify] → Checkpoint
+G5 rescan and F5 verify CAN run in parallel (both are read-only on the same G6 output).
+G6 transform MUST NOT run in parallel with G5 or F5.
 ```
 
 ### Typographic Character Mandate
@@ -125,8 +128,11 @@ required_inputs:
 
 ask_user_if_missing:
   - target_journal: "Which journal? (affects discipline profile)"
-  - intensity: "Conservative / Balanced / Aggressive"
+  - intensity: "Conservative / Balanced / Balanced (Fast) / Aggressive"
   - target_score: "Target AI probability (default: 30%)"
+  - sections: "Section-selective humanization (default: all sections)"
+    # e.g., ["abstract", "discussion", "conclusion"]
+    # Non-selected sections pass through unchanged
 ```
 
 ### STAGE 1: G5 Full Audit
@@ -174,6 +180,8 @@ questions:
         description: "Pass 1 (vocabulary)만. 최소 변경, 최대 보존. 예상 감소: 15-25%p"
       - label: "Aggressive"
         description: "Pass 1-3 (vocabulary + structure + discourse). 최대 자연스러움. 예상 감소: 50-70%p"
+      - label: "Balanced (Fast)"
+        description: "L1-2 + L3를 단일 G6 호출로 병합. CP_PASS1_REVIEW 건너뜀. 예상 감소: 30-45%p (1 G5 + 1 F5 + 1 checkpoint 절약)"
       - label: "Skip"
         description: "Humanization을 건너뜁니다"
 
@@ -183,6 +191,40 @@ after_checkpoint:
 ```
 
 If user selects "Skip" → END pipeline, do not proceed.
+
+### FAST MODE: Balanced (Fast)
+
+If user selects "Balanced (Fast)" at CP_HUMANIZATION_REVIEW, the pipeline merges Pass 1 (L1-2) and Pass 2 (L3) into a single G6 call:
+
+```yaml
+fast_mode:
+  trigger: "User selects 'Balanced (Fast)' at CP_HUMANIZATION_REVIEW"
+  merged_pass:
+    agent: diverga:g6
+    model: opus
+    input:
+      file: "{target_file}"
+      g5_report: "{stage1_output}"
+      layers: [1, 2, 3]           # Vocabulary + Phrase + Structure in ONE call
+      mode: "balanced"
+      preserve: ["citations", "statistics", "methodology", "technical_terms"]
+      section_escalation: true
+      sections: "{selected_sections}"  # If section-selective
+
+  savings:
+    - "1 G5 rescan skipped (no intermediate delta scan after L1-2)"
+    - "1 F5 verify skipped (no intermediate verification after L1-2)"
+    - "1 checkpoint wait skipped (CP_PASS1_REVIEW not presented)"
+
+  after_merged_pass:
+    # G5 rescan + F5 verify (parallel) on merged output
+    # Then present CP_PASS2_REVIEW with rich checkpoint
+    # Pipeline continues normally from there (accept or continue to discourse)
+```
+
+**Flow**: STAGE 1 → G6(L1-2-3 merged) → [G5 rescan ‖ F5 full verify] → CP_PASS2_REVIEW → (optional discourse) → Export
+
+If "Balanced (Fast)" is NOT selected, the pipeline proceeds with the standard sequential passes below.
 
 ### STAGE 2: Pass 1 — Vocabulary (Layer 1-2)
 
@@ -198,13 +240,19 @@ input:
   mode: "conservative"         # Pass 1 is always conservative
   preserve: ["citations", "statistics", "methodology", "technical_terms"]
   section_escalation: true     # Apply section-aware mode escalation
+  sections: "{selected_sections}"  # Section-selective: only transform specified sections
 
 output:
   humanized_text: "Transformed manuscript"
   change_log: "Before/after for each change"
 ```
 
-**Then G5 Rescan**:
+**Then G5 Rescan + F5 Quick Verify (parallel)**:
+
+> **v3.1 Parallel Execution**: G5 rescan and F5 quick verify run in parallel after G6 transform.
+> Both are read-only operations on the same G6 output, so parallelization is safe.
+
+**G5 Rescan**:
 
 ```yaml
 agent: diverga:g5
@@ -220,7 +268,7 @@ output:
   remaining_patterns: "Patterns still present"
 ```
 
-**Then F5 Quick Verify**:
+**F5 Quick Verify** (runs in parallel with G5 rescan above):
 
 ```yaml
 agent: diverga:f5
@@ -236,25 +284,44 @@ output:
   critical_issues: []
 ```
 
-### CHECKPOINT: CP_PASS1_REVIEW
+### CHECKPOINT: CP_PASS1_REVIEW (Rich Checkpoint v2.0)
 
-**MANDATORY AskUserQuestion**:
+**MANDATORY AskUserQuestion** — present section-level detail:
 
 ```yaml
 checkpoint: CP_PASS1_REVIEW
 tool: AskUserQuestion
+display: |
+  Pass 1 완료. 점수: {original}% → {new}% (-{delta}%p)
+
+  ┌─── 섹션별 결과 ────────────────────────────────┐
+  │ Section     │ Before │ After │ Remaining Patterns│
+  │ Abstract    │  {ab_b}│  {ab_a}│ {ab_patterns}    │
+  │ Introduction│  {in_b}│  {in_a}│ {in_patterns}    │
+  │ Methods     │  {me_b}│  {me_a}│ {me_patterns}    │
+  │ Results     │  {re_b}│  {re_a}│ {re_patterns}    │
+  │ Discussion  │  {di_b}│  {di_a}│ {di_patterns}    │
+  │ Conclusion  │  {co_b}│  {co_a}│ {co_patterns}    │
+  └────────────────────────────────────────────────┘
+
+  {target_score_note}  # "목표 점수 {target}% 달성!" if target reached, else ""
+
 questions:
-  - question: "Pass 1 완료. 점수: {original}% → {new}% (감소 {delta}%p). 다음 단계로 진행할까요?"
+  - question: "Pass 1 완료. 점수: {original}% → {new}% (-{delta}%p). 다음 단계를 선택하세요."
     header: "Pass 1"
     options:
-      - label: "Continue to Pass 2 (Recommended)"
+      - label: "전체 섹션 계속 (Continue all sections)"
         description: "구조 변환 (S7-S10, burstiness 개선) 진행"
-      - label: "Accept current result"
+      - label: "섹션 선택하여 진행 (Select sections)"
+        description: "체크박스로 섹션 선택 — 선택된 섹션만 다음 패스에서 변환"
+      - label: "섹션별 강도 조정 (Per-section intensity)"
+        description: "섹션별 conservative/balanced/aggressive 개별 설정"
+      - label: "특정 문장 보존 마킹 (Preserve specific sentences)"
+        description: "변경된 상위 5개 문장의 before/after 표시, 보존할 문장 선택"
+      - label: "현재 결과 채택 (Accept current result)"
         description: "Pass 1 결과를 최종 결과로 채택"
-      - label: "View detailed diff"
+      - label: "상세 diff 보기 (View detailed diff)"
         description: "변경 사항을 자세히 확인한 후 결정"
-      - label: "Revert"
-        description: "원본으로 되돌림"
 
 after_checkpoint:
   - diverga_mark_checkpoint("CP_PASS1_REVIEW", "{decision}", "Score: {original}→{new}")
@@ -287,6 +354,7 @@ input:
     - "Sentence length range expansion (target > 25 words)"
   preserve: ["citations", "statistics", "methodology", "technical_terms"]
   section_escalation: true
+  sections: "{selected_sections}"  # Section-selective: only transform specified sections
 
 output:
   humanized_text: "Structure-transformed manuscript"
@@ -294,15 +362,18 @@ output:
   burstiness_improvement: "CV before/after"
 ```
 
-**Then G5 Rescan** (delta mode) + **F5 Full Verify** (all 7 domains):
+**Then G5 Rescan + F5 Full Verify (parallel)**:
+
+> **v3.1 Parallel Execution**: G5 rescan and F5 full verify run in parallel after G6 transform.
+> Both are read-only operations on the same G6 output.
 
 ```yaml
-# G5 rescan
+# G5 rescan (runs in parallel with F5)
 agent: diverga:g5
 model: sonnet
 input: { file: "{pass2_output}", mode: "delta_scan", reference: "{original_file}" }
 
-# F5 full verify
+# F5 full verify (runs in parallel with G5)
 agent: diverga:f5
 model: haiku
 input:
@@ -311,22 +382,41 @@ input:
   mode: "full"                  # All 7 verification domains
 ```
 
-### CHECKPOINT: CP_PASS2_REVIEW
+### CHECKPOINT: CP_PASS2_REVIEW (Rich Checkpoint v2.0)
 
 ```yaml
 checkpoint: CP_PASS2_REVIEW
 tool: AskUserQuestion
+display: |
+  Pass 2 완료. 점수 진행: {original}% → {pass1}% → {pass2}%. Burstiness CV: {cv}.
+
+  ┌─── 섹션별 결과 ────────────────────────────────┐
+  │ Section     │ Before │ After │ Remaining Patterns│
+  │ Abstract    │  {ab_b}│  {ab_a}│ {ab_patterns}    │
+  │ Introduction│  {in_b}│  {in_a}│ {in_patterns}    │
+  │ Methods     │  {me_b}│  {me_a}│ {me_patterns}    │
+  │ Results     │  {re_b}│  {re_a}│ {re_patterns}    │
+  │ Discussion  │  {di_b}│  {di_a}│ {di_patterns}    │
+  │ Conclusion  │  {co_b}│  {co_a}│ {co_patterns}    │
+  └────────────────────────────────────────────────┘
+
+  {target_score_note}  # "목표 점수 {target}% 달성! 채택을 권장합니다." if target reached
+
 questions:
-  - question: "Pass 2 완료. 점수 진행: {original}% → {pass1}% → {pass2}%. Burstiness CV: {cv}. 다음 단계?"
+  - question: "Pass 2 완료. 점수 진행: {original}% → {pass1}% → {pass2}%. 다음 단계를 선택하세요."
     header: "Pass 2"
     options:
-      - label: "Accept current result (Recommended)"
+      - label: "현재 결과 채택 (Accept current result)"
         description: "Balanced 모드 목표 달성. 현재 결과를 채택합니다"
-      - label: "Continue to Pass 3 (Discourse)"
+      - label: "전체 섹션 계속 — Pass 3 Discourse"
         description: "DT1-DT4 discourse 변환 진행. 최대 자연스러움"
-      - label: "View detailed diff"
+      - label: "섹션 선택하여 진행 (Select sections for Pass 3)"
+        description: "특정 섹션만 discourse 변환 적용"
+      - label: "섹션별 강도 조정 (Per-section intensity)"
+        description: "섹션별 conservative/balanced/aggressive 개별 설정"
+      - label: "상세 diff 보기 (View detailed diff)"
         description: "Pass 1→2 변경 사항 확인"
-      - label: "Revert to Pass 1"
+      - label: "Pass 1 결과로 되돌림 (Revert to Pass 1)"
         description: "Pass 2 변경을 되돌리고 Pass 1 결과 사용"
 
 after_checkpoint:
@@ -361,6 +451,7 @@ input:
     abstract: 1.05
     methods: 0.8
   preserve: ["citations", "statistics", "methodology", "technical_terms", "core_arguments"]
+  sections: "{selected_sections}"  # Section-selective: only transform specified sections
 
 mcp_integration:
   try:
@@ -374,24 +465,45 @@ output:
   connective_diversity_improvement: "before/after"
 ```
 
-**Then G5 Rescan** + **F5 Full Verify** (8 domains — including Domain 8 Discourse Naturalness).
+**Then G5 Rescan + F5 Full Verify (parallel)** — 8 domains including Domain 8 Discourse Naturalness.
 
-### CHECKPOINT: CP_PASS3_REVIEW
+> **v3.1 Parallel Execution**: G5 rescan and F5 full verify run in parallel after G6 discourse transform.
+
+### CHECKPOINT: CP_PASS3_REVIEW (Rich Checkpoint v2.0)
 
 ```yaml
 checkpoint: CP_PASS3_REVIEW
 tool: AskUserQuestion
+display: |
+  Pass 3 완료. 전체 진행: {original}% → {pass1}% → {pass2}% → {pass3}%.
+
+  ┌─── 섹션별 결과 ────────────────────────────────┐
+  │ Section     │ Before │ After │ Remaining Patterns│
+  │ Abstract    │  {ab_b}│  {ab_a}│ {ab_patterns}    │
+  │ Introduction│  {in_b}│  {in_a}│ {in_patterns}    │
+  │ Methods     │  {me_b}│  {me_a}│ {me_patterns}    │
+  │ Results     │  {re_b}│  {re_a}│ {re_patterns}    │
+  │ Discussion  │  {di_b}│  {di_a}│ {di_patterns}    │
+  │ Conclusion  │  {co_b}│  {co_a}│ {co_patterns}    │
+  └────────────────────────────────────────────────┘
+
+  {target_score_note}  # "목표 점수 {target}% 달성! 채택을 권장합니다." if target reached
+
 questions:
-  - question: "Pass 3 완료. 전체 진행: {original}% → {pass1}% → {pass2}% → {pass3}%. 최종 결과를 채택할까요?"
+  - question: "Pass 3 완료. 전체 진행: {original}% → {pass1}% → {pass2}% → {pass3}%. 다음 단계를 선택하세요."
     header: "Pass 3"
     options:
-      - label: "Accept final result (Recommended)"
+      - label: "최종 결과 채택 (Accept final result)"
         description: "3-pass 변환 완료. 결과를 파일에 저장합니다"
-      - label: "One more polish pass"
+      - label: "특정 문장 보존 마킹 (Preserve specific sentences)"
+        description: "변경된 상위 5개 문장의 before/after 표시, 보존할 문장 선택"
+      - label: "추가 polish pass (One more polish pass)"
         description: "미세 패턴 추가 수정 (5-10%p 추가 감소 예상)"
-      - label: "View full diff (original → final)"
+      - label: "전체 diff 보기 (View full diff: original → final)"
         description: "원본 대비 전체 변경 사항 확인"
-      - label: "Revert to Pass 2"
+      - label: "섹션별 강도 조정 (Per-section intensity)"
+        description: "특정 섹션만 추가 변환 또는 되돌림"
+      - label: "Pass 2 결과로 되돌림 (Revert to Pass 2)"
         description: "Discourse 변환을 되돌리고 Pass 2 결과 사용"
 
 after_checkpoint:
@@ -444,6 +556,7 @@ actions:
 |------|--------|-------------------|----------|
 | **Conservative** | Pass 1 only (L1-2) | 15-25%p | Journal submissions, strict formatting |
 | **Balanced** | Pass 1 + 2 (L1-3) | 30-45%p | Most academic writing |
+| **Balanced (Fast)** | Single merged pass (L1-2-3) | 30-45%p | Same as Balanced, saves 1 G5 + 1 F5 + 1 checkpoint |
 | **Aggressive** | Pass 1 + 2 + 3 (L1-4) | 50-70%p | Maximum naturalness |
 
 ## Diminishing Returns Rule
@@ -493,6 +606,77 @@ section_escalation:
 
 ---
 
+## Target Score Auto-Stop (v3.1)
+
+When the user sets a `target_score` at STAGE 0 (default: 30%), the pipeline monitors the score after each pass and auto-recommends acceptance when the target is reached.
+
+```yaml
+target_auto_stop:
+  default_target: 30          # percentage
+  behavior:
+    at_each_checkpoint:
+      - "Compare current score against target_score"
+      - "If current_score <= target_score:"
+      -   "Add '목표 점수 {target}% 달성! 채택을 권장합니다.' to checkpoint display"
+      -   "Set default option to 'Accept current result'"
+      -   "User can still override and continue to next pass"
+      - "If current_score > target_score:"
+      -   "Continue normally with standard default options"
+
+  override:
+    - "User can always override auto-stop recommendation"
+    - "Selecting 'Continue' at any checkpoint proceeds regardless of target"
+    - "Target score is advisory, not a hard gate"
+```
+
+---
+
+## Section-Selective Humanization (v3.1)
+
+The pipeline supports transforming only specific sections while leaving others unchanged.
+
+```yaml
+section_selective:
+  parameter: "sections"
+  type: "array of section names"
+  default: null  # null = all sections (full manuscript)
+  valid_values:
+    - "abstract"
+    - "introduction"
+    - "methods"
+    - "results"
+    - "discussion"
+    - "conclusion"
+
+  behavior:
+    setup:
+      - "User specifies sections at STAGE 0 or at any Rich Checkpoint"
+      - "Example: sections: ['discussion', 'conclusion']"
+
+    during_g6_transform:
+      - "G6 receives sections parameter"
+      - "Only specified sections are transformed"
+      - "Non-selected sections pass through unchanged (verbatim copy)"
+      - "Change log only includes changes in selected sections"
+
+    during_g5_rescan:
+      - "G5 still scans ALL sections (for accurate composite score)"
+      - "Section-level scores reported for all sections"
+      - "Non-selected sections should show unchanged scores"
+
+    at_checkpoints:
+      - "Rich Checkpoint displays all sections with scores"
+      - "Non-selected sections marked as '(unchanged)' in patterns column"
+      - "User can modify section selection at any checkpoint"
+
+  use_cases:
+    - "Discussion has score 95% but Methods is clean at 25% → only humanize Discussion"
+    - "Abstract needs aggressive treatment but Results should stay conservative"
+    - "Re-run only on sections that still have remaining patterns after a pass"
+```
+
+---
+
 ## Error Handling
 
 ### Agent Failure
@@ -535,8 +719,9 @@ Task(subagent_type="diverga:g6", model="opus", prompt="...")
 Task(subagent_type="diverga:f5", model="haiku", prompt="...")
 ```
 
-**NEVER run G5/G6/F5 in parallel within a single pass.**
-**G5 rescan and F5 verify CAN run in parallel** (both are read-only on the same output).
+**NEVER run G6 in parallel with G5 or F5 within a single pass.**
+**G5 rescan and F5 verify MUST run in parallel** after each G6 transform (both are read-only on the same output).
+This saves latency on every pass without any risk to data integrity.
 
 ---
 

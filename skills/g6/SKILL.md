@@ -79,6 +79,9 @@ Optional:
   - preserve_list: ["terms to keep unchanged"]
   - section_type: "abstract/methods/discussion/etc."
   - target_journal: "Journal style to consider"
+  - sections: ["abstract", "discussion", "conclusion"]  # Section-selective humanization
+    # Only transform specified sections; others pass through unchanged
+    # Default: all sections
 ```
 
 ## Transformation Principles

@@ -243,6 +243,46 @@ Based on analysis:
 
 ---
 
+### Section-Level Scores (v3.1)
+
+The G5 report includes per-section AI probability scores and top remaining patterns for each section. This data powers the Rich Checkpoint v2.0 display in the humanization pipeline.
+
+```yaml
+section_scores:
+  abstract:     { ai_score: 72, top_patterns: ["C1 (x2)", "L1 (x1)"] }
+  introduction: { ai_score: 45, top_patterns: ["H1 (x3)"] }
+  methods:      { ai_score: 25, top_patterns: [] }           # (clean)
+  results:      { ai_score: 35, top_patterns: ["S1 (x1)"] }
+  discussion:   { ai_score: 95, top_patterns: ["L1 (x5)", "S1 (x3)", "C1 (x2)"] }
+  conclusion:   { ai_score: 88, top_patterns: ["H3 (x2)", "A6 (x1)"] }
+
+top_patterns:
+  # Top 3 remaining patterns per section with counts
+  # Empty array [] displayed as "(clean)" in checkpoint UI
+```
+
+**Report format:**
+
+```markdown
+### Section-Level Scores
+
+| Section | AI Score | Top Patterns |
+|---------|----------|-------------|
+| Abstract | 72% | C1 (x2), L1 (x1) |
+| Introduction | 45% | H1 (x3) |
+| Methods | 25% | (clean) |
+| Results | 35% | S1 (x1) |
+| Discussion | 95% | L1 (x5), S1 (x3), C1 (x2) |
+| Conclusion | 88% | H3 (x2), A6 (x1) |
+```
+
+This section-level data is used by:
+- **Rich Checkpoint v2.0**: Displays section table at every CP_PASSn_REVIEW
+- **Section-selective humanization**: Identifies which sections need transformation
+- **Target auto-stop**: Per-section progress tracking toward target score
+
+---
+
 ### Next Steps
 
 🟠 **CHECKPOINT: CP_HUMANIZATION_REVIEW**
