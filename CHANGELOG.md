@@ -4,6 +4,51 @@ All notable changes to Diverga (formerly Research Coordinator) will be documente
 
 ---
 
+## [9.2.1] - 2026-02-23 (Zero-Setup MCP — Global Auto-Registration)
+
+### Overview
+
+**Diverga v9.2.1** — All MCP servers now auto-register via the plugin `.mcp.json`. Installing the Diverga plugin is all users need — no manual `settings.json` configuration required. Adopts the [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) plugin distribution strategy: `uvx` for Python servers, `npx` for Node.js servers, `${CLAUDE_PLUGIN_ROOT}` for bundled servers.
+
+### Key Highlights
+
+- **Zero-setup MCP stack**: Plugin install activates all 4 MCP servers automatically
+- **No hardcoded paths**: Replaced `/Users/.../` paths with `uvx`/`npx` auto-install commands
+- **OMC strategy adopted**: Same distribution pattern as oh-my-claudecode's `.mcp.json` + bridge servers
+- **Global deployability**: Any user on any machine gets the full MCP stack by installing the plugin
+
+### MCP Auto-Registration (`.mcp.json`)
+
+| Server | Strategy | Tools | Install Method |
+|--------|----------|-------|---------------|
+| **diverga** | `${CLAUDE_PLUGIN_ROOT}` bundle | 16 tools (checkpoint/memory/comm) | Bundled in plugin |
+| **humanizer** | `uvx --from git+GitHub` | 4 tools (stylometric metrics) | Auto from GitHub |
+| **zotero** | `uvx zotero-mcp serve` | ~20 tools (reference management) | Auto from PyPI |
+| **context7** | `npx -y @upstash/context7-mcp` | 2 tools (docs lookup) | Auto from npm |
+
+### Distribution Strategy Reference
+
+| Pattern | Source | Example |
+|---------|--------|---------|
+| `${CLAUDE_PLUGIN_ROOT}` | OMC bridge servers | `diverga-server.js` (bundled Node.js) |
+| `uvx --from git+...` | GitHub direct | `humanizer-mcp` (Python, no PyPI needed) |
+| `uvx <package>` | PyPI | `zotero-mcp serve` (Python) |
+| `npx -y <package>` | npm | `@upstash/context7-mcp` (Node.js) |
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `.mcp.json` | Added humanizer, zotero, context7 auto-registration |
+| `CLAUDE.md` | Version bump to v9.2.1 |
+| `.claude-plugin/plugin.json` | Version bump to v9.2.1 |
+
+### Migration for Existing Users
+
+Users with manual `settings.json` entries for humanizer, zotero, or context7 can safely remove them — the plugin handles registration automatically. Only non-Diverga servers (exa, filesystem, github, supabase) need to remain in `settings.json`.
+
+---
+
 ## [9.2.0] - 2026-02-23 (MCP Tool Integration — Humanizer Server)
 
 ### Overview

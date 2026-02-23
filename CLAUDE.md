@@ -1,9 +1,11 @@
 # CLAUDE.md
 
-# Diverga v9.1.0 (Humanization Pipeline v2.0)
+# Diverga v9.2.1 (Zero-Setup MCP — Global Auto-Registration)
 
 **Beyond Modal: AI Research Assistant That Thinks Creatively**
 
+**v9.2.1**: Zero-Setup MCP — All 4 MCP servers (diverga, humanizer, zotero, context7) auto-register via plugin `.mcp.json`. No manual settings.json needed. Uses uvx/npx/bundle strategy from oh-my-claudecode.
+**v9.2.0**: MCP Tool Integration — Humanizer server (4 tools), G5/G6/F5 MCP integration, 5 of 6 gaps resolved, 120 tests passing.
 **v9.1.0**: Humanization Pipeline v2.0 - Multi-pass iterative pipeline (vocab/structural/polish), S7-S10 structural detection, quantitative metrics (burstiness CV, MTLD), section-aware mode escalation, G5/G6/F5 v2.0, 84 TDD tests. Reference: https://github.com/HosungYou/humanizer
 **v9.0.0**: Architecture — MCP 3-server split (checkpoint/memory/comm, 16 tools), SQLite WAL backend, YAML→SQLite auto-migration, agent messaging (register/send/mailbox/broadcast), dual backend via `DIVERGA_BACKEND`
 **v8.5.0**: Agent Teams - Parallel agent execution via TeamCreate/TaskCreate/SendMessage, I0 Team Lead mode, 3x parallel database fetching
