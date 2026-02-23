@@ -7,6 +7,17 @@
     "humanizer": {
       "command": "uvx",
       "args": ["--from", "git+https://github.com/HosungYou/humanizer.git", "humanizer-mcp"]
+    },
+    "zotero": {
+      "command": "uvx",
+      "args": ["zotero-mcp", "serve"],
+      "env": {
+        "ZOTERO_LOCAL": "true"
+      }
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
     }
   }
 }
