@@ -104,6 +104,26 @@ export function createCheckpointLogic(prereqMap, researchDir, publicResearchDir)
     const checkpoints = readYaml(_checkpointsPath());
     const decisions = readYaml(_decisionLogPath());
 
+    // Lazy init: if both files are missing, create a checkpoints.yaml skeleton
+    if (checkpoints === null && decisions === null) {
+      const skeleton = { checkpoints: { pending: [] } };
+      for (const [cpId, level] of Object.entries(prereqMap.checkpoint_levels)) {
+        if (level === 'required') {
+          skeleton.checkpoints.pending.push({ checkpoint_id: cpId, level: 'REQUIRED', status: 'pending' });
+        }
+      }
+      writeYaml(_checkpointsPath(), skeleton);
+      const missing = agent.prerequisites.slice();
+      return {
+        approved: false,
+        first_run: true,
+        missing,
+        passed: [],
+        own_checkpoints: agent.own_checkpoints,
+        message: `First run detected. Initialized checkpoints.yaml. Missing prerequisites: ${missing.join(', ')}. Must complete these via AskUserQuestion before proceeding.`
+      };
+    }
+
     const passedCPs = new Set();
     if (checkpoints?.checkpoints) {
       for (const stage of Object.values(checkpoints.checkpoints)) {

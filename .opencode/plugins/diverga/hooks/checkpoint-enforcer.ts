@@ -5,7 +5,45 @@
 
 import type { PluginContext, HookResult, ToolParams, CheckpointPrompt } from '../types';
 import { CHECKPOINTS } from '../checkpoints';
-import { loadContext } from './context-manager';
+import { loadContext, addCompletedCheckpoint } from './context-manager';
+import prereqMapData from '../mcp/agent-prerequisite-map.json';
+
+// Build prerequisites map from JSON SSoT (agent-prerequisite-map.json)
+const AGENT_PREREQUISITES: Record<string, string[]> = {};
+for (const [agentId, agentData] of Object.entries(prereqMapData.agents)) {
+  AGENT_PREREQUISITES[agentId] = (agentData as { prerequisites: string[] }).prerequisites || [];
+}
+
+/**
+ * Result shape from MCP prerequisite check
+ */
+interface CheckResult {
+  approved: boolean;
+  missing: string[];
+  message: string;
+}
+
+/**
+ * Try checking prerequisites via MCP diverga_check_prerequisites tool.
+ * Returns null if MCP is unavailable or the call fails.
+ */
+async function checkPrerequisitesMCP(agentId: string, context: PluginContext): Promise<CheckResult | null> {
+  try {
+    if (context?.mcp?.call) {
+      const result = await (context.mcp as any).call('diverga_check_prerequisites', { agent_id: agentId });
+      if (result) {
+        return {
+          approved: result.approved ?? false,
+          missing: result.missing || [],
+          message: result.message || '',
+        };
+      }
+    }
+    return null; // MCP not available
+  } catch {
+    return null; // MCP failed, use fallback
+  }
+}
 
 /**
  * Map of tool actions to checkpoints they should trigger
@@ -101,7 +139,44 @@ export async function checkpointEnforcer(
     return { proceed: true };
   }
 
-  // Check each checkpoint
+  // Try MCP-first prerequisite check when agent ID is available
+  const agentId = params.arguments?.agent_id as string | undefined;
+  if (agentId) {
+    const mcpResult = await checkPrerequisitesMCP(agentId, context);
+    if (mcpResult !== null) {
+      // MCP responded — use its result
+      if (!mcpResult.approved && mcpResult.missing.length > 0) {
+        const firstMissing = mcpResult.missing[0];
+        const prompt = createCheckpointPrompt(firstMissing);
+        return {
+          proceed: true,
+          message: `⚠️ WARNING: ${mcpResult.message || `Missing prerequisites: ${mcpResult.missing.join(', ')}`}`,
+          checkpoint: prompt || undefined,
+        };
+      }
+      return { proceed: true };
+    }
+    // MCP unavailable — fall through to local file check
+  }
+
+  // Local file fallback: Check agent prerequisites from JSON map first
+  if (agentId) {
+    const normalizedId = agentId.toLowerCase();
+    const prereqs = AGENT_PREREQUISITES[normalizedId] || [];
+    for (const prereqId of prereqs) {
+      if (!isCheckpointCompleted(prereqId, context)) {
+        const prompt = createCheckpointPrompt(prereqId);
+        const checkpoint = getCheckpointDefinition(prereqId);
+        return {
+          proceed: true,
+          message: `⚠️ WARNING: Agent ${agentId} requires prerequisite checkpoint: ${prereqId}${checkpoint ? ` (${checkpoint.level})` : ''}`,
+          checkpoint: prompt || undefined,
+        };
+      }
+    }
+  }
+
+  // Local file fallback: Check each checkpoint
   for (const checkpointId of checkpointIds) {
     const checkpoint = getCheckpointDefinition(checkpointId);
     if (!checkpoint) continue;
@@ -111,35 +186,35 @@ export async function checkpointEnforcer(
       continue;
     }
 
-    // For REQUIRED checkpoints, always stop
+    // For REQUIRED checkpoints, soft block with warning
     if (checkpoint.level === 'REQUIRED') {
       const prompt = createCheckpointPrompt(checkpointId);
       return {
-        proceed: false,
-        message: `🔴 CHECKPOINT HALT: ${checkpoint.name}`,
+        proceed: true,
+        message: `⚠️ WARNING: 🔴 CHECKPOINT REQUIRED: ${checkpoint.name} — approval needed before proceeding`,
         checkpoint: prompt || undefined,
       };
     }
 
-    // For RECOMMENDED checkpoints, pause and suggest
+    // For RECOMMENDED checkpoints, soft block with warning
     if (checkpoint.level === 'RECOMMENDED') {
       const prompt = createCheckpointPrompt(checkpointId);
       return {
-        proceed: false,
-        message: `🟠 CHECKPOINT PAUSE: ${checkpoint.name} (recommended)`,
+        proceed: true,
+        message: `⚠️ WARNING: 🟠 CHECKPOINT RECOMMENDED: ${checkpoint.name} — consider approving before proceeding`,
         checkpoint: prompt || undefined,
       };
     }
 
     // For OPTIONAL checkpoints, just note it
-    // (but still continue)
+    // (continue)
   }
 
   return { proceed: true };
 }
 
 /**
- * Mark checkpoint as completed
+ * Mark checkpoint as completed and persist to disk
  */
 export function completeCheckpoint(
   checkpointId: string,
@@ -149,26 +224,13 @@ export function completeCheckpoint(
   const researchContext = loadContext();
   if (!researchContext) return;
 
-  // Add to completed
-  if (!researchContext.completedCheckpoints.includes(checkpointId)) {
-    researchContext.completedCheckpoints.push(checkpointId);
-  }
-
-  // Remove from pending
-  researchContext.pendingCheckpoints = researchContext.pendingCheckpoints.filter(
-    cp => cp !== checkpointId
-  );
-
-  // Record decision
-  researchContext.decisions.push({
+  // Delegate to context-manager which handles persistence via saveContext()
+  addCompletedCheckpoint(checkpointId, {
     checkpoint: checkpointId,
     timestamp: new Date().toISOString(),
     optionsPresented: ['approve', 'modify', 'cancel'],
     selected: selectedOption,
   });
-
-  // Save context
-  // (Context manager will handle persistence)
 }
 
 /**
@@ -190,88 +252,4 @@ export function resetCheckpoint(checkpointId: string, context: PluginContext): v
   researchContext.completedCheckpoints = researchContext.completedCheckpoints.filter(
     cp => cp !== checkpointId
   );
-}
-
-/**
- * Agent prerequisites mapping
- * Maps agent IDs to checkpoint IDs that must be completed before the agent can start
- */
-export const AGENT_PREREQUISITES: Record<string, string[]> = {
-  'A1': [],
-  'A2': ['CP_RESEARCH_DIRECTION'],
-  'A3': ['CP_RESEARCH_DIRECTION'],
-  'A4': [],
-  'A5': [],
-  'A6': ['CP_RESEARCH_DIRECTION'],
-  'B1': ['CP_RESEARCH_DIRECTION'],
-  'B2': ['CP_RESEARCH_DIRECTION'],
-  'B3': [],
-  'B4': [],
-  'C1': ['CP_PARADIGM_SELECTION', 'CP_RESEARCH_DIRECTION'],
-  'C2': ['CP_PARADIGM_SELECTION', 'CP_RESEARCH_DIRECTION'],
-  'C3': ['CP_PARADIGM_SELECTION', 'CP_RESEARCH_DIRECTION'],
-  'C5': ['CP_RESEARCH_DIRECTION', 'CP_METHODOLOGY_APPROVAL'],
-  'E1': ['CP_METHODOLOGY_APPROVAL'],
-  'E2': ['CP_METHODOLOGY_APPROVAL'],
-  'E3': ['CP_METHODOLOGY_APPROVAL'],
-  'E4': [],
-  'G3': [],
-  'H1': ['CP_PARADIGM_SELECTION'],
-  'H2': ['CP_PARADIGM_SELECTION'],
-};
-
-/**
- * Checkpoint dependency order for sorting prerequisites
- */
-const CHECKPOINT_DEPENDENCY_ORDER: string[][] = [
-  // Level 0 (entry points)
-  ['CP_RESEARCH_DIRECTION', 'CP_PARADIGM_SELECTION'],
-  // Level 1
-  ['CP_THEORY_SELECTION', 'CP_METHODOLOGY_APPROVAL'],
-  // Level 2
-  ['CP_ANALYSIS_PLAN', 'CP_SCREENING_CRITERIA', 'CP_SAMPLING_STRATEGY', 'CP_CODING_APPROACH', 'CP_THEME_VALIDATION', 'CP_INTEGRATION_STRATEGY', 'CP_QUALITY_REVIEW'],
-  // Level 3
-  ['SCH_DATABASE_SELECTION', 'CP_HUMANIZATION_REVIEW', 'CP_VS_001', 'CP_VS_002', 'CP_VS_003'],
-  // Level 4
-  ['SCH_SCREENING_CRITERIA', 'CP_HUMANIZATION_VERIFY'],
-  // Level 5
-  ['SCH_RAG_READINESS'],
-];
-
-/**
- * Get dependency level for a checkpoint
- */
-function getCheckpointLevel(checkpointId: string): number {
-  for (let level = 0; level < CHECKPOINT_DEPENDENCY_ORDER.length; level++) {
-    if (CHECKPOINT_DEPENDENCY_ORDER[level].includes(checkpointId)) {
-      return level;
-    }
-  }
-  return 999; // Unknown checkpoint, sort last
-}
-
-/**
- * Sort checkpoints by dependency order
- */
-function sortByDependencyOrder(checkpointIds: string[]): string[] {
-  return [...checkpointIds].sort((a, b) => getCheckpointLevel(a) - getCheckpointLevel(b));
-}
-
-/**
- * Collect union of prerequisites for multiple agents
- * Used when multiple agents are triggered simultaneously
- */
-export function collectPrerequisites(agentIds: string[] | null | undefined): string[] {
-  if (!agentIds || !Array.isArray(agentIds)) {
-    return [];
-  }
-
-  const union = new Set<string>();
-  for (const id of agentIds) {
-    const prereqs = AGENT_PREREQUISITES[id] || [];
-    for (const prereq of prereqs) {
-      union.add(prereq);
-    }
-  }
-  return sortByDependencyOrder([...union]);
 }

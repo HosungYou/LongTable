@@ -1,6 +1,6 @@
 {
   "name": "diverga",
-  "version": "10.3.0",
+  "version": "10.3.1",
   "description": "Diverga Agent Runtime - 44 specialized AI research agents with VS-Research methodology",
   "type": "module",
   "main": "dist/index.js",
@@ -43,7 +43,8 @@
     "release:major": "node scripts/release.js major",
     "doctor": "node scripts/doctor.js",
     "precommit": "npm run version:check && npm run generate:check",
-    "test:all": "npm run typecheck && npm run version:check && npm run generate:check"
+    "test:all": "npm run typecheck && npm run version:check && npm run generate:check",
+    "test:hooks": "NODE_PATH=mcp/node_modules node --test tests/hooks/*.test.mjs"
   },
   "repository": {
     "type": "git",

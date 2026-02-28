@@ -12,6 +12,24 @@ import { autoTrigger } from './hooks/auto-trigger';
 import { vsDisplay } from './hooks/vs-display';
 import { modelRouter } from './hooks/model-router';
 import { loadContext, saveContext } from './hooks/context-manager';
+import {
+  detectMemoryKeywords,
+  loadMemoryContext,
+  executeMemoryCommand,
+  parseMemoryCommand,
+} from './hooks/memory';
+import {
+  renderHUD,
+  getHUDSystemPrompt,
+  getHUDPromptAppend,
+  listPresets,
+  setPreset,
+  toggleHUD,
+  type HUDPreset,
+} from './hooks/hud';
+import { getSetupWelcome, getSessionStartMessage, getAgentCatalog } from './hooks/setup';
+import { getPipelineHelp } from './hooks/humanize-pipeline';
+import { getReviewPipelineHelp } from './hooks/review-pipeline';
 import { AGENT_REGISTRY, getAgent, listAgents as getAgentList } from './agents';
 import { CHECKPOINTS, formatCheckpoint } from './checkpoints';
 import { T_SCORE_REFERENCE, formatTScoreTable } from './tscore';
@@ -52,7 +70,7 @@ ${colors.dim}    ─────────────────────
  */
 export const PLUGIN_CONFIG = {
   name: 'diverga',
-  version: '8.1.0',
+  version: '10.3.0',
   description: 'Research Coordinator - Multi-agent system for social science research',
 };
 
@@ -99,6 +117,12 @@ export function initialize(context: PluginContext): Plugin {
       },
 
       'tui.prompt.append': (prompt: string) => {
+        // Layer 1: Check for memory keywords first
+        if (detectMemoryKeywords(prompt)) {
+          const memResult = loadMemoryContext();
+          return { append: `\n\n${memResult.context}` };
+        }
+
         // Auto-trigger agent detection
         const detectedAgent = autoTrigger(prompt);
         if (detectedAgent) {
@@ -107,25 +131,50 @@ export function initialize(context: PluginContext): Plugin {
             agent: detectedAgent,
           };
         }
-        return { append: '' };
+
+        // HUD status append
+        const hud = getHUDPromptAppend();
+        return { append: hud };
       },
 
       'session.created': () => {
-        // Inject system prompt additions
+        // Session start message (setup guide if no project)
+        const sessionMsg = getSessionStartMessage();
+        // HUD system prompt injection
+        const hudPrompt = getHUDSystemPrompt();
         return {
-          systemPrompt: getSystemPromptAdditions(),
+          systemPrompt: getSystemPromptAdditions() + hudPrompt,
         };
       },
     },
 
     // Command handlers
     commands: {
+      // Agent & research commands
       'diverga:list': () => listAgents(),
       'diverga:agent': (args) => showAgent(args?.agentId ?? ''),
       'diverga:checkpoint': () => showCheckpoints(),
       'diverga:tscore': () => showTScore(),
       'diverga:context': () => showContext(),
       'diverga:vs': () => showVSMethodology(),
+
+      // HUD commands (Phase 7B)
+      'diverga:hud': () => showHUD(),
+      'diverga:hud-set': (args) => setHUDPreset(args?.preset ?? ''),
+      'diverga:hud-toggle': () => doToggleHUD(),
+
+      // Memory commands (Phase 6B)
+      'diverga:memory': (args) => handleMemoryCommand(args?.action ?? 'status'),
+      'diverga:decisions': () => handleMemoryCommand('decisions'),
+      'diverga:priority': () => handleMemoryCommand('priority'),
+
+      // Setup command (Phase 8A)
+      'diverga:setup': () => getSetupWelcome(),
+      'diverga:agents': () => getAgentCatalog(),
+
+      // Pipeline help commands (Phase 8B/8C)
+      'diverga:humanize': () => getPipelineHelp(),
+      'diverga:review-pipeline': () => getReviewPipelineHelp(),
     },
   };
 }
@@ -328,26 +377,28 @@ ${colors.dim}──────────────────────�
  */
 function getSystemPromptAdditions(): string {
   return `
-# Diverga Research Coordinator v6.0
+# Diverga Research Coordinator v10.3.0
 
-You are enhanced with Diverga - a multi-agent system for social science research.
+You are enhanced with Diverga - a multi-agent system for social science research with 44 specialized agents, VS methodology, and MCP integration.
 
 ## Core Principles
 
 1. **Human decisions remain with humans** - Stop at checkpoints and wait for approval
 2. **VS Methodology** - Always present alternatives with T-Scores, never single recommendations
 3. **Paradigm support** - Quantitative, qualitative, and mixed methods
+4. **Context persistence** - Research state survives across sessions via memory system
 
-## Checkpoint Protocol
+## Checkpoint Enforcement Protocol (MANDATORY)
 
-At REQUIRED checkpoints (🔴):
-1. STOP immediately
-2. Present options with VS alternatives
-3. WAIT for explicit user approval
-4. DO NOT proceed until approval received
+Rule 1: At REQUIRED checkpoints (🔴), STOP immediately and present structured options. Text questions do not satisfy checkpoints.
+Rule 2: Before running an agent, verify all prerequisite checkpoints have been approved. Missing prerequisites must be completed first.
+Rule 3: For ad-hoc agent calls (e.g., /diverga:c5), check prerequisites first, complete missing ones, then execute.
+Rule 4: For parallel multi-agent calls, collect union of all prerequisites, resolve in dependency order, then execute agents.
+Rule 5: REQUIRED checkpoints cannot be skipped under any circumstances.
+Rule 6: Use MCP diverga_check_prerequisites(agent_id) when available. Fallback: read research/decision-log.yaml.
 
 ❌ NEVER: "Proceeding with..." without asking
-✅ ALWAYS: "Which direction would you like? (A/B/C)"
+✅ ALWAYS: Present options and WAIT for explicit selection
 
 ## T-Score Reference
 
@@ -358,13 +409,92 @@ At REQUIRED checkpoints (🔴):
 | 0.2-0.4 | Innovative | 🟠 High |
 | < 0.2 | Experimental | 🔴 Experimental |
 
-## Available Agents (40)
+## Available Agents (44 across 9 categories)
 
-Categories: Research Foundation, Literature & Evidence, Study Design,
-Data Collection, Analysis, Quality & Validation, Publication, Specialized
+A: Foundation (6) | B: Evidence (5) | C: Design & Meta-Analysis (7)
+D: Collection (4) | E: Analysis (5) | F: Quality (5)
+G: Communication (6) | H: Specialized (2) | I: Systematic Review Automation (4)
 
-Use keyword detection to activate appropriate agents automatically.
+## MCP Tools Available
+
+When MCP servers are configured (via opencode.jsonc):
+- **diverga** (16 tools): checkpoint enforcement, memory, project status, agent messaging
+- **journal** (6 tools): journal search, metrics, trends, comparison (OpenAlex + Crossref)
+- **humanizer** (4 tools): AI pattern detection, humanization, verification
+- **context7**: Documentation lookup for SDKs/frameworks
+
+Key MCP tools: diverga_check_prerequisites, diverga_mark_checkpoint, diverga_project_status, diverga_decision_add
+
+## Memory System
+
+3-layer context persistence:
+- Layer 1 (Keyword): "where was I", "이어서" → auto-load context
+- Layer 2 (Agent): auto-inject relevant context when agent triggered
+- Layer 3 (Command): /diverga:memory status|context|decisions|priority
+
+## Pipelines
+
+- **Humanization** (/diverga:humanize): G5→G6→F5 multi-pass pipeline with CP_HUMANIZATION_REVIEW
+- **Systematic Review** (/diverga:review-pipeline): I0→I1→I2→I3 PRISMA 2020 pipeline
+- **Journal Matching** (G1): journal_search→CP_JOURNAL_PRIORITIES→journal_compare→CP_JOURNAL_SELECTION
+
+## Commands
+
+/diverga:list, /diverga:agent <id>, /diverga:checkpoint, /diverga:setup,
+/diverga:memory, /diverga:hud, /diverga:humanize, /diverga:review-pipeline, /diverga:help
 `;
+}
+
+/**
+ * Show HUD status and preset options
+ */
+function showHUD(): string {
+  const hud = renderHUD();
+  const presets = listPresets();
+  const presetList = presets
+    .map(p => `  ${colors.cyan}${p.name}${colors.reset}: ${p.description}`)
+    .join('\n');
+
+  return [
+    `${colors.bright}📊 HUD Status${colors.reset}`,
+    '',
+    hud || `${colors.dim}(HUD disabled or no project)${colors.reset}`,
+    '',
+    `${colors.bright}Available Presets:${colors.reset}`,
+    presetList,
+    '',
+    `${colors.dim}Use diverga:hud-set preset=<name> to change | diverga:hud-toggle to enable/disable${colors.reset}`,
+  ].join('\n');
+}
+
+/**
+ * Set HUD preset
+ */
+function setHUDPreset(preset: string): string {
+  const valid: HUDPreset[] = ['research', 'checkpoint', 'memory', 'minimal'];
+  if (!valid.includes(preset as HUDPreset)) {
+    return `${colors.red}Invalid preset "${preset}".${colors.reset} Valid: ${valid.join(', ')}`;
+  }
+  setPreset(preset as HUDPreset);
+  return `${colors.green}✅ HUD preset set to "${preset}"${colors.reset}\n\n${renderHUD()}`;
+}
+
+/**
+ * Toggle HUD on/off
+ */
+function doToggleHUD(): string {
+  const enabled = toggleHUD();
+  return enabled
+    ? `${colors.green}✅ HUD enabled${colors.reset}\n\n${renderHUD()}`
+    : `${colors.yellow}HUD disabled.${colors.reset} Use diverga:hud-toggle to re-enable.`;
+}
+
+/**
+ * Handle memory commands
+ */
+function handleMemoryCommand(action: string): string {
+  const cmd = parseMemoryCommand(`memory ${action}`) ?? { action: action as any };
+  return executeMemoryCommand(cmd);
 }
 
 // Export for external use

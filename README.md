@@ -20,7 +20,7 @@
               └─────────────────────────────────────────────────┘
 ```
 
-[![Version](https://img.shields.io/badge/version-8.4.0-7c3aed?style=for-the-badge&logo=semantic-release&logoColor=white)](https://github.com/HosungYou/Diverga)
+[![Version](https://img.shields.io/badge/version-10.3.1-7c3aed?style=for-the-badge&logo=semantic-release&logoColor=white)](https://github.com/HosungYou/Diverga)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-FF6B00?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.ai/code)
 [![Codex CLI](https://img.shields.io/badge/Codex_CLI-Support-412991?style=for-the-badge&logo=openai&logoColor=white)](docs/DESIGN_SYSTEM.md)
 [![OpenCode](https://img.shields.io/badge/OpenCode-Plugin-0969da?style=for-the-badge&logo=github&logoColor=white)](docs/DESIGN_SYSTEM.md)

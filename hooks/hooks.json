@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/hosung/.claude/plugins/diverga/hooks/checkpoint-enforcer.mjs",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /Users/hosung/.claude/plugins/diverga/hooks/skill-interceptor.mjs",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

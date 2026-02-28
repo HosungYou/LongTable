@@ -1,0 +1,22 @@
+{
+  // Diverga MCP Server Configuration for OpenCode
+  // These servers provide checkpoint enforcement, memory, journal intelligence, and more.
+  "mcp": {
+    "diverga": {
+      "type": "local",
+      "command": ["node", ".opencode/plugins/diverga/mcp/diverga-server.js"]
+    },
+    "journal": {
+      "type": "local",
+      "command": ["node", ".opencode/plugins/diverga/mcp/journal-server.js"]
+    },
+    "humanizer": {
+      "type": "local",
+      "command": ["uvx", "--from", "git+https://github.com/HosungYou/humanizer.git", "humanizer-mcp"]
+    },
+    "context7": {
+      "type": "local",
+      "command": ["npx", "-y", "@upstash/context7-mcp"]
+    }
+  }
+}

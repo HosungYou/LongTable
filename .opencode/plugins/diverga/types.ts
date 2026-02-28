@@ -16,6 +16,10 @@ export interface PluginContext {
   logger: Logger;
   /** State manager */
   state: StateManager;
+  /** MCP client (optional, available when MCP servers configured) */
+  mcp?: {
+    call(tool: string, args: Record<string, unknown>): Promise<unknown>;
+  };
 }
 
 /**
@@ -139,7 +143,6 @@ export interface AgentInfo {
     context?: string[];
   };
   checkpoints?: string[];
-  prerequisites?: string[];  // Required checkpoints before agent can start
 }
 
 /**

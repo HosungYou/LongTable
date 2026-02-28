@@ -67,6 +67,11 @@ const KEYWORD_TRIGGERS: Array<{
     agentId: 'B4',
     priority: 3,
   },
+  {
+    keywords: ['batch pdf', 'parallel reading', 'multiple documents', 'large files', 'document extraction', 'pdf 일괄 처리', '병렬 처리'],
+    agentId: 'B5',
+    priority: 2,
+  },
 
   // Category C: Study Design
   {
@@ -85,29 +90,44 @@ const KEYWORD_TRIGGERS: Array<{
     priority: 1,
   },
   {
+    keywords: ['intervention materials', 'experimental materials', 'treatment design', 'manipulation check', '중재 자료', '실험 자료 개발'],
+    agentId: 'C4',
+    priority: 2,
+  },
+  {
     keywords: ['meta-analysis', '메타분석', 'masem', 'pooled effect', 'heterogeneity'],
     agentId: 'C5',
     priority: 1,
   },
+  {
+    keywords: ['data extraction', 'pdf extract', 'extract data', 'data integrity', '데이터 추출', 'pdf 추출', '자료 추출'],
+    agentId: 'C6',
+    priority: 2,
+  },
+  {
+    keywords: ['error prevention', 'anomaly detection', 'data check', '오류 방지', '검증', '데이터 확인'],
+    agentId: 'C7',
+    priority: 2,
+  },
 
   // Category D: Data Collection
   {
-    keywords: ['sampling', 'sample size', '표본', 'participant selection'],
+    keywords: ['sampling', 'sample size', 'g*power', 'recruitment', 'theoretical sampling', '표집', '표본 크기', '샘플링'],
     agentId: 'D1',
     priority: 2,
   },
   {
-    keywords: ['interview', 'focus group', '면담', '초점집단', 'interview protocol'],
+    keywords: ['interview', 'focus group', 'interview protocol', 'probing questions', '인터뷰', '면담', '포커스 그룹'],
     agentId: 'D2',
     priority: 2,
   },
   {
-    keywords: ['observation', 'field notes', '관찰', 'observation protocol'],
+    keywords: ['observation', 'field notes', 'observational study', '관찰', '관찰 프로토콜', '현장 관찰'],
     agentId: 'D3',
     priority: 3,
   },
   {
-    keywords: ['scale development', 'instrument', 'measurement', '척도 개발', 'validity'],
+    keywords: ['instrument', 'scale development', 'reliability', 'validity', '측정 도구', '척도 개발'],
     agentId: 'D4',
     priority: 2,
   },
@@ -133,61 +153,103 @@ const KEYWORD_TRIGGERS: Array<{
     agentId: 'E4',
     priority: 3,
   },
+  {
+    keywords: ['sensitivity analysis', 'robustness check', 'leave-one-out', '민감도 분석', '강건성 검증'],
+    agentId: 'E5',
+    priority: 2,
+  },
 
   // Category F: Quality & Validation
   {
-    keywords: ['consistency check', '일관성', 'alignment verification'],
+    keywords: ['consistency check', 'internal consistency', 'alignment verification', '일관성 검토', '내적 일관성'],
     agentId: 'F1',
     priority: 3,
   },
   {
-    keywords: ['consort', 'strobe', 'coreq', 'checklist', '보고 지침'],
+    keywords: ['consort', 'strobe', 'coreq', 'checklist', 'reporting guideline', '체크리스트', '보고 지침'],
     agentId: 'F2',
     priority: 3,
   },
   {
-    keywords: ['osf', 'open science', 'reproducibility', '재현성'],
+    keywords: ['osf', 'open science', 'reproducibility', 'replication', '재현성', '반복가능성'],
     agentId: 'F3',
     priority: 3,
   },
   {
-    keywords: ['bias detection', 'trustworthiness', 'p-hacking', '편향'],
+    keywords: ['bias detection', 'trustworthiness', 'p-hacking', 'harking', 'qrp', '편향 탐지', '신뢰성'],
     agentId: 'F4',
     priority: 2,
   },
-
-  // Category G: Publication
   {
-    keywords: ['journal selection', 'impact factor', '저널 선택', 'where to publish'],
+    keywords: ['verify humanization', 'check transformation', 'validate changes', 'humanization verify', 'ai text check', '휴먼화 검증', 'ai 텍스트 확인'],
+    agentId: 'F5',
+    priority: 3,
+  },
+
+  // Category G: Publication & Communication
+  {
+    keywords: ['journal match', 'journal selection', 'impact factor', 'where to publish', 'target journal', '저널 매칭', '투고처', '학술지'],
     agentId: 'G1',
     priority: 3,
   },
   {
-    keywords: ['abstract', 'plain language', '초록', 'summary'],
+    keywords: ['abstract', 'plain language', 'academic writing', 'manuscript', '학술 글쓰기', '논문 작성', '초록'],
     agentId: 'G2',
     priority: 3,
   },
   {
-    keywords: ['reviewer response', 'peer review', 'revision', '리뷰어 대응'],
+    keywords: ['reviewer response', 'peer review', 'revision', '리뷰어 대응', '동료 심사'],
     agentId: 'G3',
     priority: 2,
   },
   {
-    keywords: ['pre-registration', 'aspredicted', '사전등록'],
+    keywords: ['preregistration', 'pre-registration', 'aspredicted', 'registered report', '사전등록'],
     agentId: 'G4',
     priority: 3,
+  },
+  {
+    keywords: ['ai pattern', 'check ai writing', 'style audit', 'ai probability', 'ai 패턴', 'ai 글쓰기 검토'],
+    agentId: 'G5',
+    priority: 2,
+  },
+  {
+    keywords: ['humanize', 'humanization', 'natural writing', 'reduce ai patterns', '휴먼화', '자연스러운 글쓰기'],
+    agentId: 'G6',
+    priority: 2,
   },
 
   // Category H: Specialized
   {
-    keywords: ['ethnography', 'fieldwork', '문화기술지', 'participant observation'],
+    keywords: ['ethnography', 'fieldwork', '문화기술지', 'participant observation', '민족지학', '현장연구'],
     agentId: 'H1',
     priority: 1,
   },
   {
-    keywords: ['action research', 'par', 'cbpr', '실행연구'],
+    keywords: ['action research', 'par', 'cbpr', 'participatory', '실행연구', '참여적 연구'],
     agentId: 'H2',
     priority: 1,
+  },
+
+  // Category I: Systematic Review Automation
+  {
+    keywords: ['systematic review automation', 'prisma pipeline', 'literature review automation', '체계적 문헌고찰', '프리즈마', '문헌고찰 자동화'],
+    agentId: 'I0',
+    priority: 1,
+  },
+  {
+    keywords: ['fetch papers', 'retrieve papers', 'database search', '논문 수집', '데이터베이스 검색', '논문 검색'],
+    agentId: 'I1',
+    priority: 2,
+  },
+  {
+    keywords: ['screen papers', 'inclusion criteria', 'ai screening', 'prisma screening', '논문 스크리닝', '선별', '포함 기준'],
+    agentId: 'I2',
+    priority: 2,
+  },
+  {
+    keywords: ['build rag', 'vector database', 'pdf download', 'rag 구축', 'pdf 다운로드', '벡터 db'],
+    agentId: 'I3',
+    priority: 3,
   },
 ];
 

@@ -3,5 +3,6 @@
   "version": "10.3.0",
   "description": "AI Research Assistant - 44 specialized agents with VS methodology, human checkpoints, and parallel execution",
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.mcp.json",
+  "hooks": "./hooks/hooks.json"
 }

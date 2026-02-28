@@ -4,6 +4,103 @@ All notable changes to Diverga (formerly Research Coordinator) will be documente
 
 ---
 
+## [10.3.1] - 2026-02-28 (Platform Hook Enforcement + OpenCode Full Parity)
+
+### Overview
+
+**Diverga v10.3.1** — Platform-level hook-based checkpoint enforcement for Claude Code and full feature parity for OpenCode. Previously, checkpoints were only enforced when the research-coordinator was invoked; direct agent calls (e.g., `Task(subagent_type="diverga:c1")`) could bypass checkpoints entirely. This release adds PreToolUse hooks that intercept every agent call at the platform level, checking prerequisites via a shared utility backed by the SSoT (`agent-prerequisite-map.json`). Soft block pattern: always `continue: true` with warning injection.
+
+### New Features
+
+- **Claude Code PreToolUse Hooks**: Platform-level hook enforcement via `hooks/hooks.json`:
+  - `checkpoint-enforcer.mjs`: Intercepts `Task` tool calls with `diverga:*` subagent_type, checks prerequisites, injects soft-block warnings
+  - `skill-interceptor.mjs`: Same pattern for `Skill` tool calls (e.g., `/diverga:c1`)
+  - Always returns `continue: true` — soft block, never hard block
+- **Shared Prerequisite Checker** (`mcp/lib/prereq-checker.mjs`):
+  - `checkAgentPrereqs(agentId, researchDir)`: Normalize ID → load prereqs from SSoT → check YAML state → classify REQUIRED/RECOMMENDED/OPTIONAL
+  - `formatWarningMessage(result)`: Generate structured warning text
+  - Used by both Claude Code hooks and OpenCode hooks
+- **Checkpoint Lazy Init** (`mcp/lib/checkpoint-logic.js`):
+  - When both `checkpoints.yaml` and `decision-log.yaml` are absent, creates skeleton with all REQUIRED checkpoints as `pending`
+  - Returns `first_run: true` flag — "missing = initialize then block" instead of "missing = pass"
+- **OpenCode Full Feature Parity**:
+  - **44 agents registered** (was 21) — all categories A-I complete
+  - **MCP-first checkpoint enforcement** with local fallback in `checkpoint-enforcer.ts`
+  - **Soft block pattern**: `{ proceed: true, message: "⚠️ ..." }` instead of hard blocks
+  - **3-layer memory system** (`memory.ts`): keyword auto-detection, agent context injection, explicit commands
+  - **HUD system** (`hud.ts`): 4 presets (research/checkpoint/memory/minimal), system prompt injection
+  - **Setup wizard** (`setup.ts`): project detection, directory creation, MCP connectivity check
+  - **Humanization pipeline** (`humanize-pipeline.ts`): G5→G6→F5 orchestration with 4 modes
+  - **Review pipeline** (`review-pipeline.ts`): I0→I1→I2→I3 PRISMA 2020 pipeline
+  - **49 keyword triggers** in auto-trigger.ts (English + Korean)
+  - **MCP server configuration** via `opencode.jsonc` (4 servers: diverga, journal, humanizer, context7)
+  - **oh-my-opencode.json** with all 44 agent triggers and 7 commands
+
+### Breaking Changes
+
+- OpenCode `checkpoint-enforcer.ts` now always returns `proceed: true` (was `proceed: false` for REQUIRED). Enforcement relies on warning injection + LLM compliance.
+- `AGENT_PREREQUISITES` in checkpoint-enforcer.ts replaced with JSON import from `agent-prerequisite-map.json`.
+
+### New Files
+
+| File | Description |
+|------|-------------|
+| `hooks/hooks.json` | Claude Code PreToolUse hook configuration |
+| `hooks/checkpoint-enforcer.mjs` | Task tool interceptor (~69 lines) |
+| `hooks/skill-interceptor.mjs` | Skill tool interceptor (~58 lines) |
+| `mcp/lib/prereq-checker.mjs` | Shared prerequisite checker (~115 lines) |
+| `.opencode/opencode.jsonc` | OpenCode MCP server configuration |
+| `.opencode/plugins/diverga/hooks/memory.ts` | 3-layer memory system (~197 lines) |
+| `.opencode/plugins/diverga/hooks/hud.ts` | HUD system (~163 lines) |
+| `.opencode/plugins/diverga/hooks/setup.ts` | Setup wizard (~165 lines) |
+| `.opencode/plugins/diverga/hooks/humanize-pipeline.ts` | G5→G6→F5 pipeline (~121 lines) |
+| `.opencode/plugins/diverga/hooks/review-pipeline.ts` | I0→I1→I2→I3 pipeline (~137 lines) |
+
+### Modified Files
+
+| File | Changes |
+|------|---------|
+| `.claude-plugin/plugin.json` | Added `hooks` field pointing to `hooks/hooks.json` |
+| `mcp/lib/checkpoint-logic.js` | Added lazy init block (~20 lines) |
+| `scripts/install-opencode.sh` | 4-step installer with MCP server copy + config deployment |
+| `.opencode/oh-my-opencode.json` | 44 triggers, 7 commands, v10.3.1, soft enforcement |
+| `.opencode/plugins/diverga/agents.ts` | 44 agents (added 23 missing: B5, C4, C6-C7, D1-D4, E5, F1-F5, G1-G2, G4-G6, I0-I3) |
+| `.opencode/plugins/diverga/hooks/checkpoint-enforcer.ts` | MCP-first + JSON import + soft block |
+| `.opencode/plugins/diverga/hooks/auto-trigger.ts` | 49 trigger entries for 44 agents |
+| `.opencode/plugins/diverga/hooks/context-manager.ts` | js-yaml library + hydrateContext() |
+| `.opencode/plugins/diverga/index.ts` | 17 new commands, memory/HUD/pipeline imports, v10.3.1 system prompt |
+| `.opencode/plugins/diverga/package.json` | v10.3.1, js-yaml dependency |
+| `.opencode/plugins/diverga/tsconfig.json` | resolveJsonModule, outDir, no DOM lib |
+| `.opencode/plugins/diverga/types.ts` | Added `mcp` property to PluginContext |
+
+### Hook Enforcement Architecture
+
+```
+Claude Code:
+  User → Task("diverga:c1") → PreToolUse Hook
+    → checkpoint-enforcer.mjs → prereq-checker.mjs
+    → { continue: true, additionalContext: "⚠️ Missing CP_PARADIGM_SELECTION" }
+
+OpenCode:
+  User → keyword trigger → tool.execute.before
+    → checkpoint-enforcer.ts → MCP diverga_check_prerequisites
+    → { proceed: true, message: "⚠️ Missing CP_PARADIGM_SELECTION" }
+
+Shared SSoT: agent-prerequisite-map.json
+Shared State: research/checkpoints.yaml + research/decision-log.yaml
+```
+
+### Metrics
+
+- **New files**: 10
+- **Modified files**: 12
+- **Lines added**: ~2,200
+- **Lines modified**: ~500
+- **TypeScript compilation**: Zero errors
+- **Hook tests**: All scenarios pass (soft block, pass-through, entry-point)
+
+---
+
 ## [10.3.0] - 2026-02-23 (Journal Intelligence MCP + G1 Pipeline)
 
 ### Overview
