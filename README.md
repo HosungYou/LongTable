@@ -240,7 +240,7 @@ WITH VS (Diverga):
 | **F: Quality & Validation** | 1 | Humanization verification | Haiku |
 | **G: Publication & Communication** | 4 | Journal matching, writing, humanization | Mixed |
 | **I: Systematic Review** | 4 | PRISMA pipeline, paper retrieval, screening, RAG | Mixed |
-| **X: Cross-Cutting** | 1 | Research integrity, ethics oversight | Opus |
+| **X: Cross-Cutting** | 1 | Research integrity, ethics oversight | Sonnet |
 
 ### Agent Prerequisite Map
 
@@ -266,7 +266,7 @@ Task(subagent_type="diverga:a1", prompt="Refine my research question...")
 # Parallel execution (single message, multiple Tasks)
 Task(subagent_type="diverga:b1", prompt="Literature search...")
 Task(subagent_type="diverga:b2", prompt="Quality appraisal...")
-Task(subagent_type="diverga:b3", prompt="Effect size extraction...")
+Task(subagent_type="diverga:c5", prompt="Meta-analysis orchestration...")
 ```
 
 ### Full Agent Registry
@@ -363,7 +363,7 @@ Task(subagent_type="diverga:b3", prompt="Effect size extraction...")
 
 | Agent | Model | Purpose |
 |-------|-------|---------|
-| X1-research-guardian | Opus | Research integrity, ethics oversight, quality assurance |
+| X1-research-guardian | Sonnet | Research integrity, ethics oversight, quality assurance |
 
 </details>
 

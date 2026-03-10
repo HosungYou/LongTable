@@ -173,7 +173,7 @@ jobs:
 
       - name: Verify expected skill count
         run: |
-          EXPECTED_COUNT=51
+          EXPECTED_COUNT=34
           ACTUAL_COUNT=$(find skills -name "SKILL.md" | wc -l | tr -d ' ')
 
           echo "Expected skills: $EXPECTED_COUNT"

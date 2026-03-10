@@ -12,28 +12,31 @@ assignees: ''
 
 ## Agent Involved
 
-- [ ] Master Coordinator
-- [ ] #01 Research Question Refiner
-- [ ] #02 Theoretical Framework Architect
-- [ ] #03 Devil's Advocate
-- [ ] #04 Research Ethics Advisor
-- [ ] #05 Systematic Literature Scout
-- [ ] #06 Evidence Quality Appraiser
-- [ ] #07 Effect Size Extractor
-- [ ] #08 Research Radar
-- [ ] #09 Research Design Consultant
-- [ ] #10 Statistical Analysis Guide
-- [ ] #11 Analysis Code Generator
-- [ ] #12 Sensitivity Analysis Designer
-- [ ] #13 Internal Consistency Checker
-- [ ] #14 Checklist Manager
-- [ ] #15 Reproducibility Auditor
-- [ ] #16 Bias Detector
-- [ ] #17 Journal Matcher
-- [ ] #18 Academic Communicator
-- [ ] #19 Peer Review Strategist
-- [ ] #20 Preregistration Composer
-- [ ] #21 Conceptual Framework Visualizer
+- [ ] Research Coordinator (Orchestrator)
+- [ ] A1 Research Question Refiner
+- [ ] A2 Theory & Critique Architect
+- [ ] A5 Paradigm Advisor
+- [ ] B1 Literature Scout
+- [ ] B2 Quality Appraiser
+- [ ] C1 Quantitative Design & Sampling
+- [ ] C2 Qualitative Design (Ethnography/AR)
+- [ ] C3 Mixed Methods Design
+- [ ] C5 Meta-Analysis Master
+- [ ] D2 Data Collection Specialist
+- [ ] D4 Instrument Developer
+- [ ] E1 Quantitative Analysis & Code Gen
+- [ ] E2 Qualitative Coding
+- [ ] E3 Mixed Methods Integration
+- [ ] F5 Humanization Verifier
+- [ ] G1 Journal Matcher
+- [ ] G2 Publication Specialist
+- [ ] G5 Academic Style Auditor
+- [ ] G6 Academic Style Humanizer
+- [ ] I0 SR Pipeline Orchestrator
+- [ ] I1 Paper Retrieval
+- [ ] I2 Screening Assistant
+- [ ] I3 RAG Builder
+- [ ] X1 Research Guardian
 - [ ] Other / Unknown
 
 ## Steps to Reproduce

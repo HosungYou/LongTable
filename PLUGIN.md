@@ -65,8 +65,8 @@ Do NOT add explicit `skills` key in marketplace.json.
 | Setup | `/diverga:setup` | Initial configuration wizard |
 | Help | `/diverga:help` | Agent list and usage guide |
 | Memory | `/diverga:memory` | Context persistence for research lifecycle |
-| Meta-Analysis | `/diverga:meta-analysis` | Meta-analysis workflow (C5+C6+C7) |
-| PDF Extraction | `/diverga:pdf-extract` | Extract data from PDFs (C6) |
+| Meta-Analysis | `/diverga:meta-analysis` | Meta-analysis workflow (C5) |
+| PDF Extraction | `/diverga:pdf-extract` | Extract data from PDFs (C5) |
 
 ---
 
@@ -100,7 +100,7 @@ Do NOT add explicit `skills` key in marketplace.json.
 
 | Agent | Command | Description | Model |
 |-------|---------|-------------|-------|
-| D2-InterviewFocusGroupSpecialist | `diverga:d2` | Interview/focus group design | sonnet |
+| D2-DataCollectionSpecialist | `diverga:d2` | Interview/focus group design | sonnet |
 | D4-MeasurementInstrumentDeveloper | `diverga:d4` | Instrument development | opus |
 
 ### Category E: Analysis (3 agents)
@@ -122,7 +122,7 @@ Do NOT add explicit `skills` key in marketplace.json.
 | Agent | Command | Description | Model |
 |-------|---------|-------------|-------|
 | G1-JournalMatcher | `diverga:g1` | Match journals to manuscripts | sonnet |
-| G2-AcademicCommunicator | `diverga:g2` | Academic writing support | sonnet |
+| G2-PublicationSpecialist | `diverga:g2` | Academic writing support | sonnet |
 | G5-AcademicStyleAuditor | `diverga:g5` | Audit academic style | sonnet |
 | G6-AcademicStyleHumanizer | `diverga:g6` | Humanize AI-generated text | opus |
 
@@ -139,7 +139,7 @@ Do NOT add explicit `skills` key in marketplace.json.
 
 | Agent | Command | Description | Model |
 |-------|---------|-------------|-------|
-| X1-ResearchGuardian | `diverga:x1` | Research integrity, ethics oversight, quality assurance | opus |
+| X1-ResearchGuardian | `diverga:x1` | Research integrity, ethics oversight, quality assurance | sonnet |
 
 ---
 
@@ -151,10 +151,10 @@ Diverga automatically detects keywords and activates appropriate agents:
 |-------------------|-------------------|-------|
 | "research question", "RQ" | "연구 질문", "연구문제" | diverga:a1 |
 | "theoretical framework" | "이론적 프레임워크" | diverga:a2 |
-| "devil's advocate", "critique" | "반론", "비판적 검토" | diverga:a3 |
-| "IRB", "ethics" | "연구 윤리", "IRB" | diverga:a4 |
+| "devil's advocate", "critique" | "반론", "비판적 검토" | diverga:a2 |
+| "IRB", "ethics" | "연구 윤리", "IRB" | diverga:a2 |
 | "meta-analysis", "effect size" | "메타분석", "효과크기" | diverga:c5 |
-| "data extraction", "PDF extract" | "데이터 추출", "PDF 추출" | diverga:c6 |
+| "data extraction", "PDF extract" | "데이터 추출", "PDF 추출" | diverga:c5 |
 | "systematic review", "PRISMA" | "체계적 문헌고찰" | diverga:b1 |
 | "qualitative", "interview" | "질적 연구", "인터뷰" | diverga:c2 |
 
@@ -177,10 +177,8 @@ Task(
 Task(subagent_type="diverga:b1", model="sonnet", prompt="Literature search...")
 Task(subagent_type="diverga:b2", model="sonnet", prompt="Quality appraisal...")
 
-# Sequential pipeline (dependent tasks)
-# 1. First: C5 orchestration
-# 2. Then: C6 extraction
-# 3. Finally: C7 validation
+# Sequential pipeline (C5 handles orchestration, extraction, and validation)
+Task(subagent_type="diverga:c5", model="opus", prompt="Full meta-analysis pipeline...")
 ```
 
 ### Model Routing
@@ -194,8 +192,8 @@ Task(subagent_type="diverga:b2", model="sonnet", prompt="Quality appraisal...")
 ### Agent-Model Mapping
 
 ```
-opus:   A1, A2, A5, C1, C2, C3, C5, D4, E1, E2, E3, G6, I0, X1
-sonnet: B1, B2, D2, G1, G2, G5, I1, I2
+opus:   A1, A2, A5, C1, C2, C3, C5, D4, E1, E2, E3, G6, I0
+sonnet: B1, B2, D2, G1, G2, G5, I1, I2, X1
 haiku:  F5, I3
 ```
 
@@ -207,7 +205,7 @@ Configuration file: `~/.claude/plugins/diverga/config/diverga-config.json`
 
 ```json
 {
-  "version": "8.4.0",
+  "version": "11.0.0",
   "human_checkpoints": {
     "enabled": true,
     "required": ["CP_PARADIGM", "CP_METHODOLOGY"]

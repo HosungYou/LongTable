@@ -50,32 +50,25 @@ The system will:
 
 ---
 
-## Agent Overview (44 Agents, 9 Categories)
+## Agent Overview (24 Agents, 9 Categories)
 
 | ID | Display Name | Cat | Model | ID | Display Name | Cat | Model |
 |----|-------------|-----|-------|----|-------------|-----|-------|
-| A1 | ResearchQuestionRefiner | A | opus | E1 | QuantitativeAnalysisGuide | E | opus |
-| A2 | TheoreticalFrameworkArchitect | A | opus | E2 | QualitativeCodingSpecialist | E | opus |
-| A3 | DevilsAdvocate | A | opus | E3 | MixedMethodsIntegration | E | opus |
-| A4 | ResearchEthicsAdvisor | A | sonnet | E4 | AnalysisCodeGenerator | E | haiku |
-| A5 | ParadigmWorldviewAdvisor | A | opus | E5 | SensitivityAnalysisDesigner | E | sonnet |
-| A6 | ConceptualFrameworkVisualizer | A | sonnet | F1 | InternalConsistencyChecker | F | haiku |
-| B1 | SystematicLiteratureScout | B | sonnet | F2 | ChecklistManager | F | haiku |
-| B2 | EvidenceQualityAppraiser | B | sonnet | F3 | ReproducibilityAuditor | F | sonnet |
-| B3 | EffectSizeExtractor | B | haiku | F4 | BiasTrustworthinessDetector | F | sonnet |
-| B4 | ResearchRadar | B | haiku | F5 | HumanizationVerifier | F | haiku |
-| B5 | ParallelDocumentProcessor | B | opus | G1 | JournalMatcher | G | sonnet |
-| C1 | QuantitativeDesignConsultant | C | opus | G2 | AcademicCommunicator | G | sonnet |
-| C2 | QualitativeDesignConsultant | C | opus | G3 | PeerReviewStrategist | G | sonnet |
-| C3 | MixedMethodsDesignConsultant | C | opus | G4 | PreregistrationComposer | G | sonnet |
-| C4 | ExperimentalMaterialsDeveloper | C | sonnet | G5 | AcademicStyleAuditor | G | sonnet |
-| C5 | MetaAnalysisMaster | C | opus | G6 | AcademicStyleHumanizer | G | opus |
-| C6 | DataIntegrityGuard | C | sonnet | H1 | EthnographicResearchAdvisor | H | opus |
-| C7 | ErrorPreventionEngine | C | sonnet | H2 | ActionResearchFacilitator | H | opus |
-| D1 | SamplingStrategyAdvisor | D | sonnet | I0 | ReviewPipelineOrchestrator | I | opus |
-| D2 | InterviewFocusGroupSpecialist | D | sonnet | I1 | PaperRetrievalAgent | I | sonnet |
-| D3 | ObservationProtocolDesigner | D | haiku | I2 | ScreeningAssistant | I | sonnet |
-| D4 | MeasurementInstrumentDeveloper | D | opus | I3 | RAGBuilder | I | haiku |
+| A1 | ResearchQuestionRefiner | A | opus | G1 | JournalMatcher | G | sonnet |
+| A2 | TheoryAndCritiqueArchitect | A | opus | G2 | PublicationSpecialist | G | sonnet |
+| A5 | ParadigmAdvisor | A | opus | G5 | AcademicStyleAuditor | G | sonnet |
+| B1 | LiteratureScout | B | sonnet | G6 | AcademicStyleHumanizer | G | opus |
+| B2 | QualityAppraiser | B | sonnet | I0 | SRPipelineOrchestrator | I | opus |
+| C1 | QuantitativeDesignAndSampling | C | opus | I1 | PaperRetrieval | I | sonnet |
+| C2 | QualitativeDesign | C | opus | I2 | ScreeningAssistant | I | sonnet |
+| C3 | MixedMethodsDesign | C | opus | I3 | RAGBuilder | I | haiku |
+| C5 | MetaAnalysisMaster | C | opus | X1 | ResearchGuardian | X | sonnet |
+| D2 | DataCollectionSpecialist | D | sonnet | | | | |
+| D4 | InstrumentDeveloper | D | opus | | | | |
+| E1 | QuantitativeAnalysisAndCodeGen | E | opus | | | | |
+| E2 | QualitativeCoding | E | opus | | | | |
+| E3 | MixedMethodsIntegration | E | opus | | | | |
+| F5 | HumanizationVerifier | F | haiku | | | | |
 
 ### Model Routing
 
@@ -89,15 +82,15 @@ The system will:
 
 | Cat | Name | Count | Core Function |
 |-----|------|-------|---------------|
-| A | Foundation | 6 | Research questions, theory, paradigm |
-| B | Evidence | 5 | Search strategy, quality appraisal |
-| C | Design & Meta-Analysis | 7 | Quant/qual/mixed design, meta-analysis |
-| D | Data Collection | 4 | Data collection, instrument development |
-| E | Analysis | 5 | Statistical, qualitative, mixed analysis |
-| F | Quality | 5 | Consistency, reproducibility, humanization verification |
-| G | Communication | 6 | Journal, writing, humanization |
-| H | Specialized | 2 | Ethnography, action research |
-| I | SR Pipeline | 4 | Systematic review automation |
+| A | Research Foundation | 3 | Research questions, theory, paradigm |
+| B | Literature & Evidence | 2 | Literature search, quality appraisal |
+| C | Study Design | 4 | Quant/qual/mixed design, meta-analysis |
+| D | Data Collection | 2 | Interviews, instrument development |
+| E | Analysis | 3 | Statistical, qualitative, mixed analysis |
+| F | Quality & Validation | 1 | Humanization verification |
+| G | Publication & Communication | 4 | Journal, writing, humanization |
+| I | Systematic Review | 4 | Systematic review automation |
+| X | Cross-Cutting | 1 | Research integrity, ethics oversight |
 
 Full details: `docs/AGENT-REFERENCE.md`
 Trigger keywords: `docs/AGENT-TRIGGERS.md`
@@ -294,7 +287,7 @@ Confirmation always required via CP_PARADIGM_SELECTION.
 |--------|---------------|
 | State | SQLite WAL mode (YAML fallback) |
 | Hooks | prereq-enforcer.mjs (unified) |
-| Config | config/agents.json (44 agents) |
+| Config | config/agents.json (24 agents) |
 | MCP | diverga-server.js (16 tools) + journal-server.js (6 tools) |
 | Memory | 3-layer context with cross-session persistence |
 
