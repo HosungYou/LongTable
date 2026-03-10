@@ -5,7 +5,7 @@ description: |
   Handles rate limiting, deduplication, and PDF URL extraction
   Use when: fetching papers, searching databases, paper retrieval
   Triggers: fetch papers, retrieve papers, database search, Semantic Scholar, OpenAlex, arXiv
-version: "10.3.0"
+version: "11.0.0"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)
@@ -49,12 +49,52 @@ Executes multi-database paper retrieval for systematic literature reviews. Queri
 | **Scopus** | `SCOPUS_API_KEY` | Comprehensive metadata |
 | **Web of Science** | `WOS_API_KEY` | Citation data |
 
+### Social Science Databases (Recommended for Social Science Research)
+
+| Database | Access | Coverage | Best For |
+|----------|--------|----------|----------|
+| **ERIC** | Free API (IES) | 1.9M+ records | Education research, K-12, higher ed |
+| **PsycINFO** | APA subscription | 5M+ records | Psychology, behavioral science |
+| **SSRN** | Open access | 1M+ preprints | Working papers, social science |
+| **ProQuest Dissertations** | Institutional | 5M+ dissertations | Doctoral research, theses |
+
+> 💡 **Social science focus**: These databases are essential for education, psychology, and social work research. ERIC and SSRN are freely accessible. PsycINFO and ProQuest require institutional access.
+
+#### API Key Configuration
+
+| Database | API Key Env | Coverage | Primary Discipline |
+|----------|-------------|----------|-------------------|
+| **ERIC** | `ERIC_API_KEY` | Education research | Education |
+| **PsycINFO** (via APA PsycNET) | `PSYCINFO_API_KEY` | Psychology & behavioral sciences | Psychology |
+| **SSRN** | — (open access) | Social science preprints | Multi-discipline |
+| **ProQuest** | `PROQUEST_API_KEY` | Dissertations & theses | Multi-discipline |
+
+#### ERIC API Integration Example
+
+```bash
+# ERIC API (free, no key required for basic search)
+curl "https://api.ies.ed.gov/eric/?search=meta-analysis+education+technology&format=json&rows=50"
+```
+
+ERIC fields: title, author, source, publicationdateyear, description, subject, peerreviewed
+
+### Database Selection Guide
+
+| Research Area | Recommended Databases |
+|--------------|----------------------|
+| Education | ERIC + Semantic Scholar + OpenAlex |
+| Psychology | PsycINFO + Semantic Scholar + OpenAlex |
+| Social Work | Semantic Scholar + OpenAlex + SSRN |
+| Interdisciplinary | OpenAlex + Semantic Scholar + ERIC + PsycINFO |
+| STEM crossover | arXiv + Semantic Scholar + OpenAlex |
+| Dissertations | ProQuest + OpenAlex |
+
 ## Input Schema
 
 ```yaml
 Required:
   - query: "string"
-  - databases: "list[enum[semantic_scholar, openalex, arxiv, scopus, wos]]"
+  - databases: "list[enum[semantic_scholar, openalex, arxiv, scopus, wos, eric, psycinfo, ssrn, proquest]]"
 
 Optional:
   - year_range: "list[int, int]"
@@ -96,6 +136,12 @@ Before executing queries, I1 MUST:
    - Scopus (SCOPUS_API_KEY: {status})
    - Web of Science (WOS_API_KEY: {status})
 
+   📚 Social Science:
+   - ERIC (free, education research)
+   - PsycINFO (PSYCINFO_API_KEY: {status})
+   - SSRN (open access, preprints)
+   - ProQuest Dissertations (PROQUEST_API_KEY: {status})
+
    Which databases would you like to query?
    ```
 
@@ -112,6 +158,10 @@ After database selection, I1 MUST validate API keys:
    - arXiv: No key needed
    - Scopus: `SCOPUS_API_KEY` (required if selected)
    - Web of Science: `WOS_API_KEY` (required if selected)
+   - ERIC: `ERIC_API_KEY` (optional, basic search is free)
+   - PsycINFO: `PSYCINFO_API_KEY` (required if selected)
+   - SSRN: No key needed
+   - ProQuest: `PROQUEST_API_KEY` (required if selected)
 
 2. **IF** any selected database requires a missing key:
    → Call AskUserQuestion with SCH_API_KEY_VALIDATION template

@@ -225,7 +225,7 @@ export function createSqliteServers(dbPath, prereqMap) {
     };
   }
 
-  function cpMarkCheckpoint(cpId, decision, rationale) {
+  function cpMarkCheckpoint(cpId, decision, rationale, tScoreFeedback = null) {
     const level = CHECKPOINT_LEVELS[cpId] || 'UNKNOWN';
     const now = new Date().toISOString();
 
@@ -238,6 +238,13 @@ export function createSqliteServers(dbPath, prereqMap) {
       completed_at: now,
     });
 
+    // Build context JSON with optional T-Score feedback
+    const contextObj = {};
+    if (tScoreFeedback != null) {
+      contextObj.t_score_feedback = tScoreFeedback;
+    }
+    const contextStr = Object.keys(contextObj).length > 0 ? JSON.stringify(contextObj) : null;
+
     // Also record as a decision
     const decisionId = _nextDecisionId();
     stmts.insertDecision.run({
@@ -245,7 +252,7 @@ export function createSqliteServers(dbPath, prereqMap) {
       checkpoint_id: cpId,
       selected: decision,
       rationale: rationale ?? null,
-      context: null,
+      context: contextStr,
       version: 1,
       timestamp: now,
     });
@@ -285,10 +292,87 @@ export function createSqliteServers(dbPath, prereqMap) {
     return { passed, pending, blocked, total_decisions: cnt };
   }
 
+  function cpGetTscoreFeedback(options = {}) {
+    const { checkpointId, methodology } = options;
+    let rows = stmts.listAllDecisions.all();
+
+    // Filter by checkpoint if specified
+    if (checkpointId) {
+      rows = rows.filter(r => r.checkpoint_id === checkpointId);
+    }
+
+    // Filter by methodology (search in selected text)
+    if (methodology) {
+      const lowerMethodology = methodology.toLowerCase();
+      rows = rows.filter(r => r.selected && r.selected.toLowerCase().includes(lowerMethodology));
+    }
+
+    // Extract t_score_feedback from context JSON
+    const feedbackValues = [];
+    for (const row of rows) {
+      if (!row.context) continue;
+      try {
+        const parsed = JSON.parse(row.context);
+        if (parsed.t_score_feedback != null) {
+          feedbackValues.push(parsed.t_score_feedback);
+        }
+      } catch {
+        // skip unparseable context
+      }
+    }
+
+    if (feedbackValues.length === 0) {
+      return {
+        count: 0,
+        avgFeedback: null,
+        distribution: [0, 0, 0, 0, 0],
+        calibration: null,
+      };
+    }
+
+    const sum = feedbackValues.reduce((a, b) => a + b, 0);
+    const avgFeedback = sum / feedbackValues.length;
+
+    // Distribution: count of each rating 1-5
+    const distribution = [0, 0, 0, 0, 0];
+    for (const v of feedbackValues) {
+      if (v >= 1 && v <= 5) {
+        distribution[v - 1]++;
+      }
+    }
+
+    // Calculate calibration adjustment
+    let adjustment, calibratedRange;
+    if (avgFeedback <= 1.5) {
+      adjustment = 0.2;
+      calibratedRange = 'very typical — T-Score should be lower';
+    } else if (avgFeedback <= 2.5) {
+      adjustment = 0.1;
+      calibratedRange = 'somewhat typical — T-Score slightly high';
+    } else if (avgFeedback <= 3.5) {
+      adjustment = 0;
+      calibratedRange = 'balanced — T-Score matches user perception';
+    } else if (avgFeedback <= 4.5) {
+      adjustment = -0.1;
+      calibratedRange = 'somewhat novel — T-Score slightly low';
+    } else {
+      adjustment = -0.2;
+      calibratedRange = 'very novel — T-Score should be higher';
+    }
+
+    return {
+      count: feedbackValues.length,
+      avgFeedback: Math.round(avgFeedback * 100) / 100,
+      distribution,
+      calibration: { adjustment, calibratedRange },
+    };
+  }
+
   const checkpointServer = {
     checkPrerequisites: cpCheckPrerequisites,
     markCheckpoint: cpMarkCheckpoint,
     checkpointStatus: cpCheckpointStatus,
+    getTscoreFeedback: cpGetTscoreFeedback,
   };
 
   // =========================================================================
@@ -315,7 +399,7 @@ export function createSqliteServers(dbPath, prereqMap) {
     return { updated: true, state: merged };
   }
 
-  function memAddDecision(checkpointId, selected, rationale, alternatives, metadata) {
+  function memAddDecision(checkpointId, selected, rationale, alternatives, metadata, tScoreFeedback = null) {
     const decisionId = _nextDecisionId();
     const now = new Date().toISOString();
 
@@ -325,6 +409,9 @@ export function createSqliteServers(dbPath, prereqMap) {
     }
     if (metadata && typeof metadata === 'object' && Object.keys(metadata).length > 0) {
       contextObj.metadata = metadata;
+    }
+    if (tScoreFeedback != null) {
+      contextObj.t_score_feedback = tScoreFeedback;
     }
 
     const contextStr = Object.keys(contextObj).length > 0 ? JSON.stringify(contextObj) : null;

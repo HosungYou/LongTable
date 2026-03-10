@@ -73,9 +73,33 @@ export function createToolRegistry(checkpointServer, memoryServer, commServer) {
           rationale: {
             type: 'string',
             description: 'Explanation for why this decision was made'
+          },
+          t_score_feedback: {
+            type: 'integer',
+            description: 'Optional novelty rating for VS recommendation (1=very typical/predictable, 2=somewhat typical, 3=balanced, 4=somewhat novel, 5=very novel/unexpected). Used for T-Score calibration.',
+            minimum: 1,
+            maximum: 5
           }
         },
         required: ['checkpoint_id', 'decision', 'rationale']
+      }
+    },
+    {
+      name: 'diverga_tscore_feedback',
+      description:
+        'Get aggregated T-Score feedback from user ratings to calibrate VS recommendations.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          checkpoint_id: {
+            type: 'string',
+            description: 'Filter by checkpoint ID (optional)'
+          },
+          methodology: {
+            type: 'string',
+            description: 'Search for feedback on a specific methodology (optional)'
+          }
+        }
       }
     },
     {
@@ -145,6 +169,12 @@ export function createToolRegistry(checkpointServer, memoryServer, commServer) {
           metadata: {
             type: 'object',
             description: 'Additional decision metadata'
+          },
+          t_score_feedback: {
+            type: 'integer',
+            description: 'Optional novelty rating for VS recommendation (1=very typical/predictable, 2=somewhat typical, 3=balanced, 4=somewhat novel, 5=very novel/unexpected). Used for T-Score calibration.',
+            minimum: 1,
+            maximum: 5
           }
         },
         required: ['checkpoint_id', 'selected']
@@ -359,12 +389,20 @@ export function createToolRegistry(checkpointServer, memoryServer, commServer) {
       return await checkpointServer.markCheckpoint(
         args.checkpoint_id,
         args.decision,
-        args.rationale
+        args.rationale,
+        args.t_score_feedback
       );
     }
 
     if (toolName === 'diverga_checkpoint_status') {
       return await checkpointServer.checkpointStatus();
+    }
+
+    if (toolName === 'diverga_tscore_feedback') {
+      return await checkpointServer.getTscoreFeedback({
+        checkpointId: args.checkpoint_id,
+        methodology: args.methodology
+      });
     }
 
     // Memory Server Routing
@@ -382,7 +420,8 @@ export function createToolRegistry(checkpointServer, memoryServer, commServer) {
         args.selected,
         args.rationale,
         args.alternatives,
-        args.metadata
+        args.metadata,
+        args.t_score_feedback
       );
     }
 
