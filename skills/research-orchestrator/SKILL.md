@@ -1,11 +1,11 @@
 ---
 name: research-orchestrator
 description: |
-  Human-Centered Orchestrator for Research Coordinator v6.7.0
-  Manages 44 research agents across 9 categories (A-I) with MANDATORY human checkpoints
+  Human-Centered Orchestrator for Research Coordinator v11.0
+  Manages 24 research agents across 9 categories (A-G, I, X) with MANDATORY human checkpoints
   No autonomous modes - all critical decisions require explicit human approval
   Features: Systematic Review Automation, Meta-Analysis System, Humanization Pipeline
-version: "10.3.0"
+version: "11.0.0"
 ---
 
 # Research Orchestrator v2.7.0 (Human-Centered)
@@ -14,7 +14,7 @@ version: "10.3.0"
 
 ## Purpose
 
-Manages Research Coordinator's **44 agents (9 categories)** with **checkpoint-centered** orchestration.
+Manages Research Coordinator's **24 agents (8 categories)** with **checkpoint-centered** orchestration.
 
 ## v2.0 Changes (Clean Slate)
 
@@ -159,54 +159,34 @@ Task(
 
 ---
 
-## Agent-Tier Quick Reference (44 Agents)
+## Agent-Tier Quick Reference (24 Agents)
 
 | Category | Agent ID | Name | Tier | Model |
 |----------|----------|------|------|-------|
-| **A: Foundation (6)** | A1 | Research Question Refiner | HIGH | opus |
-| | A2 | Theoretical Framework Architect | HIGH | opus |
-| | A3 | Devil's Advocate | HIGH | opus |
-| | A4 | Research Ethics Advisor | MEDIUM | sonnet |
-| | A5 | Paradigm & Worldview Advisor | HIGH | opus |
-| | **A6** | **Conceptual Framework Visualizer** | MEDIUM | sonnet |
-| **B: Evidence (5)** | B1 | Literature Review Strategist | MEDIUM | sonnet |
+| **A: Foundation (3)** | A1 | Research Question Refiner | HIGH | opus |
+| | A2 | Theoretical Framework Architect (+ A3 critique, A6 visualization) | HIGH | opus |
+| | A5 | Paradigm & Worldview Advisor (+ A4 ethics) | HIGH | opus |
+| **B: Evidence (2)** | B1 | Literature Review Strategist | MEDIUM | sonnet |
 | | B2 | Evidence Quality Appraiser | MEDIUM | sonnet |
-| | B3 | Effect Size Extractor | LOW | haiku |
-| | B4 | Research Radar | LOW | haiku |
-| | **B5** | **Parallel Document Processor** | HIGH | opus |
-| **C: Design & Meta (7)** | C1 | Quantitative Design Consultant | HIGH | opus |
-| | C2 | Qualitative Design Consultant | HIGH | opus |
+| **C: Design & Meta (4)** | C1 | Quantitative Design Consultant (+ C4 materials, D1 sampling) | HIGH | opus |
+| | C2 | Qualitative Design Consultant (+ H1 ethnography, H2 action research) | HIGH | opus |
 | | C3 | Mixed Methods Design Consultant | HIGH | opus |
-| | C4 | Experimental Materials Developer | MEDIUM | sonnet |
-| | **C5** | **Meta-Analysis Master** | HIGH | opus |
-| | **C6** | **Data Integrity Guard** | MEDIUM | sonnet |
-| | **C7** | **Error Prevention Engine** | MEDIUM | sonnet |
-| **D: Collection (4)** | D1 | Sampling Strategy Advisor | MEDIUM | sonnet |
-| | D2 | Interview & Focus Group Specialist | MEDIUM | sonnet |
-| | D3 | Observation Protocol Designer | LOW | haiku |
+| | **C5** | **Meta-Analysis Master** (+ C6 data, C7 errors, B3 effect size, E5 sensitivity) | HIGH | opus |
+| **D: Collection (2)** | D2 | Data Collection Specialist (+ D3 observation) | MEDIUM | sonnet |
 | | D4 | Measurement Instrument Developer | HIGH | opus |
-| **E: Analysis (5)** | E1 | Quantitative Analysis Guide | HIGH | opus |
+| **E: Analysis (3)** | E1 | Quantitative Analysis Guide (+ E4 code gen, E5 sensitivity) | HIGH | opus |
 | | E2 | Qualitative Coding Specialist | HIGH | opus |
 | | E3 | Mixed Methods Integration Specialist | HIGH | opus |
-| | E4 | Analysis Code Generator | LOW | haiku |
-| | **E5** | **Sensitivity Analysis Designer** | MEDIUM | sonnet |
-| **F: Quality (5)** | F1 | Internal Consistency Checker | LOW | haiku |
-| | F2 | Checklist Manager | LOW | haiku |
-| | F3 | Reproducibility Auditor | MEDIUM | sonnet |
-| | F4 | Bias & Trustworthiness Detector | MEDIUM | sonnet |
-| | **F5** | **Humanization Verifier** | LOW | haiku |
-| **G: Publication (6)** | G1 | Journal Matcher | MEDIUM | sonnet |
-| | G2 | Academic Communicator | MEDIUM | sonnet |
-| | G3 | Peer Review Strategist | HIGH | opus |
-| | G4 | Pre-registration Composer | MEDIUM | sonnet |
+| **F: Quality (1)** | **F5** | **Humanization Verifier** | LOW | haiku |
+| **G: Publication (4)** | G1 | Journal Matcher | MEDIUM | sonnet |
+| | G2 | Publication Specialist (+ G3 review, G4 pre-reg, F1-F3 quality) | MEDIUM | sonnet |
 | | **G5** | **Academic Style Auditor** | MEDIUM | sonnet |
 | | **G6** | **Academic Style Humanizer** | HIGH | opus |
-| **H: Specialized (2)** | H1 | Ethnographic Research Advisor | HIGH | opus |
-| | H2 | Action Research Facilitator | HIGH | opus |
 | **I: Systematic Review (4)** | **I0** | **Review Pipeline Orchestrator** | HIGH | opus |
 | | **I1** | **Paper Retrieval Agent** | MEDIUM | sonnet |
 | | **I2** | **Screening Assistant** | MEDIUM | sonnet |
-| | **I3** | **RAG Builder** | LOW | haiku |
+| | **I3** | **RAG Builder** (+ B5 parallel processing) | LOW | haiku |
+| **X: Cross-cutting (1)** | **X1** | **Research Guardian** (ethics + bias, absorbed A4, F4) | MEDIUM | sonnet |
 
 ---
 
@@ -296,7 +276,7 @@ checkpoint_skip_on_context: null
 ```yaml
 # KEPT - Still functional
 model_routing: enabled                    # HIGH/MEDIUM/LOW tier routing
-agent_specialization: enabled             # 44 agents across 9 categories
+agent_specialization: enabled             # 24 agents across 8 categories
 parallel_execution: enabled_between_checkpoints_only
 agent_teams_dispatch: enabled_when_available   # v8.5
 context_persistence: enabled

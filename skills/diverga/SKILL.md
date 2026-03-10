@@ -2,10 +2,10 @@
 name: diverga
 description: |
   Diverga Dashboard - Live configuration status and feature overview.
-  44 specialized agents for social science research.
+  24 specialized agents across 9 categories for social science research.
   VS methodology prevents mode collapse. Human checkpoints enforce human-in-the-loop decisions.
   Triggers: /diverga, diverga dashboard, diverga status
-version: "10.3.0"
+version: "11.0.0"
 ---
 
 # Diverga Dashboard
@@ -71,8 +71,8 @@ Combine all information into this format:
 
 ```
 SYSTEM STATUS
-  Version:     8.4.0
-  Agents:      44 agents across 9 categories (A-I)
+  Version:     11.0.0
+  Agents:      24 agents across 9 categories (A-G, I, X)
   Status:      Ready
 
 CONFIGURATION
@@ -107,7 +107,7 @@ MCP INTEGRATIONS
 QUICK ACTIONS
   /diverga:setup     Initial configuration
   /diverga:doctor    System diagnostics
-  /diverga:help      All 44 agents & commands
+  /diverga:help      All 24 agents & commands
   /diverga:memory    Project context & status
   /diverga:hud       HUD display settings
   "Start a systematic review on [topic]"  -> Begin research

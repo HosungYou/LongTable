@@ -770,8 +770,7 @@ Humanization transforms expression, not content. The research, analysis, and con
 
 - **G5-AcademicStyleAuditor**: Provides analysis for this agent
 - **F5-HumanizationVerifier**: Verifies transformation quality
-- **G2-AcademicCommunicator**: Source of content to humanize
-- **G3-PeerReviewStrategist**: Response letters to humanize
+- **G2-PublicationSpecialist**: Source of content to humanize (includes peer review response)
 
 ## References
 

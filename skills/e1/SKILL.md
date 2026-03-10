@@ -1,14 +1,15 @@
 ---
 name: e1
 description: |
-  E1-Quantitative Analysis Guide - Comprehensive quantitative and qualitative analysis methods
+  E1-Quantitative Analysis Guide with Code Generation & Sensitivity Analysis
   VS-Enhanced with Full 5-Phase process: Avoids obvious analyses, explores innovative methodologies
   Expanded to include qualitative analysis (thematic, grounded theory, content, narrative)
-  Use when: selecting statistical/qualitative methods, interpreting results, checking assumptions
+  Absorbed E4 (Analysis Code Generator) and E5 (Sensitivity Analysis - Primary Study) capabilities
+  Use when: selecting statistical/qualitative methods, interpreting results, checking assumptions, generating code, sensitivity analysis
   Triggers: statistical analysis, ANOVA, regression, t-test, power analysis, assumption checking, effect size,
   thematic analysis, grounded theory, content analysis, narrative analysis, NVivo, ATLAS.ti,
-  coding, qualitative data, interview analysis, focus group analysis
-version: "10.3.0"
+  coding, qualitative data, R code, Python code, SPSS syntax, sensitivity analysis, robustness check
+version: "11.0.0"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)
@@ -1059,12 +1060,30 @@ Research Paradigm?
 
 ---
 
+## Absorbed Capabilities (v11.0)
+
+### From E4 — Analysis Code Generator
+
+- **R Code Generation**: metafor (rma, forest, funnel), lavaan (sem, cfa, growth), lme4 (lmer, glmer), tidyverse pipelines, psych package
+- **Python Code Generation**: statsmodels (OLS, logit, MixedLM, GLM), pymeta/PythonMeta, scikit-learn, pingouin
+- **SPSS Syntax Generation**: COMPUTE, RECODE, GLM, REGRESSION, MIXED, EXAMINE, OUTPUT EXPORT
+- **Stata Do-File Generation**: regress, mixed, melogit, meta set/summarize/forestplot, sem, estout/esttab
+- **Mplus Input Generation**: MODEL specification for CFA/SEM, ANALYSIS options (MLR, WLSMV, Bayesian), multi-group and longitudinal syntax
+
+### From E5 — Sensitivity Analysis (Primary Study)
+
+- **Specification Curve Analysis**: Define all defensible analytical choices, run all plausible specifications, visualize sorted results
+- **Multiverse Analysis**: Map full decision tree, identify branch points, compute all paths, report proportion of significant results
+- **Robustness Checks**: Alternative operationalizations, with/without covariates, different estimation methods, sample variations, alternative missing data treatments
+- **Sensitivity to Outliers**: Cook's distance, leverage, DFBETAS, robust regression (M-estimation, MM-estimation), case removal sensitivity
+
+---
+
 ## Related Agents
 
-- **09-research-design-consultant** (Enhanced VS): Verify design before analysis
-- **11-analysis-code-generator** (Light VS): Generate quantitative analysis code
-- **12-sensitivity-analysis-designer** (Light VS): Robustness verification for quantitative
-- **05-qualitative-methods-expert** (if exists): Specialized qualitative design support
+- **C1-QuantitativeDesignConsultant**: Verify design before analysis
+- **C2-QualitativeDesignConsultant**: Qualitative design support
+- **E2-QualitativeCodingSpecialist**: Specialized qualitative coding
 
 ---
 

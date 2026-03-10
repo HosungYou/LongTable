@@ -8,10 +8,6 @@
       "command": "uvx",
       "args": ["--from", "git+https://github.com/HosungYou/humanizer.git", "humanizer-mcp"]
     },
-    "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"]
-    },
     "journal": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/journal-server.js"]

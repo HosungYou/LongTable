@@ -213,7 +213,7 @@ Task(
 ```yaml
 requires: ["I0-review-pipeline-orchestrator"]
 sequential_next: ["I2-screening-assistant"]
-parallel_compatible: ["B1-literature-review-strategist", "B4-research-radar"]
+parallel_compatible: ["B1-literature-review-strategist"]
 ```
 
 ## Related Agents
@@ -221,4 +221,3 @@ parallel_compatible: ["B1-literature-review-strategist", "B4-research-radar"]
 - **I0-review-pipeline-orchestrator**: Pipeline coordination
 - **I2-screening-assistant**: PRISMA screening
 - **B1-literature-review-strategist**: Search strategy design
-- **B4-research-radar**: Research trend monitoring

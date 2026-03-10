@@ -145,49 +145,29 @@ Location: `.research/checkpoints.yaml` (v8.2+), `.research/decision-log.yaml`
 | ID | Display Name | Category | Tier | Model | VS Level | Key Triggers |
 |----|-------------|----------|------|-------|----------|-------------|
 | A1 | Research Question Refiner | A: Research Foundation | HIGH | opus | Enhanced | research question, PICO, SPIDER |
-| A2 | Theoretical Framework Architect | A: Research Foundation | HIGH | opus | Full | theoretical framework, conceptual model, hypothesis derivation |
-| A3 | Devil's Advocate | A: Research Foundation | HIGH | opus | Full | criticism, weakness, reviewer 2 |
-| A4 | Research Ethics Advisor | A: Research Foundation | MEDIUM | sonnet | Enhanced | ethics, IRB, consent |
-| A5 | Paradigm & Worldview Advisor | A: Research Foundation | HIGH | opus | Full | paradigm, ontology, epistemology |
-| A6 | Conceptual Framework Visualizer | A: Research Foundation | MEDIUM | sonnet | Enhanced | conceptual framework, theoretical model visualization, Discussion figure |
-| B1 | Systematic Literature Scout | B: Literature & Evidence | MEDIUM | sonnet | Full | literature review, PRISMA, systematic review |
-| B2 | Evidence Quality Appraiser | B: Literature & Evidence | MEDIUM | sonnet | Enhanced | quality appraisal, RoB, GRADE |
-| B3 | Effect Size Extractor | B: Literature & Evidence | LOW | haiku | Enhanced | effect size, Cohen's d, Hedges' g |
-| B4 | Research Radar | B: Literature & Evidence | LOW | haiku | Enhanced | latest research, trends, new publications |
-| B5 | Parallel Document Processor | B: Literature & Evidence | HIGH | opus | Enhanced | batch PDF, parallel reading, multiple documents |
-| C1 | Quantitative Design Consultant | C: Study Design | HIGH | opus | Enhanced | RCT, quasi-experimental, experimental design |
-| C2 | Qualitative Design Consultant | C: Study Design | HIGH | opus | Full | phenomenology, grounded theory, case study |
-| C3 | Mixed Methods Design Consultant | C: Study Design | HIGH | opus | Full | mixed methods, sequential design, convergent |
-| C4 | Experimental Materials Developer | C: Study Design | MEDIUM | sonnet | Enhanced | intervention materials, experimental materials, treatment design |
+| A2 | Theory & Critique Architect | A: Research Foundation | HIGH | opus | Full | theoretical framework, conceptual model, hypothesis derivation |
+| A5 | Paradigm Advisor | A: Research Foundation | HIGH | opus | Full | paradigm, ontology, epistemology |
+| B1 | Literature Scout | B: Literature & Evidence | MEDIUM | sonnet | Full | literature review, PRISMA, systematic review |
+| B2 | Quality Appraiser | B: Literature & Evidence | MEDIUM | sonnet | Enhanced | quality appraisal, RoB, GRADE |
+| C1 | Quantitative Design & Sampling | C: Study Design | HIGH | opus | Enhanced | RCT, quasi-experimental, experimental design |
+| C2 | Qualitative Design (Ethnography/AR) | C: Study Design | HIGH | opus | Full | phenomenology, grounded theory, case study |
+| C3 | Mixed Methods Design | C: Study Design | HIGH | opus | Full | mixed methods, sequential design, convergent |
 | C5 | Meta-Analysis Master | C: Study Design | HIGH | opus | Full | meta-analysis, pooled effect, heterogeneity |
-| C6 | Data Integrity Guard | C: Study Design | MEDIUM | sonnet | Enhanced | data extraction, PDF extract, extract data |
-| C7 | Error Prevention Engine | C: Study Design | MEDIUM | sonnet | Enhanced | error prevention, validation, data check |
-| D1 | Sampling Strategy Advisor | D: Data Collection | MEDIUM | sonnet | Enhanced | sampling, sample size, G*Power |
-| D2 | Interview & Focus Group Specialist | D: Data Collection | MEDIUM | sonnet | Enhanced | interview, focus group, interview protocol |
-| D3 | Observation Protocol Designer | D: Data Collection | LOW | haiku | Enhanced | observation, field notes, participant observation |
-| D4 | Measurement Instrument Developer | D: Data Collection | HIGH | opus | Enhanced | instrument, measurement, scale development |
-| E1 | Quantitative Analysis Guide | E: Analysis | HIGH | opus | Full | statistical analysis, ANOVA, regression |
-| E2 | Qualitative Coding Specialist | E: Analysis | HIGH | opus | Full | qualitative coding, thematic analysis, grounded theory coding |
+| D2 | Data Collection Specialist | D: Data Collection | MEDIUM | sonnet | Enhanced | interview, focus group, interview protocol |
+| D4 | Instrument Developer | D: Data Collection | HIGH | opus | Enhanced | instrument, measurement, scale development |
+| E1 | Quantitative Analysis & Code Gen | E: Analysis | HIGH | opus | Full | statistical analysis, ANOVA, regression |
+| E2 | Qualitative Coding | E: Analysis | HIGH | opus | Full | qualitative coding, thematic analysis, grounded theory coding |
 | E3 | Mixed Methods Integration | E: Analysis | HIGH | opus | Full | integration, joint display, mixed methods analysis |
-| E4 | Analysis Code Generator | E: Analysis | LOW | haiku | Enhanced | R code, Python code, analysis code |
-| E5 | Sensitivity Analysis Designer | E: Analysis | MEDIUM | sonnet | Enhanced | sensitivity analysis, robustness check, leave-one-out |
-| F1 | Internal Consistency Checker | F: Quality & Validation | LOW | haiku | Light | consistency, alignment, logical verification |
-| F2 | Checklist Manager | F: Quality & Validation | LOW | haiku | Light | PRISMA, CONSORT, STROBE |
-| F3 | Reproducibility Auditor | F: Quality & Validation | MEDIUM | sonnet | Light | reproducibility, OSF, open science |
-| F4 | Bias & Trustworthiness Detector | F: Quality & Validation | MEDIUM | sonnet | Full | bias, p-hacking, HARKing |
-| F5 | Humanization Verifier | F: Quality & Validation | LOW | haiku | Light | verify humanization, check transformation, validate changes |
+| F5 | Humanization Verifier | F: Quality & Validation | MEDIUM | sonnet | Full | verify humanization, check transformation, validate changes |
 | G1 | Journal Matcher | G: Publication & Communication | MEDIUM | sonnet | Light | journal, where to publish, target journal |
-| G2 | Academic Communicator | G: Publication & Communication | MEDIUM | sonnet | Light | abstract, plain language, academic writing |
-| G3 | Peer Review Strategist | G: Publication & Communication | MEDIUM | sonnet | Enhanced | peer review, reviewer response, revision |
-| G4 | Pre-registration Composer | G: Publication & Communication | MEDIUM | sonnet | Light | preregistration, OSF, pre-register |
+| G2 | Publication Specialist | G: Publication & Communication | MEDIUM | sonnet | Enhanced | abstract, plain language, academic writing |
 | G5 | Academic Style Auditor | G: Publication & Communication | MEDIUM | sonnet | Light | AI pattern, check AI writing, style audit |
 | G6 | Academic Style Humanizer | G: Publication & Communication | HIGH | opus | Enhanced | humanize, humanization, natural writing |
-| H1 | Ethnographic Research Advisor | H: Specialized Approaches | HIGH | opus | Full | ethnography, fieldwork, participant observation |
-| H2 | Action Research Facilitator | H: Specialized Approaches | HIGH | opus | Light | action research, PAR, CBPR |
-| I0 | Systematic Review Orchestrator | I: Systematic Review Automation | HIGH | opus | Enhanced | systematic review, PRISMA, 체계적 문헌고찰 |
-| I1 | Paper Retrieval Agent | I: Systematic Review Automation | MEDIUM | sonnet | Light | fetch papers, retrieve papers, database search |
+| I0 | SR Pipeline Orchestrator | I: Systematic Review Automation | HIGH | opus | Enhanced | systematic review, PRISMA, 체계적 문헌고찰 |
+| I1 | Paper Retrieval | I: Systematic Review Automation | MEDIUM | sonnet | Light | fetch papers, retrieve papers, database search |
 | I2 | Screening Assistant | I: Systematic Review Automation | MEDIUM | sonnet | Light | screen papers, inclusion criteria, AI screening |
 | I3 | RAG Builder | I: Systematic Review Automation | LOW | haiku | Light | build RAG, vector database, PDF download |
+| X1 | Research Guardian | X: Cross-Cutting | HIGH | opus | Full | research integrity, guardian, oversight |
 <!-- GENERATED:END -->
 
 

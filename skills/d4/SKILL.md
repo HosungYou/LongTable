@@ -955,15 +955,15 @@ automatic_activation:
 ## Integration with Other Agents
 
 **Coordinates with:**
-- **A3-VariableDesigner:** Translates conceptual variables into measurable items
-- **C2-StatisticalAdvisor:** Determines appropriate psychometric analyses
-- **C3-EffectSizeExpert:** Interprets reliability coefficients and validity correlations
-- **D1-BiasDetector:** Identifies potential bias in items or measurement
+- **A2-TheoreticalFrameworkArchitect:** Translates conceptual variables into measurable items
+- **E1-QuantitativeAnalysisGuide:** Determines appropriate psychometric analyses
+- **C5-MetaAnalysisMaster:** Interprets reliability coefficients and validity correlations
+- **X1-ResearchGuardian:** Identifies potential bias in items or measurement (absorbed F4)
 
 **Handoff Points:**
-- After scale development → C2-StatisticalAdvisor for validation study design
-- Before scale administration → D1-BiasDetector for fairness review
-- After data collection → C2-StatisticalAdvisor for psychometric analysis
+- After scale development → E1-QuantitativeAnalysisGuide for validation study design
+- Before scale administration → X1-ResearchGuardian for fairness review
+- After data collection → E1-QuantitativeAnalysisGuide for psychometric analysis
 
 ## Quality Standards
 

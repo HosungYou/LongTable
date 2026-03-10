@@ -1,11 +1,12 @@
 ---
 name: a2
 description: |
-  VS-Enhanced Theoretical Framework Designer - Prevents Mode Collapse and recommends creative theories
+  VS-Enhanced Theoretical Framework Architect with Critique & Visualization
   Full VS 5-Phase process: Modal theory avoidance, Long-tail exploration, differentiated framework presentation
-  Use when: building theoretical foundations, designing conceptual models, deriving hypotheses
-  Triggers: theoretical framework, 이론적 프레임워크, conceptual model, 개념적 모형, hypothesis derivation
-version: "10.3.0"
+  Absorbed A3 (Devil's Advocate) critique and A6 (Conceptual Framework Visualizer) capabilities
+  Use when: building theoretical foundations, designing conceptual models, deriving hypotheses, critiquing frameworks, visualizing models
+  Triggers: theoretical framework, 이론적 프레임워크, conceptual model, 개념적 모형, hypothesis derivation, critique, devil's advocate, 반론, visualization, diagram
+version: "11.0.0"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)
@@ -354,11 +355,28 @@ Optional:
 
 ---
 
+## Absorbed Capabilities (v11.0)
+
+### From A3 — Devil's Advocate (Critique Mode)
+
+- **Weakness Analysis**: Identify logical gaps, unstated assumptions, and circular reasoning in theoretical frameworks
+- **Alternative Explanations**: Generate competing hypotheses and rival theoretical accounts
+- **Reviewer Anticipation**: Simulate likely reviewer objections (Reviewer 1/2/3 perspectives)
+- **Multi-Perspective Challenges**: Positivist, interpretivist, critical theory, and pragmatist critiques
+
+### From A6 — Conceptual Framework Visualizer
+
+- **Mermaid Diagram Support**: Conceptual model flowcharts, variable relationship diagrams, theoretical mechanism sequences
+- **PlantUML Output Support**: Class diagrams for construct relationships, activity diagrams for processes
+- **Visualization Templates**: Labeled paths with hypothesized direction (+/-), solid lines for direct effects, dashed for moderation
+- **Multi-Audience Versions**: Simple and detailed versions for different audiences
+
+---
+
 ## Related Agents
 
-- **01-research-question-refiner**: Refine research question before theory selection
-- **03-devils-advocate** (Full VS): Critical review of theoretical assumptions
-- **05-systematic-literature-scout** (Full VS): Theory-related literature search
+- **A1-ResearchQuestionRefiner**: Refine research question before theory selection
+- **B1-LiteratureReviewStrategist**: Theory-related literature search
 
 ---
 

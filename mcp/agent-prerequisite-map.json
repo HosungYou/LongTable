@@ -41,25 +41,6 @@
         }
       ]
     },
-    "a3": {
-      "prerequisites": [
-        "CP_RESEARCH_DIRECTION"
-      ],
-      "own_checkpoints": [
-        {
-          "id": "CP_VS_001",
-          "level": "required"
-        },
-        {
-          "id": "CP_VS_003",
-          "level": "required"
-        }
-      ]
-    },
-    "a4": {
-      "prerequisites": [],
-      "own_checkpoints": []
-    },
     "a5": {
       "prerequisites": [],
       "own_checkpoints": [
@@ -69,17 +50,6 @@
         }
       ],
       "entry_point": true
-    },
-    "a6": {
-      "prerequisites": [
-        "CP_RESEARCH_DIRECTION"
-      ],
-      "own_checkpoints": [
-        {
-          "id": "CP_VISUALIZATION_PREFERENCE",
-          "level": "optional"
-        }
-      ]
     },
     "b1": {
       "prerequisites": [
@@ -110,18 +80,6 @@
           "level": "recommended"
         }
       ]
-    },
-    "b3": {
-      "prerequisites": [],
-      "own_checkpoints": []
-    },
-    "b4": {
-      "prerequisites": [],
-      "own_checkpoints": []
-    },
-    "b5": {
-      "prerequisites": [],
-      "own_checkpoints": []
     },
     "c1": {
       "prerequisites": [
@@ -175,10 +133,6 @@
         }
       ]
     },
-    "c4": {
-      "prerequisites": [],
-      "own_checkpoints": []
-    },
     "c5": {
       "prerequisites": [
         "CP_RESEARCH_DIRECTION",
@@ -187,29 +141,6 @@
       "own_checkpoints": [
         {
           "id": "CP_ANALYSIS_PLAN",
-          "level": "recommended"
-        }
-      ]
-    },
-    "c6": {
-      "prerequisites": [
-        "CP_METHODOLOGY_APPROVAL"
-      ],
-      "own_checkpoints": []
-    },
-    "c7": {
-      "prerequisites": [
-        "CP_METHODOLOGY_APPROVAL"
-      ],
-      "own_checkpoints": []
-    },
-    "d1": {
-      "prerequisites": [
-        "CP_METHODOLOGY_APPROVAL"
-      ],
-      "own_checkpoints": [
-        {
-          "id": "CP_SAMPLING_STRATEGY",
           "level": "recommended"
         }
       ]
@@ -224,10 +155,6 @@
           "level": "recommended"
         }
       ]
-    },
-    "d3": {
-      "prerequisites": [],
-      "own_checkpoints": []
     },
     "d4": {
       "prerequisites": [
@@ -277,32 +204,6 @@
         }
       ]
     },
-    "e4": {
-      "prerequisites": [],
-      "own_checkpoints": []
-    },
-    "e5": {
-      "prerequisites": [
-        "CP_METHODOLOGY_APPROVAL"
-      ],
-      "own_checkpoints": []
-    },
-    "f1": {
-      "prerequisites": [],
-      "own_checkpoints": []
-    },
-    "f2": {
-      "prerequisites": [],
-      "own_checkpoints": []
-    },
-    "f3": {
-      "prerequisites": [],
-      "own_checkpoints": []
-    },
-    "f4": {
-      "prerequisites": [],
-      "own_checkpoints": []
-    },
     "f5": {
       "prerequisites": [],
       "own_checkpoints": []
@@ -325,14 +226,6 @@
       "prerequisites": [],
       "own_checkpoints": []
     },
-    "g3": {
-      "prerequisites": [],
-      "own_checkpoints": []
-    },
-    "g4": {
-      "prerequisites": [],
-      "own_checkpoints": []
-    },
     "g5": {
       "prerequisites": [],
       "own_checkpoints": [
@@ -350,28 +243,6 @@
         {
           "id": "CP_HUMANIZATION_VERIFY",
           "level": "optional"
-        }
-      ]
-    },
-    "h1": {
-      "prerequisites": [
-        "CP_PARADIGM_SELECTION"
-      ],
-      "own_checkpoints": [
-        {
-          "id": "CP_METHODOLOGY_APPROVAL",
-          "level": "required"
-        }
-      ]
-    },
-    "h2": {
-      "prerequisites": [
-        "CP_PARADIGM_SELECTION"
-      ],
-      "own_checkpoints": [
-        {
-          "id": "CP_METHODOLOGY_APPROVAL",
-          "level": "required"
         }
       ]
     },
@@ -426,6 +297,11 @@
           "level": "recommended"
         }
       ]
+    },
+    "x1": {
+      "prerequisites": [],
+      "own_checkpoints": [],
+      "entry_point": true
     }
   },
   "dependency_order": {
@@ -440,15 +316,10 @@
     ],
     "level_1": [
       "CP_HUMANIZATION_VERIFY",
-      "CP_PASS1_REVIEW",
-      "CP_PASS2_REVIEW",
-      "CP_PASS3_REVIEW",
-      "CP_FINAL_REVIEW",
       "CP_QUALITY_REVIEW",
       "CP_SCREENING_CRITERIA",
       "CP_SEARCH_STRATEGY",
       "CP_THEORY_SELECTION",
-      "CP_VISUALIZATION_PREFERENCE",
       "CP_VS_001",
       "CP_VS_002",
       "CP_VS_003",
@@ -484,16 +355,11 @@
     "CP_SAMPLING_STRATEGY": "recommended",
     "CP_CODING_APPROACH": "recommended",
     "CP_THEME_VALIDATION": "recommended",
-    "CP_HUMANIZATION_REVIEW": "recommended",
     "CP_JOURNAL_PRIORITIES": "recommended",
     "CP_JOURNAL_SELECTION": "recommended",
-    "CP_PASS1_REVIEW": "recommended",
-    "CP_PASS2_REVIEW": "recommended",
-    "CP_PASS3_REVIEW": "recommended",
+    "CP_HUMANIZATION_REVIEW": "recommended",
     "SCH_RAG_READINESS": "recommended",
-    "CP_VISUALIZATION_PREFERENCE": "optional",
     "CP_SEARCH_STRATEGY": "optional",
-    "CP_HUMANIZATION_VERIFY": "optional",
-    "CP_FINAL_REVIEW": "optional"
+    "CP_HUMANIZATION_VERIFY": "optional"
   }
 }

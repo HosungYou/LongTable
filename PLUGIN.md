@@ -1,6 +1,6 @@
 # Diverga
 
-**Version**: 8.4.0
+**Version**: 11.0.0
 **Author**: Hosung You
 **Repository**: https://github.com/HosungYou/Diverga
 **License**: MIT
@@ -9,10 +9,10 @@
 
 ## Description
 
-Diverga is an AI Research Assistant for the complete research lifecycle. 44 specialized agents support researchers from question formulation to publication, with context persistence and creative methodology guidance.
+Diverga is an AI Research Assistant for the complete research lifecycle. 24 specialized agents support researchers from question formulation to publication, with context persistence and creative methodology guidance.
 
 **Key Features:**
-- 44 specialized research agents across 9 categories
+- 24 specialized research agents across 9 categories
 - **Memory System for context persistence** (v6.8+)
 - **Parallel execution via Task tool** (v6.5+)
 - Auto-trigger based on conversation context
@@ -22,11 +22,11 @@ Diverga is an AI Research Assistant for the complete research lifecycle. 44 spec
 
 ---
 
-## Directory Structure (v8.4.0)
+## Directory Structure (v11.0.0)
 
 ```
 diverga/
-├── agents/              # 44 agent definitions (Task tool)
+├── agents/              # 24 agent definitions (Task tool)
 │   ├── a1.md           # → Task(subagent_type="diverga:a1", ...)
 │   ├── a2.md
 │   └── ...
@@ -70,87 +70,61 @@ Do NOT add explicit `skills` key in marketplace.json.
 
 ---
 
-## Agents (44 total)
+## Agents (24 total)
 
-### Category A: Foundation (6 agents)
+### Category A: Research Foundation (3 agents)
 
 | Agent | Command | Description | Model |
 |-------|---------|-------------|-------|
 | A1-ResearchQuestionRefiner | `diverga:a1` | Refine and sharpen research questions | opus |
-| A2-TheoreticalFrameworkArchitect | `diverga:a2` | Design theoretical frameworks | opus |
-| A3-DevilsAdvocate | `diverga:a3` | Critical review and counterarguments | opus |
-| A4-ResearchEthicsAdvisor | `diverga:a4` | IRB and ethics guidance | sonnet |
+| A2-TheoryAndCritiqueArchitect | `diverga:a2` | Theory design, critique, ethics, visualization | opus |
 | A5-ParadigmWorldviewAdvisor | `diverga:a5` | Ontology, epistemology guidance | opus |
-| A6-ConceptualFrameworkVisualizer | `diverga:a6` | Visualize conceptual frameworks | sonnet |
 
-### Category B: Evidence (5 agents)
+### Category B: Literature & Evidence (2 agents)
 
 | Agent | Command | Description | Model |
 |-------|---------|-------------|-------|
 | B1-SystematicLiteratureScout | `diverga:b1` | Systematic literature search | sonnet |
 | B2-EvidenceQualityAppraiser | `diverga:b2` | Quality appraisal (RoB, GRADE) | sonnet |
-| B3-EffectSizeExtractor | `diverga:b3` | Extract effect sizes from papers | haiku |
-| B4-ResearchRadar | `diverga:b4` | Track research trends | haiku |
-| B5-ParallelDocumentProcessor | `diverga:b5` | Batch PDF processing | opus |
 
-### Category C: Design & Meta-Analysis (7 agents)
+### Category C: Study Design (4 agents)
 
 | Agent | Command | Description | Model |
 |-------|---------|-------------|-------|
 | C1-QuantitativeDesignConsultant | `diverga:c1` | Quantitative research design | opus |
 | C2-QualitativeDesignConsultant | `diverga:c2` | Qualitative research design | opus |
 | C3-MixedMethodsDesignConsultant | `diverga:c3` | Mixed methods design | opus |
-| C4-ExperimentalMaterialsDeveloper | `diverga:c4` | Develop intervention materials | sonnet |
 | C5-MetaAnalysisMaster | `diverga:c5` | Meta-analysis orchestration | opus |
-| C6-DataIntegrityGuard | `diverga:c6` | Data extraction with provenance | sonnet |
-| C7-ErrorPreventionEngine | `diverga:c7` | Error detection and validation | sonnet |
 
-### Category D: Data Collection (4 agents)
+### Category D: Data Collection (2 agents)
 
 | Agent | Command | Description | Model |
 |-------|---------|-------------|-------|
-| D1-SamplingStrategyAdvisor | `diverga:d1` | Sampling strategy guidance | sonnet |
 | D2-InterviewFocusGroupSpecialist | `diverga:d2` | Interview/focus group design | sonnet |
-| D3-ObservationProtocolDesigner | `diverga:d3` | Observation protocol design | haiku |
 | D4-MeasurementInstrumentDeveloper | `diverga:d4` | Instrument development | opus |
 
-### Category E: Analysis (5 agents)
+### Category E: Analysis (3 agents)
 
 | Agent | Command | Description | Model |
 |-------|---------|-------------|-------|
 | E1-QuantitativeAnalysisGuide | `diverga:e1` | Statistical analysis guidance | opus |
 | E2-QualitativeCodingSpecialist | `diverga:e2` | Qualitative coding support | opus |
 | E3-MixedMethodsIntegration | `diverga:e3` | Mixed methods integration | opus |
-| E4-AnalysisCodeGenerator | `diverga:e4` | Generate R/Python code | haiku |
-| E5-SensitivityAnalysisDesigner | `diverga:e5` | Sensitivity analysis design | sonnet |
 
-### Category F: Quality (5 agents)
+### Category F: Quality & Validation (1 agent)
 
 | Agent | Command | Description | Model |
 |-------|---------|-------------|-------|
-| F1-InternalConsistencyChecker | `diverga:f1` | Check internal consistency | haiku |
-| F2-ChecklistManager | `diverga:f2` | Manage research checklists | haiku |
-| F3-ReproducibilityAuditor | `diverga:f3` | Audit reproducibility | sonnet |
-| F4-BiasTrustworthinessDetector | `diverga:f4` | Detect bias and trustworthiness | sonnet |
 | F5-HumanizationVerifier | `diverga:f5` | Verify humanization quality | haiku |
 
-### Category G: Communication (6 agents)
+### Category G: Publication & Communication (4 agents)
 
 | Agent | Command | Description | Model |
 |-------|---------|-------------|-------|
 | G1-JournalMatcher | `diverga:g1` | Match journals to manuscripts | sonnet |
 | G2-AcademicCommunicator | `diverga:g2` | Academic writing support | sonnet |
-| G3-PeerReviewStrategist | `diverga:g3` | Peer review response strategy | sonnet |
-| G4-PreregistrationComposer | `diverga:g4` | Compose preregistrations | sonnet |
 | G5-AcademicStyleAuditor | `diverga:g5` | Audit academic style | sonnet |
 | G6-AcademicStyleHumanizer | `diverga:g6` | Humanize AI-generated text | opus |
-
-### Category H: Specialized (2 agents)
-
-| Agent | Command | Description | Model |
-|-------|---------|-------------|-------|
-| H1-EthnographicResearchAdvisor | `diverga:h1` | Ethnographic research guidance | opus |
-| H2-ActionResearchFacilitator | `diverga:h2` | Action research facilitation | opus |
 
 ### Category I: Systematic Review Automation (4 agents)
 
@@ -160,6 +134,12 @@ Do NOT add explicit `skills` key in marketplace.json.
 | I1-PaperRetrievalAgent | `diverga:i1` | Multi-database fetching (Semantic Scholar, OpenAlex, arXiv) | sonnet |
 | I2-ScreeningAssistant | `diverga:i2` | AI-PRISMA 6-dimension screening | sonnet |
 | I3-RAGBuilder | `diverga:i3` | Vector database construction (zero cost) | haiku |
+
+### Category X: Cross-Cutting (1 agent)
+
+| Agent | Command | Description | Model |
+|-------|---------|-------------|-------|
+| X1-ResearchGuardian | `diverga:x1` | Research integrity, ethics oversight, quality assurance | opus |
 
 ---
 
@@ -214,9 +194,9 @@ Task(subagent_type="diverga:b2", model="sonnet", prompt="Quality appraisal...")
 ### Agent-Model Mapping
 
 ```
-opus:   A1, A2, A3, A5, B5, C1, C2, C3, C5, D4, E1, E2, E3, G6, H1, H2, I0
-sonnet: A4, A6, B1, B2, C4, C6, C7, D1, D2, E5, F3, F4, G1, G2, G3, G4, G5, I1, I2
-haiku:  B3, B4, D3, E4, F1, F2, F5, I3
+opus:   A1, A2, A5, C1, C2, C3, C5, D4, E1, E2, E3, G6, I0, X1
+sonnet: B1, B2, D2, G1, G2, G5, I1, I2
+haiku:  F5, I3
 ```
 
 ---
@@ -263,4 +243,4 @@ Configuration file: `~/.claude/plugins/diverga/config/diverga-config.json`
 
 ---
 
-*Version 8.4.0 - Cross-Platform Migration*
+*Version 11.0.0 - Claude Code Exclusive*

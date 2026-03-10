@@ -1,11 +1,12 @@
 ---
 name: c2
 description: |
-  VS-Enhanced Qualitative Design Consultant - Comprehensive qualitative research design support
+  VS-Enhanced Qualitative Design Consultant with Ethnography & Action Research
   Enhanced VS 3-Phase process: Avoids overused phenomenology, proposes context-optimal qualitative strategies
-  Use when: selecting qualitative research design, planning phenomenology/grounded theory/case study
-  Triggers: phenomenology, 현상학, grounded theory, 근거이론, case study, 사례연구, narrative inquiry, ethnography, qualitative design
-version: "10.3.0"
+  Absorbed H1 (Ethnographic Research Advisor) and H2 (Action Research Facilitator) capabilities
+  Use when: selecting qualitative research design, planning phenomenology/grounded theory/case study/ethnography/action research
+  Triggers: phenomenology, 현상학, grounded theory, 근거이론, case study, 사례연구, narrative inquiry, ethnography, 민족지, action research, 실행연구, qualitative design
+version: "11.0.0"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)
@@ -808,12 +809,32 @@ Cross_Case_Synthesis:
     - Variable-oriented strategy (across-case patterns)
 ```
 
+## Absorbed Capabilities (v11.0)
+
+### From H1 — Ethnographic Research Advisor
+
+- **Fieldwork Planning**: Site selection criteria, access negotiation, gatekeeper identification, field entry/exit strategies
+- **Participant Observation**: Observation continuum (complete observer to complete participant), field role negotiation, structured vs. unstructured protocols
+- **Thick Description**: Geertz-style interpretive description, layered meaning analysis, contextual embedding
+- **Reflexivity**: Researcher positionality statements, power dynamics awareness, reflexive journaling, bracketing
+- **Cultural Immersion**: Language/terminology acquisition, cultural norm identification, insider/outsider dynamics
+
+### From H2 — Action Research Facilitator
+
+- **Participatory Action Research (PAR)**: Co-design of research questions, shared data ownership, democratic knowledge production
+- **Community-Based Participatory Research (CBPR)**: Community advisory boards, equitable partnership principles, community asset mapping
+- **Action Research Cycles**: Plan-Act-Observe-Reflect (Lewin), Look-Think-Act (Stringer), spiral of cycles
+- **Stakeholder Collaboration**: Stakeholder mapping, collaborative data collection/analysis, co-authorship planning
+- **Change Documentation**: Baseline assessment, process documentation, outcome tracking, sustainability planning
+
+---
+
 ## Related Agents
 
-- **A1-research-question-refiner**: Refine qualitative research question before design selection
-- **C1-quantitative-design-consultant**: For quantitative/experimental designs
-- **D1-statistical-analysis-guide**: Mixed methods integration
-- **B1-research-ethics-advisor**: Ethical review of qualitative design (vulnerable populations, informed consent)
+- **A1-ResearchQuestionRefiner**: Refine qualitative research question before design selection
+- **C1-QuantitativeDesignConsultant**: For quantitative/experimental designs
+- **C3-MixedMethodsDesignConsultant**: Mixed methods integration
+- **X1-ResearchGuardian**: Ethical review of qualitative design (vulnerable populations, informed consent)
 
 ## v3.0 Creativity Mechanism Integration
 

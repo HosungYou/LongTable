@@ -362,8 +362,8 @@ G6-AcademicStyleHumanizer
 
 - **G5-AcademicStyleAuditor**: Provides AI pattern analysis
 - **G6-AcademicStyleHumanizer**: Creates text this agent verifies
-- **F1-InternalConsistencyChecker**: Related quality checks
-- **F4-BiasTrustworthinessDetector**: Related integrity checks
+- **G2-PublicationSpecialist**: Related quality checks (absorbed F1)
+- **X1-ResearchGuardian**: Related integrity checks (absorbed F4)
 
 ## References
 

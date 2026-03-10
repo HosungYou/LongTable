@@ -1,11 +1,12 @@
 ---
 name: c1
 description: |
-  VS-Enhanced Quantitative Design Consultant - Prevents Mode Collapse and presents creative quantitative design options
+  VS-Enhanced Quantitative Design Consultant with Materials & Sampling
   Enhanced VS 3-Phase process: Avoids obvious experimental designs, proposes context-optimal quantitative strategies
-  Use when: selecting quantitative research design, planning experimental/survey methodology, power analysis
-  Triggers: RCT, quasi-experimental, experimental design, survey design, power analysis, sample size, factorial design
-version: "10.3.0"
+  Absorbed C4 (Experimental Materials Developer) and D1 (Sampling Strategy Advisor) capabilities
+  Use when: selecting quantitative research design, planning experimental/survey methodology, power analysis, developing materials, sampling
+  Triggers: RCT, quasi-experimental, experimental design, survey design, power analysis, sample size, factorial design, materials, stimuli, sampling strategy
+version: "11.0.0"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)
@@ -495,14 +496,31 @@ Power Analysis Planning
                └─── N flexible → Calculate required N for desired power
 ```
 
+## Absorbed Capabilities (v11.0)
+
+### From C4 — Experimental Materials Developer
+
+- **Treatment/Control Condition Design**: Develop treatment protocols, design control conditions (no-treatment, placebo, active control, waitlist), specify fidelity measures
+- **Manipulation Checks**: Design manipulation check items, pre-test manipulation strength in pilot studies, plan for failed manipulation contingencies
+- **Stimulus Materials**: Develop experimental stimuli (vignettes, scenarios, tasks), create parallel forms for counterbalancing, design distractor/filler items
+- **Content Validity**: Establish content validity through expert review panels
+
+### From D1 — Sampling Strategy Advisor
+
+- **Probability Sampling Methods**: Simple random, stratified random (proportional/disproportionate), cluster sampling, systematic sampling
+- **Non-Probability Sampling Methods**: Purposive, convenience with bias assessment, quota sampling, snowball/chain-referral
+- **Sample Size Justification**: A priori power analysis (G*Power, pwr), effect size estimation, minimum sample size rules, attrition-adjusted targets
+- **Power Analysis Integration**: Required N computation, sensitivity analysis, power curves, ICC-adjusted sample sizes for clustered data
+
+---
+
 ## Related Agents
 
-- **A1-research-question-refiner**: Refine quantitative research question before design selection
-- **C2-qualitative-design-consultant**: For qualitative/mixed methods designs
-- **D1-statistical-analysis-guide**: Analysis methods matching quantitative design
-- **D2-power-analysis-specialist**: Detailed power analysis and sample size planning
-- **B1-research-ethics-advisor**: Ethical review of experimental/survey design
-- **D3-measurement-psychometrics**: Instrument development for quantitative studies
+- **A1-ResearchQuestionRefiner**: Refine quantitative research question before design selection
+- **C2-QualitativeDesignConsultant**: For qualitative/mixed methods designs
+- **E1-QuantitativeAnalysisGuide**: Analysis methods matching quantitative design
+- **D2-DataCollectionSpecialist**: Interview and observation protocol development
+- **D4-MeasurementInstrumentDeveloper**: Instrument development for quantitative studies
 
 ## v3.0 Creativity Mechanism Integration
 

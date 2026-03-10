@@ -1,6 +1,6 @@
-# Contributing to Research Coordinator
+# Contributing to Diverga
 
-Thank you for your interest in contributing to Research Coordinator! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Diverga! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 
@@ -32,19 +32,19 @@ This project follows a simple code of conduct:
 ### Prerequisites
 
 - Git
-- Bash shell (macOS/Linux) or WSL (Windows)
+- Bash shell (macOS/Linux)
 - Python 3.8+ (for validation scripts)
-- Claude Code CLI (for testing skills)
+- Claude Code CLI (for testing agents)
 
 ### Fork and Clone
 
 ```bash
 # Fork the repository on GitHub, then clone your fork
-git clone https://github.com/YOUR_USERNAME/research-coordinator.git
-cd research-coordinator
+git clone https://github.com/YOUR_USERNAME/Diverga.git
+cd Diverga
 
 # Add upstream remote
-git remote add upstream https://github.com/HosungYou/research-coordinator.git
+git remote add upstream https://github.com/HosungYou/Diverga.git
 ```
 
 ---
@@ -66,7 +66,7 @@ git remote add upstream https://github.com/HosungYou/research-coordinator.git
 ```bash
 # Create virtual environment
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
 
 # Install development dependencies
 pip install -r requirements-dev.txt

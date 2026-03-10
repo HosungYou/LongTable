@@ -1,20 +1,20 @@
 ---
 name: setup
 description: |
-  Diverga v10.3.0 initial configuration wizard. 3-step setup.
+  Diverga v11.0 initial configuration wizard. 3-step setup.
   Sets up checkpoints, OpenAlex email, and HUD preferences.
   Triggers: setup, configure, 설정, install
-version: "10.3.0"
+version: "11.0.0"
 ---
 
 # /diverga:setup
 
-**Version**: 10.3.0
+**Version**: 11.0.0
 **Trigger**: `/diverga:setup`
 
 ## Description
 
-Diverga v10.3.0 setup wizard. 3 steps: Checkpoint Level + OpenAlex Email + HUD.
+Diverga v11.0 setup wizard. 3 steps: Checkpoint Level + OpenAlex Email + HUD.
 LLM selection removed (Claude Code is already authenticated).
 
 ## Workflow
@@ -34,8 +34,8 @@ Display welcome message, then ask checkpoint level using AskUserQuestion:
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║                   Welcome to Diverga v10.3.0                     ║
-║         AI Research Assistant for the Complete Lifecycle         ║
+║                   Welcome to Diverga v11.0                       ║
+║       AI Research Assistant - 24 Agents, 9 Categories           ║
 ╚══════════════════════════════════════════════════════════════════╝
 ```
 
@@ -92,7 +92,7 @@ After collecting all preferences, generate `config/diverga-config.json`:
 
 ```json
 {
-  "version": "10.3.0",
+  "version": "11.0.0",
   "human_checkpoints": {
     "enabled": true,
     "level": "<full|minimal|off>",
@@ -124,7 +124,7 @@ Display completion:
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║                  Diverga v10.3.0 Setup Complete!                 ║
+║                  Diverga v11.0 Setup Complete!                    ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║  Configuration saved to: config/diverga-config.json             ║
 ║                                                                  ║
@@ -133,12 +133,12 @@ Display completion:
 ║  • "I want to conduct a systematic review on AI in education"    ║
 ║  • Diverga will auto-detect and guide you with checkpoints       ║
 ║                                                                  ║
-║  New in v10.3.0:                                                 ║
-║  • Journal Intelligence MCP — real-time journal data             ║
-║  • G1 Journal Matcher with live OpenAlex + Crossref metrics      ║
+║  New in v11.0:                                                   ║
+║  • Agent Consolidation — 24 agents across 9 categories           ║
+║  • Expanded agents absorb specialized capabilities               ║
 ║                                                                  ║
 ║  Commands:                                                       ║
-║  • /diverga:help     - View all 44 agents                       ║
+║  • /diverga:help     - View all 24 agents                       ║
 ║  • /diverga:memory   - Memory system commands                    ║
 ╚══════════════════════════════════════════════════════════════════╝
 ```

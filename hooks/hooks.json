@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $HOME/.claude/plugins/diverga/hooks/checkpoint-enforcer.mjs",
+            "command": "node $HOME/.claude/plugins/diverga/hooks/prereq-enforcer.mjs",
             "timeout": 5
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $HOME/.claude/plugins/diverga/hooks/skill-interceptor.mjs",
+            "command": "node $HOME/.claude/plugins/diverga/hooks/prereq-enforcer.mjs",
             "timeout": 5
           }
         ]

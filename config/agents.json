@@ -1,6 +1,6 @@
 {
   "$schema": "./agents.schema.json",
-  "version": "8.5.0",
+  "version": "11.0.0",
   "agents": [
     {
       "id": "a1",
@@ -29,25 +29,26 @@
         {"id": "CP_VS_001", "level": "required"},
         {"id": "CP_VS_003", "level": "required"}
       ],
-      "entryPoint": true
+      "entryPoint": true,
+      "absorbedFrom": []
     },
     {
       "id": "a2",
       "fullId": "diverga:a2",
       "directoryName": "A2-theoretical-framework-architect",
-      "displayName": "Theoretical Framework Architect",
-      "description": "VS-Enhanced Theoretical Framework Designer - Prevents Mode Collapse and recommends creative theories. Full VS 5-Phase process.",
+      "displayName": "Theory & Critique Architect",
+      "description": "VS-Enhanced Theory & Critique Architect - Combines theoretical framework design, devil's advocacy critique, ethics advising, and conceptual framework visualization. Full VS 5-Phase process.",
       "category": "A",
       "categoryName": "Research Foundation",
       "tier": "HIGH",
       "model": "opus",
       "icon": "\ud83c\udfdb\ufe0f",
-      "tools": ["Read", "Glob", "Grep", "WebSearch"],
+      "tools": ["Read", "Glob", "Grep", "WebSearch", "Write"],
       "vsLevel": "Full",
       "vsPhases": [0, 1, 2, 3, 4, 5],
       "triggers": {
-        "en": ["theoretical framework", "conceptual model", "hypothesis derivation"],
-        "ko": ["\uc774\ub860\uc801 \ud504\ub808\uc784\uc6cc\ud06c", "\uac1c\ub150\uc801 \ubaa8\ud615"]
+        "en": ["theoretical framework", "conceptual model", "hypothesis derivation", "criticism", "weakness", "reviewer 2", "alternative explanation", "rebuttal", "ethics", "IRB", "consent", "conceptual framework", "framework diagram"],
+        "ko": ["\uc774\ub860\uc801 \ud504\ub808\uc784\uc6cc\ud06c", "\uac1c\ub150\uc801 \ubaa8\ud615", "\ube44\ud310", "\uc57d\uc810"]
       },
       "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
       "checkpoints": ["CP-INIT-001", "CP-INIT-002", "CP-INIT-003", "CP-VS-001", "CP-VS-002", "CP-VS-003"],
@@ -59,65 +60,14 @@
         {"id": "CP_VS_002", "level": "recommended"},
         {"id": "CP_VS_003", "level": "required"}
       ],
-      "entryPoint": false
-    },
-    {
-      "id": "a3",
-      "fullId": "diverga:a3",
-      "directoryName": "A3-devils-advocate",
-      "displayName": "Devil's Advocate",
-      "description": "VS-Enhanced Devil's Advocate - Prevents Mode Collapse and generates original critiques. Full VS 5-Phase process.",
-      "category": "A",
-      "categoryName": "Research Foundation",
-      "tier": "HIGH",
-      "model": "opus",
-      "icon": "\ud83d\ude08",
-      "tools": ["Read", "Glob", "Grep"],
-      "vsLevel": "Full",
-      "vsPhases": [0, 1, 2, 3, 4, 5],
-      "triggers": {
-        "en": ["criticism", "weakness", "reviewer 2", "alternative explanation", "rebuttal"],
-        "ko": ["\ube44\ud310", "\uc57d\uc810"]
-      },
-      "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP-INIT-001", "CP-INIT-002", "CP-INIT-003", "CP-VS-001", "CP-VS-002", "CP-VS-003"],
-      "creativityModules": ["forced-analogy", "iterative-loop", "semantic-distance", "temporal-reframing", "community-simulation"],
-      "prerequisites": ["CP_RESEARCH_DIRECTION"],
-      "ownCheckpoints": [
-        {"id": "CP_VS_001", "level": "required"},
-        {"id": "CP_VS_003", "level": "required"}
-      ],
-      "entryPoint": false
-    },
-    {
-      "id": "a4",
-      "fullId": "diverga:a4",
-      "directoryName": "A4-research-ethics-advisor",
-      "displayName": "Research Ethics Advisor",
-      "description": "VS-Enhanced Research Ethics Advisor - Prevents Mode Collapse with context-adaptive ethical analysis. Enhanced VS 3-Phase process.",
-      "category": "A",
-      "categoryName": "Research Foundation",
-      "tier": "MEDIUM",
-      "model": "sonnet",
-      "icon": "\u2696\ufe0f",
-      "tools": ["Read", "Glob", "Grep"],
-      "vsLevel": "Enhanced",
-      "vsPhases": [0, 1, 2, 4],
-      "triggers": {
-        "en": ["ethics", "IRB", "consent", "informed consent", "privacy", "vulnerable populations"]
-      },
-      "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP-INIT-001", "CP-INIT-002", "CP-VS-001"],
-      "creativityModules": ["forced-analogy", "semantic-distance"],
-      "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": ["a3", "a4", "a6"]
     },
     {
       "id": "a5",
       "fullId": "diverga:a5",
       "directoryName": "A5-paradigm-worldview-advisor",
-      "displayName": "Paradigm & Worldview Advisor",
+      "displayName": "Paradigm Advisor",
       "description": "Paradigm & Worldview Advisor - Philosophical foundations for research design. Covers ontology, epistemology, axiology.",
       "category": "A",
       "categoryName": "Research Foundation",
@@ -138,41 +88,15 @@
       "ownCheckpoints": [
         {"id": "CP_PARADIGM_SELECTION", "level": "required"}
       ],
-      "entryPoint": true
-    },
-    {
-      "id": "a6",
-      "fullId": "diverga:a6",
-      "directoryName": "A6-conceptual-framework-visualizer",
-      "displayName": "Conceptual Framework Visualizer",
-      "description": "VS-Enhanced Conceptual Framework Visualization Expert - Generates differentiated academic visualizations.",
-      "category": "A",
-      "categoryName": "Research Foundation",
-      "tier": "MEDIUM",
-      "model": "sonnet",
-      "icon": "\ud83c\udfa8",
-      "tools": ["Read", "Glob", "Grep", "Write"],
-      "vsLevel": "Enhanced",
-      "vsPhases": [0, 1, 2, 4],
-      "triggers": {
-        "en": ["conceptual framework", "theoretical model visualization", "Discussion figure", "framework diagram"],
-        "ko": ["\uac1c\ub150\uc801 \ubaa8\ud615"]
-      },
-      "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP-INIT-001", "CP-VS-001"],
-      "creativityModules": ["semantic-distance"],
-      "prerequisites": ["CP_RESEARCH_DIRECTION"],
-      "ownCheckpoints": [
-        {"id": "CP_VISUALIZATION_PREFERENCE", "level": "optional"}
-      ],
-      "entryPoint": false
+      "entryPoint": true,
+      "absorbedFrom": []
     },
     {
       "id": "b1",
       "fullId": "diverga:b1",
       "directoryName": "B1-systematic-literature-scout",
-      "displayName": "Systematic Literature Scout",
-      "description": "VS-Enhanced Literature Review Strategist - Comprehensive support for multiple review methodologies including PRISMA 2020.",
+      "displayName": "Literature Scout",
+      "description": "VS-Enhanced Literature Scout - Comprehensive literature review with integrated trend monitoring, parallel document processing, and multi-methodology support including PRISMA 2020.",
       "category": "B",
       "categoryName": "Literature & Evidence",
       "tier": "MEDIUM",
@@ -182,7 +106,8 @@
       "vsLevel": "Full",
       "vsPhases": [0, 1, 2, 3, 4, 5],
       "triggers": {
-        "en": ["literature review", "PRISMA", "systematic review", "scoping review", "meta-synthesis"]
+        "en": ["literature review", "PRISMA", "systematic review", "scoping review", "meta-synthesis", "latest research", "trends", "new publications", "batch PDF", "parallel reading", "multiple documents"],
+        "ko": ["\ubb38\ud5cc\uace0\ucc30"]
       },
       "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
       "checkpoints": ["CP-INIT-001", "CP-INIT-002", "CP-INIT-003", "CP-VS-001", "CP-VS-002", "CP-VS-003"],
@@ -193,14 +118,15 @@
         {"id": "CP_SEARCH_STRATEGY", "level": "optional"},
         {"id": "CP_VS_001", "level": "required"}
       ],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": ["b4", "b5"]
     },
     {
       "id": "b2",
       "fullId": "diverga:b2",
       "directoryName": "B2-evidence-quality-appraiser",
-      "displayName": "Evidence Quality Appraiser",
-      "description": "VS-Enhanced Evidence Quality Appraiser - Context-adaptive quality assessment with GRADE, RoB, CASP.",
+      "displayName": "Quality Appraiser",
+      "description": "VS-Enhanced Quality Appraiser - Context-adaptive quality assessment with GRADE, RoB, CASP, and effect size extraction capabilities.",
       "category": "B",
       "categoryName": "Literature & Evidence",
       "tier": "MEDIUM",
@@ -219,86 +145,15 @@
       "ownCheckpoints": [
         {"id": "CP_QUALITY_REVIEW", "level": "recommended"}
       ],
-      "entryPoint": false
-    },
-    {
-      "id": "b3",
-      "fullId": "diverga:b3",
-      "directoryName": "B3-effect-size-extractor",
-      "displayName": "Effect Size Extractor",
-      "description": "VS-Enhanced Effect Size Extractor - Optimal effect size strategy with context-appropriate selection.",
-      "category": "B",
-      "categoryName": "Literature & Evidence",
-      "tier": "LOW",
-      "model": "haiku",
-      "icon": "\ud83d\udcca",
-      "tools": ["Read", "Glob", "Grep"],
-      "vsLevel": "Enhanced",
-      "vsPhases": [0, 1, 2, 4],
-      "triggers": {
-        "en": ["effect size", "Cohen's d", "Hedges' g", "correlation", "conversion", "meta-analysis data"]
-      },
-      "paradigmAffinity": ["quantitative"],
-      "checkpoints": ["CP-INIT-001", "CP-INIT-002", "CP-VS-001"],
-      "creativityModules": ["forced-analogy", "semantic-distance"],
-      "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
-    },
-    {
-      "id": "b4",
-      "fullId": "diverga:b4",
-      "directoryName": "B4-research-radar",
-      "displayName": "Research Radar",
-      "description": "VS-Enhanced Research Radar - Differentiated trend analysis for strategic research monitoring.",
-      "category": "B",
-      "categoryName": "Literature & Evidence",
-      "tier": "LOW",
-      "model": "haiku",
-      "icon": "\ud83d\udce1",
-      "tools": ["Read", "Glob", "Grep", "WebSearch"],
-      "vsLevel": "Enhanced",
-      "vsPhases": [0, 1, 2, 4],
-      "triggers": {
-        "en": ["latest research", "trends", "new publications", "recent papers", "research developments"]
-      },
-      "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP-INIT-001", "CP-INIT-002", "CP-VS-001"],
-      "creativityModules": ["forced-analogy", "semantic-distance"],
-      "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
-    },
-    {
-      "id": "b5",
-      "fullId": "diverga:b5",
-      "directoryName": "B5-parallel-document-processor",
-      "displayName": "Parallel Document Processor",
-      "description": "Parallel Document Processor - High-throughput PDF/document reading with distributed workload.",
-      "category": "B",
-      "categoryName": "Literature & Evidence",
-      "tier": "HIGH",
-      "model": "opus",
-      "icon": "\ud83d\udcc4\u26a1",
-      "tools": ["Read", "Glob", "Grep", "Bash"],
-      "vsLevel": "Enhanced",
-      "vsPhases": [0, 1, 4],
-      "triggers": {
-        "en": ["batch PDF", "parallel reading", "multiple documents", "large files", "document extraction"]
-      },
-      "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP-INIT-001", "CP-PROGRESS-001", "CP-COMPLETE-001"],
-      "creativityModules": [],
-      "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": []
     },
     {
       "id": "c1",
       "fullId": "diverga:c1",
       "directoryName": "C1-quantitative-design-consultant",
-      "displayName": "Quantitative Design Consultant",
-      "description": "VS-Enhanced Quantitative Design Consultant - Creative quantitative design options with context-optimal strategies.",
+      "displayName": "Quantitative Design & Sampling",
+      "description": "VS-Enhanced Quantitative Design & Sampling - Creative quantitative design with integrated sampling strategy, experimental materials development, and sample size justification.",
       "category": "C",
       "categoryName": "Study Design",
       "tier": "HIGH",
@@ -308,10 +163,11 @@
       "vsLevel": "Enhanced",
       "vsPhases": [0, 1, 2, 4],
       "triggers": {
-        "en": ["RCT", "quasi-experimental", "experimental design", "survey design", "power analysis", "sample size", "factorial design"]
+        "en": ["RCT", "quasi-experimental", "experimental design", "survey design", "power analysis", "sample size", "factorial design", "sampling", "G*Power", "recruitment", "intervention materials", "experimental materials", "treatment design", "manipulation check"],
+        "ko": ["\ud45c\ubcf8\ucd94\ucd9c", "\uc2e4\ud5d8\uc124\uacc4"]
       },
       "paradigmAffinity": ["quantitative"],
-      "checkpoints": ["CP-DESIGN-001", "CP-DESIGN-002", "CP-VS-001"],
+      "checkpoints": ["CP-DESIGN-001", "CP-DESIGN-002", "CP-VS-001", "CP-SAMPLING-001"],
       "creativityModules": ["forced-analogy", "semantic-distance"],
       "prerequisites": ["CP_PARADIGM_SELECTION", "CP_RESEARCH_DIRECTION"],
       "ownCheckpoints": [
@@ -319,41 +175,43 @@
         {"id": "CP_VS_001", "level": "required"},
         {"id": "CP_VS_003", "level": "required"}
       ],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": ["c4", "d1"]
     },
     {
       "id": "c2",
       "fullId": "diverga:c2",
       "directoryName": "C2-qualitative-design-consultant",
-      "displayName": "Qualitative Design Consultant",
-      "description": "VS-Enhanced Qualitative Design Consultant - Comprehensive qualitative research design support.",
+      "displayName": "Qualitative Design (Ethnography/AR)",
+      "description": "VS-Enhanced Qualitative Design with Ethnography & Action Research - Comprehensive qualitative research design including phenomenology, grounded theory, case study, ethnographic fieldwork, and participatory action research.",
       "category": "C",
       "categoryName": "Study Design",
       "tier": "HIGH",
       "model": "opus",
       "icon": "\ud83d\udd2e",
-      "tools": ["Read", "Glob", "Grep", "Edit", "Write"],
+      "tools": ["Read", "Glob", "Grep", "Edit", "Write", "WebSearch"],
       "vsLevel": "Full",
       "vsPhases": [0, 1, 2, 3, 4, 5],
       "triggers": {
-        "en": ["phenomenology", "grounded theory", "case study", "narrative inquiry", "ethnography", "qualitative design"],
-        "ko": ["\ud604\uc0c1\ud559", "\uadfc\uac70\uc774\ub860", "\uc0ac\ub840\uc5f0\uad6c"]
+        "en": ["phenomenology", "grounded theory", "case study", "narrative inquiry", "ethnography", "qualitative design", "fieldwork", "participant observation", "thick description", "action research", "PAR", "CBPR", "participatory"],
+        "ko": ["\ud604\uc0c1\ud559", "\uadfc\uac70\uc774\ub860", "\uc0ac\ub840\uc5f0\uad6c", "\ubb38\ud654\uae30\uc220\uc9c0"]
       },
-      "paradigmAffinity": ["qualitative"],
-      "checkpoints": ["CP-QUAL-001", "CP-QUAL-002", "CP-QUAL-003", "CP-VS-001", "CP-VS-002", "CP-VS-003"],
+      "paradigmAffinity": ["qualitative", "mixed"],
+      "checkpoints": ["CP-QUAL-001", "CP-QUAL-002", "CP-QUAL-003", "CP-VS-001", "CP-VS-002", "CP-VS-003", "CP-ETHNO-001", "CP-ETHNO-002", "CP-ACTION-001"],
       "creativityModules": ["forced-analogy", "iterative-loop", "semantic-distance", "temporal-reframing", "community-simulation"],
       "prerequisites": ["CP_PARADIGM_SELECTION", "CP_RESEARCH_DIRECTION"],
       "ownCheckpoints": [
         {"id": "CP_METHODOLOGY_APPROVAL", "level": "required"},
         {"id": "CP_VS_001", "level": "required"}
       ],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": ["h1", "h2"]
     },
     {
       "id": "c3",
       "fullId": "diverga:c3",
       "directoryName": "C3-mixed-methods-design-consultant",
-      "displayName": "Mixed Methods Design Consultant",
+      "displayName": "Mixed Methods Design",
       "description": "Mixed Methods Design Consultant - Sequential, concurrent, embedded, and multiphase designs with Morse notation.",
       "category": "C",
       "categoryName": "Study Design",
@@ -374,38 +232,15 @@
         {"id": "CP_METHODOLOGY_APPROVAL", "level": "required"},
         {"id": "CP_INTEGRATION_STRATEGY", "level": "recommended"}
       ],
-      "entryPoint": false
-    },
-    {
-      "id": "c4",
-      "fullId": "diverga:c4",
-      "directoryName": "C4-experimental-materials-developer",
-      "displayName": "Experimental Materials Developer",
-      "description": "Experimental Materials Developer - Treatment and control condition design with manipulation checks.",
-      "category": "C",
-      "categoryName": "Study Design",
-      "tier": "MEDIUM",
-      "model": "sonnet",
-      "icon": "\ud83e\uddea",
-      "tools": ["Read", "Glob", "Grep", "Edit", "Write"],
-      "vsLevel": "Enhanced",
-      "vsPhases": [0, 1, 2, 4],
-      "triggers": {
-        "en": ["intervention materials", "experimental materials", "treatment design", "manipulation check"]
-      },
-      "paradigmAffinity": ["quantitative"],
-      "checkpoints": ["CP-DESIGN-001", "CP-DESIGN-002", "CP-VS-001"],
-      "creativityModules": ["forced-analogy", "semantic-distance"],
-      "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": []
     },
     {
       "id": "c5",
       "fullId": "diverga:c5",
       "directoryName": "C5-meta-analysis-master",
       "displayName": "Meta-Analysis Master",
-      "description": "Meta-Analysis Master - Multi-gate validation, workflow orchestration, Hedges g calculation.",
+      "description": "Meta-Analysis Master - Multi-gate validation, workflow orchestration, Hedges g calculation, with integrated effect size extraction, data integrity guard, and error prevention.",
       "category": "C",
       "categoryName": "Study Design",
       "tier": "HIGH",
@@ -415,97 +250,24 @@
       "vsLevel": "Full",
       "vsPhases": [0, 1, 2, 3, 4, 5],
       "triggers": {
-        "en": ["meta-analysis", "pooled effect", "heterogeneity", "forest plot", "funnel plot"]
+        "en": ["meta-analysis", "pooled effect", "heterogeneity", "forest plot", "funnel plot", "effect size", "Cohen's d", "Hedges' g", "data integrity", "error prevention", "anomaly detection"]
       },
       "paradigmAffinity": ["quantitative"],
-      "checkpoints": ["CP-META-001", "CP-META-002", "CP-META-003", "CP-VS-001", "CP-VS-002"],
+      "checkpoints": ["CP-META-001", "CP-META-002", "CP-META-003", "CP-VS-001", "CP-VS-002", "CP-DATA-001", "CP-ERROR-001"],
       "creativityModules": ["forced-analogy", "iterative-loop", "semantic-distance"],
       "prerequisites": ["CP_RESEARCH_DIRECTION", "CP_METHODOLOGY_APPROVAL"],
       "ownCheckpoints": [
         {"id": "CP_ANALYSIS_PLAN", "level": "recommended"}
       ],
-      "entryPoint": false
-    },
-    {
-      "id": "c6",
-      "fullId": "diverga:c6",
-      "directoryName": "C6-data-integrity-guard",
-      "displayName": "Data Integrity Guard",
-      "description": "Data Integrity Guard - Data completeness, Hedges g calculation, SD recovery for meta-analysis.",
-      "category": "C",
-      "categoryName": "Study Design",
-      "tier": "MEDIUM",
-      "model": "sonnet",
-      "icon": "\ud83d\udee1\ufe0f",
-      "tools": ["Read", "Glob", "Grep"],
-      "vsLevel": "Enhanced",
-      "vsPhases": [0, 1, 2, 4],
-      "triggers": {
-        "en": ["data extraction", "PDF extract", "extract data", "data integrity"]
-      },
-      "paradigmAffinity": ["quantitative"],
-      "checkpoints": ["CP-DATA-001", "CP-VS-001"],
-      "creativityModules": ["semantic-distance"],
-      "prerequisites": ["CP_METHODOLOGY_APPROVAL"],
-      "ownCheckpoints": [],
-      "entryPoint": false
-    },
-    {
-      "id": "c7",
-      "fullId": "diverga:c7",
-      "directoryName": "C7-error-prevention-engine",
-      "displayName": "Error Prevention Engine",
-      "description": "Error Prevention Engine - Pattern detection, anomaly alerts, error prevention for meta-analysis.",
-      "category": "C",
-      "categoryName": "Study Design",
-      "tier": "MEDIUM",
-      "model": "sonnet",
-      "icon": "\u26a0\ufe0f",
-      "tools": ["Read", "Glob", "Grep"],
-      "vsLevel": "Enhanced",
-      "vsPhases": [0, 1, 2, 4],
-      "triggers": {
-        "en": ["error prevention", "validation", "data check", "anomaly detection"]
-      },
-      "paradigmAffinity": ["quantitative"],
-      "checkpoints": ["CP-ERROR-001", "CP-VS-001"],
-      "creativityModules": ["semantic-distance"],
-      "prerequisites": ["CP_METHODOLOGY_APPROVAL"],
-      "ownCheckpoints": [],
-      "entryPoint": false
-    },
-    {
-      "id": "d1",
-      "fullId": "diverga:d1",
-      "directoryName": "D1-sampling-strategy-advisor",
-      "displayName": "Sampling Strategy Advisor",
-      "description": "Sampling Strategy Advisor - Probability and non-probability sampling with sample size justification.",
-      "category": "D",
-      "categoryName": "Data Collection",
-      "tier": "MEDIUM",
-      "model": "sonnet",
-      "icon": "\ud83c\udfaf",
-      "tools": ["Read", "Glob", "Grep", "Edit"],
-      "vsLevel": "Enhanced",
-      "vsPhases": [0, 1, 2, 4],
-      "triggers": {
-        "en": ["sampling", "sample size", "G*Power", "recruitment", "theoretical sampling"]
-      },
-      "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP-SAMPLING-001", "CP-VS-001"],
-      "creativityModules": ["forced-analogy", "semantic-distance"],
-      "prerequisites": ["CP_METHODOLOGY_APPROVAL"],
-      "ownCheckpoints": [
-        {"id": "CP_SAMPLING_STRATEGY", "level": "recommended"}
-      ],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": ["b3", "c6", "c7"]
     },
     {
       "id": "d2",
       "fullId": "diverga:d2",
       "directoryName": "D2-interview-focus-group-specialist",
-      "displayName": "Interview & Focus Group Specialist",
-      "description": "Interview & Focus Group Specialist - Protocol development, probing strategies, transcription guidance.",
+      "displayName": "Data Collection Specialist",
+      "description": "Data Collection Specialist - Interview & focus group protocol development, observation protocols, probing strategies, and transcription guidance.",
       "category": "D",
       "categoryName": "Data Collection",
       "tier": "MEDIUM",
@@ -515,47 +277,25 @@
       "vsLevel": "Enhanced",
       "vsPhases": [0, 1, 2, 4],
       "triggers": {
-        "en": ["interview", "focus group", "interview protocol", "probing questions"]
+        "en": ["interview", "focus group", "interview protocol", "probing questions", "observation", "field notes", "participant observation", "observational study"],
+        "ko": ["\uc778\ud130\ubdf0", "\uad00\ucc30"]
       },
       "paradigmAffinity": ["qualitative", "mixed"],
-      "checkpoints": ["CP-INTERVIEW-001", "CP-INTERVIEW-002", "CP-VS-001"],
+      "checkpoints": ["CP-INTERVIEW-001", "CP-INTERVIEW-002", "CP-OBSERVATION-001", "CP-VS-001"],
       "creativityModules": ["forced-analogy", "semantic-distance"],
       "prerequisites": ["CP_METHODOLOGY_APPROVAL"],
       "ownCheckpoints": [
         {"id": "CP_SAMPLING_STRATEGY", "level": "recommended"}
       ],
-      "entryPoint": false
-    },
-    {
-      "id": "d3",
-      "fullId": "diverga:d3",
-      "directoryName": "D3-observation-protocol-designer",
-      "displayName": "Observation Protocol Designer",
-      "description": "Observation Protocol Designer - Structured observation, field notes, coding schemes.",
-      "category": "D",
-      "categoryName": "Data Collection",
-      "tier": "LOW",
-      "model": "haiku",
-      "icon": "\ud83d\udc41\ufe0f",
-      "tools": ["Read", "Glob", "Grep", "Edit"],
-      "vsLevel": "Enhanced",
-      "vsPhases": [0, 1, 2, 4],
-      "triggers": {
-        "en": ["observation", "field notes", "participant observation", "observational study"]
-      },
-      "paradigmAffinity": ["qualitative", "mixed"],
-      "checkpoints": ["CP-OBSERVATION-001", "CP-VS-001"],
-      "creativityModules": ["forced-analogy", "semantic-distance"],
-      "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": ["d3"]
     },
     {
       "id": "d4",
       "fullId": "diverga:d4",
       "directoryName": "D4-measurement-instrument-developer",
-      "displayName": "Measurement Instrument Developer",
-      "description": "Measurement Instrument Developer - Scale construction, validity evidence, reliability testing.",
+      "displayName": "Instrument Developer",
+      "description": "Instrument Developer - Scale construction, validity evidence, reliability testing.",
       "category": "D",
       "categoryName": "Data Collection",
       "tier": "HIGH",
@@ -574,39 +314,41 @@
       "ownCheckpoints": [
         {"id": "CP_METHODOLOGY_APPROVAL", "level": "required"}
       ],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": []
     },
     {
       "id": "e1",
       "fullId": "diverga:e1",
       "directoryName": "E1-quantitative-analysis-guide",
-      "displayName": "Quantitative Analysis Guide",
-      "description": "Quantitative Analysis Guide - Statistical methods, SEM, multilevel modeling, meta-analysis techniques.",
+      "displayName": "Quantitative Analysis & Code Gen",
+      "description": "Quantitative Analysis & Code Generation - Statistical methods, SEM, multilevel modeling, meta-analysis techniques with integrated R/Python/SPSS/Mplus code generation and sensitivity analysis.",
       "category": "E",
       "categoryName": "Analysis",
       "tier": "HIGH",
       "model": "opus",
       "icon": "\ud83d\udcc8",
-      "tools": ["Read", "Glob", "Grep", "Bash", "Edit"],
+      "tools": ["Read", "Glob", "Grep", "Bash", "Edit", "Write"],
       "vsLevel": "Full",
       "vsPhases": [0, 1, 2, 3, 4, 5],
       "triggers": {
-        "en": ["statistical analysis", "ANOVA", "regression", "SEM", "multilevel modeling"]
+        "en": ["statistical analysis", "ANOVA", "regression", "SEM", "multilevel modeling", "R code", "Python code", "analysis code", "SPSS syntax", "Mplus syntax", "sensitivity analysis", "robustness check", "leave-one-out"]
       },
       "paradigmAffinity": ["quantitative", "mixed"],
-      "checkpoints": ["CP-ANALYSIS-001", "CP-ANALYSIS-002", "CP-ANALYSIS-003", "CP-VS-001", "CP-VS-002", "CP-VS-003"],
+      "checkpoints": ["CP-ANALYSIS-001", "CP-ANALYSIS-002", "CP-ANALYSIS-003", "CP-VS-001", "CP-VS-002", "CP-VS-003", "CP-CODE-001", "CP-SENSITIVITY-001"],
       "creativityModules": ["forced-analogy", "iterative-loop", "semantic-distance", "temporal-reframing", "community-simulation"],
       "prerequisites": ["CP_METHODOLOGY_APPROVAL"],
       "ownCheckpoints": [
         {"id": "CP_ANALYSIS_PLAN", "level": "recommended"}
       ],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": ["e4", "e5"]
     },
     {
       "id": "e2",
       "fullId": "diverga:e2",
       "directoryName": "E2-qualitative-coding-specialist",
-      "displayName": "Qualitative Coding Specialist",
+      "displayName": "Qualitative Coding",
       "description": "Qualitative Coding Specialist - Thematic analysis, grounded theory coding, codebook development.",
       "category": "E",
       "categoryName": "Analysis",
@@ -627,7 +369,8 @@
         {"id": "CP_CODING_APPROACH", "level": "recommended"},
         {"id": "CP_THEME_VALIDATION", "level": "recommended"}
       ],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": []
     },
     {
       "id": "e3",
@@ -653,175 +396,33 @@
       "ownCheckpoints": [
         {"id": "CP_INTEGRATION_STRATEGY", "level": "recommended"}
       ],
-      "entryPoint": false
-    },
-    {
-      "id": "e4",
-      "fullId": "diverga:e4",
-      "directoryName": "E4-analysis-code-generator",
-      "displayName": "Analysis Code Generator",
-      "description": "Analysis Code Generator - R, Python, SPSS, Stata, Mplus syntax generation.",
-      "category": "E",
-      "categoryName": "Analysis",
-      "tier": "LOW",
-      "model": "haiku",
-      "icon": "\ud83d\udcbb",
-      "tools": ["Read", "Glob", "Grep", "Edit", "Write", "Bash"],
-      "vsLevel": "Enhanced",
-      "vsPhases": [0, 1, 2, 4],
-      "triggers": {
-        "en": ["R code", "Python code", "analysis code", "SPSS syntax", "Mplus syntax"]
-      },
-      "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP-CODE-001", "CP-VS-001"],
-      "creativityModules": ["forced-analogy", "semantic-distance"],
-      "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
-    },
-    {
-      "id": "e5",
-      "fullId": "diverga:e5",
-      "directoryName": "E5-sensitivity-analysis-designer",
-      "displayName": "Sensitivity Analysis Designer",
-      "description": "Sensitivity Analysis Designer - Robustness checks, sensitivity analyses for meta-analysis.",
-      "category": "E",
-      "categoryName": "Analysis",
-      "tier": "MEDIUM",
-      "model": "sonnet",
-      "icon": "\ud83d\udd2c",
-      "tools": ["Read", "Glob", "Grep", "Edit"],
-      "vsLevel": "Enhanced",
-      "vsPhases": [0, 1, 2, 4],
-      "triggers": {
-        "en": ["sensitivity analysis", "robustness check", "leave-one-out"]
-      },
-      "paradigmAffinity": ["quantitative"],
-      "checkpoints": ["CP-SENSITIVITY-001", "CP-VS-001"],
-      "creativityModules": ["semantic-distance"],
-      "prerequisites": ["CP_METHODOLOGY_APPROVAL"],
-      "ownCheckpoints": [],
-      "entryPoint": false
-    },
-    {
-      "id": "f1",
-      "fullId": "diverga:f1",
-      "directoryName": "F1-internal-consistency-checker",
-      "displayName": "Internal Consistency Checker",
-      "description": "Internal Consistency Checker - Logical consistency, alignment verification, terminology consistency.",
-      "category": "F",
-      "categoryName": "Quality & Validation",
-      "tier": "LOW",
-      "model": "haiku",
-      "icon": "\u2705",
-      "tools": ["Read", "Glob", "Grep"],
-      "vsLevel": "Light",
-      "vsPhases": [0, 1, 4],
-      "triggers": {
-        "en": ["consistency", "alignment", "logical verification"]
-      },
-      "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP-INIT-001"],
-      "creativityModules": [],
-      "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
-    },
-    {
-      "id": "f2",
-      "fullId": "diverga:f2",
-      "directoryName": "F2-checklist-manager",
-      "displayName": "Checklist Manager",
-      "description": "Checklist Manager - PRISMA 2020, CONSORT, STROBE, COREQ, GRAMMS compliance.",
-      "category": "F",
-      "categoryName": "Quality & Validation",
-      "tier": "LOW",
-      "model": "haiku",
-      "icon": "\ud83d\udccb",
-      "tools": ["Read", "Glob", "Grep"],
-      "vsLevel": "Light",
-      "vsPhases": [0, 1, 4],
-      "triggers": {
-        "en": ["PRISMA", "CONSORT", "STROBE", "COREQ", "checklist"]
-      },
-      "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP-INIT-001"],
-      "creativityModules": [],
-      "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
-    },
-    {
-      "id": "f3",
-      "fullId": "diverga:f3",
-      "directoryName": "F3-reproducibility-auditor",
-      "displayName": "Reproducibility Auditor",
-      "description": "Reproducibility Auditor - OSF setup, open science practices, data sharing protocols.",
-      "category": "F",
-      "categoryName": "Quality & Validation",
-      "tier": "MEDIUM",
-      "model": "sonnet",
-      "icon": "\ud83d\udee1\ufe0f",
-      "tools": ["Read", "Glob", "Grep"],
-      "vsLevel": "Light",
-      "vsPhases": [0, 1, 4],
-      "triggers": {
-        "en": ["reproducibility", "OSF", "open science", "replication"]
-      },
-      "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP-INIT-001"],
-      "creativityModules": [],
-      "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
-    },
-    {
-      "id": "f4",
-      "fullId": "diverga:f4",
-      "directoryName": "F4-bias-trustworthiness-detector",
-      "displayName": "Bias & Trustworthiness Detector",
-      "description": "Bias & Trustworthiness Detector - p-hacking detection, HARKing, QRP screening, trustworthiness criteria.",
-      "category": "F",
-      "categoryName": "Quality & Validation",
-      "tier": "MEDIUM",
-      "model": "sonnet",
-      "icon": "\ud83d\udd0e",
-      "tools": ["Read", "Glob", "Grep"],
-      "vsLevel": "Full",
-      "vsPhases": [0, 1, 2, 3, 4, 5],
-      "triggers": {
-        "en": ["bias", "p-hacking", "HARKing", "QRP", "trustworthiness", "credibility"]
-      },
-      "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP-BIAS-001", "CP-TRUST-001", "CP-VS-001", "CP-VS-002", "CP-VS-003"],
-      "creativityModules": ["forced-analogy", "iterative-loop", "semantic-distance", "temporal-reframing", "community-simulation"],
-      "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": []
     },
     {
       "id": "f5",
       "fullId": "diverga:f5",
       "directoryName": "F5-humanization-verifier",
       "displayName": "Humanization Verifier",
-      "description": "Humanization Verifier - Citation integrity, statistical accuracy, meaning preservation validation.",
+      "description": "Humanization Verifier - Citation integrity, statistical accuracy, meaning preservation, internal consistency, PRISMA/CONSORT/STROBE checklist compliance, reproducibility auditing, and bias/trustworthiness detection.",
       "category": "F",
       "categoryName": "Quality & Validation",
-      "tier": "LOW",
-      "model": "haiku",
+      "tier": "MEDIUM",
+      "model": "sonnet",
       "icon": "\u2705",
       "tools": ["Read", "Glob", "Grep"],
-      "vsLevel": "Light",
-      "vsPhases": [0, 1, 4],
+      "vsLevel": "Full",
+      "vsPhases": [0, 1, 2, 3, 4, 5],
       "triggers": {
-        "en": ["verify humanization", "check transformation", "validate changes"]
+        "en": ["verify humanization", "check transformation", "validate changes", "consistency", "alignment", "PRISMA", "CONSORT", "STROBE", "COREQ", "checklist", "reproducibility", "OSF", "open science", "bias", "p-hacking", "HARKing", "QRP", "trustworthiness"]
       },
       "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP_HUMANIZATION_VERIFY"],
-      "creativityModules": [],
+      "checkpoints": ["CP_HUMANIZATION_VERIFY", "CP-INIT-001", "CP-BIAS-001", "CP-TRUST-001", "CP-VS-001", "CP-VS-002", "CP-VS-003"],
+      "creativityModules": ["forced-analogy", "iterative-loop", "semantic-distance", "temporal-reframing", "community-simulation"],
       "prerequisites": [],
       "ownCheckpoints": [],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": ["f1", "f2", "f3", "f4"]
     },
     {
       "id": "g1",
@@ -844,80 +445,37 @@
       "checkpoints": ["CP-INIT-001"],
       "creativityModules": [],
       "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
+      "ownCheckpoints": [
+        {"id": "CP_JOURNAL_PRIORITIES", "level": "recommended"},
+        {"id": "CP_JOURNAL_SELECTION", "level": "recommended"}
+      ],
+      "entryPoint": true,
+      "absorbedFrom": []
     },
     {
       "id": "g2",
       "fullId": "diverga:g2",
       "directoryName": "G2-academic-communicator",
-      "displayName": "Academic Communicator",
-      "description": "Academic Communicator - Abstract writing, plain language summaries, conference presentations.",
+      "displayName": "Publication Specialist",
+      "description": "Publication Specialist - Abstract writing, plain language summaries, conference presentations, peer review response strategy, revision management, and pre-registration support.",
       "category": "G",
       "categoryName": "Publication & Communication",
       "tier": "MEDIUM",
       "model": "sonnet",
       "icon": "\ud83c\udf99",
       "tools": ["Read", "Glob", "Grep", "Edit", "Write"],
-      "vsLevel": "Light",
-      "vsPhases": [0, 1, 4],
-      "triggers": {
-        "en": ["abstract", "plain language", "academic writing", "manuscript"]
-      },
-      "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP-INIT-001"],
-      "creativityModules": [],
-      "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
-    },
-    {
-      "id": "g3",
-      "fullId": "diverga:g3",
-      "directoryName": "G3-peer-review-strategist",
-      "displayName": "Peer Review Strategist",
-      "description": "Peer Review Strategist - Reviewer comment analysis, response letter drafting, revision strategy.",
-      "category": "G",
-      "categoryName": "Publication & Communication",
-      "tier": "MEDIUM",
-      "model": "sonnet",
-      "icon": "\ud83d\udd04",
-      "tools": ["Read", "Glob", "Grep", "Edit", "Write"],
       "vsLevel": "Enhanced",
       "vsPhases": [0, 1, 2, 4],
       "triggers": {
-        "en": ["peer review", "reviewer response", "revision", "rebuttal"]
+        "en": ["abstract", "plain language", "academic writing", "manuscript", "peer review", "reviewer response", "revision", "rebuttal", "preregistration", "OSF", "pre-register", "registered report"]
       },
       "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
-      "checkpoints": ["CP-REVIEW-001", "CP-VS-001"],
+      "checkpoints": ["CP-INIT-001", "CP-REVIEW-001", "CP-VS-001"],
       "creativityModules": ["forced-analogy", "semantic-distance"],
       "prerequisites": [],
       "ownCheckpoints": [],
-      "entryPoint": false
-    },
-    {
-      "id": "g4",
-      "fullId": "diverga:g4",
-      "directoryName": "G4-preregistration-composer",
-      "displayName": "Pre-registration Composer",
-      "description": "Pre-registration Composer - OSF pre-registration, AsPredicted templates, registered reports.",
-      "category": "G",
-      "categoryName": "Publication & Communication",
-      "tier": "MEDIUM",
-      "model": "sonnet",
-      "icon": "\ud83d\udcc4",
-      "tools": ["Read", "Glob", "Grep", "Edit", "Write"],
-      "vsLevel": "Light",
-      "vsPhases": [0, 1, 4],
-      "triggers": {
-        "en": ["preregistration", "OSF", "pre-register", "registered report"]
-      },
-      "paradigmAffinity": ["quantitative", "mixed"],
-      "checkpoints": ["CP-INIT-001"],
-      "creativityModules": [],
-      "prerequisites": [],
-      "ownCheckpoints": [],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": ["g3", "g4"]
     },
     {
       "id": "g5",
@@ -943,7 +501,8 @@
       "ownCheckpoints": [
         {"id": "CP_HUMANIZATION_REVIEW", "level": "recommended"}
       ],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": []
     },
     {
       "id": "g6",
@@ -969,66 +528,15 @@
       "ownCheckpoints": [
         {"id": "CP_HUMANIZATION_VERIFY", "level": "optional"}
       ],
-      "entryPoint": false
-    },
-    {
-      "id": "h1",
-      "fullId": "diverga:h1",
-      "directoryName": "H1-ethnographic-research-advisor",
-      "displayName": "Ethnographic Research Advisor",
-      "description": "Ethnographic Research Advisor - Fieldwork planning, cultural immersion, thick description guidance.",
-      "category": "H",
-      "categoryName": "Specialized Approaches",
-      "tier": "HIGH",
-      "model": "opus",
-      "icon": "\ud83c\udf0d",
-      "tools": ["Read", "Glob", "Grep", "WebSearch"],
-      "vsLevel": "Full",
-      "vsPhases": [0, 1, 2, 3, 4, 5],
-      "triggers": {
-        "en": ["ethnography", "fieldwork", "participant observation", "thick description"]
-      },
-      "paradigmAffinity": ["qualitative"],
-      "checkpoints": ["CP-ETHNO-001", "CP-ETHNO-002", "CP-VS-001", "CP-VS-002", "CP-VS-003"],
-      "creativityModules": ["forced-analogy", "iterative-loop", "semantic-distance", "temporal-reframing", "community-simulation"],
-      "prerequisites": ["CP_PARADIGM_SELECTION"],
-      "ownCheckpoints": [
-        {"id": "CP_METHODOLOGY_APPROVAL", "level": "required"}
-      ],
-      "entryPoint": false
-    },
-    {
-      "id": "h2",
-      "fullId": "diverga:h2",
-      "directoryName": "H2-action-research-facilitator",
-      "displayName": "Action Research Facilitator",
-      "description": "Action Research Facilitator - PAR, CBPR, action research cycles, stakeholder collaboration.",
-      "category": "H",
-      "categoryName": "Specialized Approaches",
-      "tier": "HIGH",
-      "model": "opus",
-      "icon": "\ud83d\udd04",
-      "tools": ["Read", "Glob", "Grep", "Edit", "Write"],
-      "vsLevel": "Light",
-      "vsPhases": [0, 1, 4],
-      "triggers": {
-        "en": ["action research", "PAR", "CBPR", "participatory", "practitioner"]
-      },
-      "paradigmAffinity": ["qualitative", "mixed"],
-      "checkpoints": ["CP-ACTION-001"],
-      "creativityModules": [],
-      "prerequisites": ["CP_PARADIGM_SELECTION"],
-      "ownCheckpoints": [
-        {"id": "CP_METHODOLOGY_APPROVAL", "level": "required"}
-      ],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": []
     },
     {
       "id": "i0",
       "fullId": "diverga:i0",
       "directoryName": "I0-scholar-agent-orchestrator",
-      "displayName": "Systematic Review Orchestrator",
-      "description": "Systematic Review Orchestrator - Coordinates systematic literature review automation.",
+      "displayName": "SR Pipeline Orchestrator",
+      "description": "Systematic Review Pipeline Orchestrator - Coordinates systematic literature review automation.",
       "category": "I",
       "categoryName": "Systematic Review Automation",
       "tier": "HIGH",
@@ -1050,13 +558,14 @@
         {"id": "SCH_SCREENING_CRITERIA", "level": "required"},
         {"id": "SCH_RAG_READINESS", "level": "recommended"}
       ],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": []
     },
     {
       "id": "i1",
       "fullId": "diverga:i1",
       "directoryName": "I1-paper-retrieval-agent",
-      "displayName": "Paper Retrieval Agent",
+      "displayName": "Paper Retrieval",
       "description": "Paper Retrieval Agent - Multi-database paper fetching from Semantic Scholar, OpenAlex, arXiv.",
       "category": "I",
       "categoryName": "Systematic Review Automation",
@@ -1078,7 +587,8 @@
         {"id": "SCH_DATABASE_SELECTION", "level": "required"},
         {"id": "SCH_API_KEY_VALIDATION", "level": "required"}
       ],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": []
     },
     {
       "id": "i2",
@@ -1105,7 +615,8 @@
       "ownCheckpoints": [
         {"id": "SCH_SCREENING_CRITERIA", "level": "required"}
       ],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": []
     },
     {
       "id": "i3",
@@ -1132,7 +643,34 @@
       "ownCheckpoints": [
         {"id": "SCH_RAG_READINESS", "level": "recommended"}
       ],
-      "entryPoint": false
+      "entryPoint": false,
+      "absorbedFrom": []
+    },
+    {
+      "id": "x1",
+      "fullId": "diverga:x1",
+      "directoryName": "X1-research-guardian",
+      "displayName": "Research Guardian",
+      "description": "Research Guardian - Cross-cutting research integrity, ethics oversight, and quality assurance across all research phases.",
+      "category": "X",
+      "categoryName": "Cross-Cutting",
+      "tier": "HIGH",
+      "model": "opus",
+      "icon": "\ud83d\udee1\ufe0f",
+      "tools": ["Read", "Glob", "Grep", "WebSearch"],
+      "vsLevel": "Full",
+      "vsPhases": [0, 1, 2, 3, 4, 5],
+      "triggers": {
+        "en": ["research integrity", "guardian", "oversight", "quality assurance", "research ethics"],
+        "ko": ["\uc5f0\uad6c \uc724\ub9ac", "\ud488\uc9c8 \ubcf4\uc99d"]
+      },
+      "paradigmAffinity": ["quantitative", "qualitative", "mixed"],
+      "checkpoints": [],
+      "creativityModules": ["forced-analogy", "semantic-distance"],
+      "prerequisites": [],
+      "ownCheckpoints": [],
+      "entryPoint": true,
+      "absorbedFrom": []
     }
   ]
 }

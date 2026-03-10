@@ -1,10 +1,11 @@
 ---
 name: c5
 description: |
-  Meta-Analysis Master - Multi-gate validation and workflow orchestration for meta-analysis.
-  Owns gate progression decisions, coordinates C6/C7/B2/B3 agents.
-  Triggers: meta-analysis, pooled effect, heterogeneity, forest plot, funnel plot, Hedges g
-version: "10.3.0"
+  Meta-Analysis Master with Data Integrity, Effect Size, Error Prevention & Sensitivity
+  Multi-gate validation and workflow orchestration for meta-analysis.
+  Absorbed C6 (Data Integrity Guard), C7 (Error Prevention Engine), B3 (Effect Size Extractor), E5 (Sensitivity Analysis - Meta) capabilities
+  Triggers: meta-analysis, pooled effect, heterogeneity, forest plot, funnel plot, Hedges g, data integrity, effect size extraction, sensitivity analysis
+version: "11.0.0"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)
@@ -347,12 +348,40 @@ def orchestrate_codebook_workflow(pdf_folder, project_name):
 
 - **1.0.0** (2026-01-26): Initial release based on V7 GenAI meta-analysis lessons
 
+## Absorbed Capabilities (v11.0)
+
+### From C6 — Data Integrity Guard
+
+- **Data Completeness Validation**: Verify all required fields, flag missing/implausible values, cross-reference against source tables
+- **Hedges' g Calculation**: Convert from Cohen's d with small-sample correction factor J, compute variance, handle multi-arm studies
+- **SD Recovery Methods**: Recover SD from SE, CI, t-statistic, F-statistic, or p-value
+- **Extraction from PDFs**: Locate and extract data from tables, figures, and supplementary materials
+
+### From C7 — Error Prevention Engine
+
+- **Pattern Detection**: Detect duplicate study entries, impossible values, effect size direction inconsistencies, unit-of-analysis misalignment
+- **Anomaly Alerts**: Flag extreme outlier effect sizes, deviating sample sizes, suspiciously uniform effects, data fabrication indicators (GRIM/SPRITE)
+- **Data Quality Flags**: GREEN/YELLOW/RED flag system with summary table for reviewer inspection
+
+### From B3 — Effect Size Extractor
+
+- **Optimal Effect Size Selection**: Match type to research question, prefer standardized measures for cross-study comparability
+- **Conversion Between Types**: Cohen's d <-> Hedges' g, d <-> r, d <-> OR, eta-squared <-> d, F/t/chi-square conversions
+- **Context-Appropriate Measures**: Hedges' g for group comparison, Fisher's z for correlation, OR/RR for binary outcomes, Freeman-Tukey for proportions
+
+### From E5 — Sensitivity Analysis (Meta)
+
+- **Leave-One-Out Analysis**: Sequentially remove each study, identify influential studies, report range of pooled effects
+- **Trim-and-Fill Method**: Estimate missing studies, impute and compute adjusted pooled effect
+- **Publication Bias Tests**: Funnel plot, Egger's test, Begg rank correlation, PET-PEESE, p-curve, selection models
+- **Influence Diagnostics**: Cook's distance, DFBETAS, Baujat plot, Galbraith/radial plot
+
+---
+
 ## Related Agents
 
-- **C6-DataIntegrityGuard**: Data completeness and Hedges' g calculation
-- **C7-ErrorPreventionEngine**: Advisory warnings and pattern detection
-- **B3-EffectSizeExtractor**: Upstream data extraction
 - **B2-EvidenceQualityAppraiser**: Quality assessment
+- **E1-QuantitativeAnalysisGuide**: Analysis method guidance
 
 ## References
 

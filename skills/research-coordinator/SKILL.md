@@ -1,8 +1,8 @@
 ---
 name: research-coordinator
 description: |
-  Research Coordinator v6.7.0 - Human-Centered Edition (Systematic Review Automation)
-  Context-persistent platform with 44 specialized agents across 9 categories (A-I).
+  Research Coordinator v11.0 - Human-Centered Edition (Systematic Review Automation)
+  Context-persistent platform with 24 specialized agents across 9 categories (A-G, I, X).
   Features: Human Checkpoints First, VS Methodology, Paradigm Detection, Systematic Review Automation.
   Supports quantitative, qualitative, mixed methods research, and systematic review automation.
   Language: English. Responds in Korean when user input is Korean.
@@ -11,7 +11,7 @@ description: |
   conceptual framework, visualization, systematic review, qualitative, phenomenology, grounded theory,
   thematic analysis, mixed methods, interview, focus group, ethnography, action research,
   paper retrieval, AI screening, RAG builder, humanization, AI pattern detection
-version: "10.3.0"
+version: "11.0.0"
 ---
 
 ## MANDATORY: Checkpoint Enforcement Rules (v8.2 — MCP-First)
@@ -85,11 +85,11 @@ Level 5: SCH_RAG_READINESS
 
 ---
 
-# Research Coordinator v6.7.0 - Human-Centered Edition
+# Research Coordinator v11.0 - Human-Centered Edition
 
 Your AI research assistant for the **complete research lifecycle** - from question formulation to publication.
 
-**44 Specialized Agents** across **9 Categories** (A-I) supporting quantitative, qualitative, mixed methods, and systematic review automation.
+**24 Specialized Agents** across **9 Categories** (A-G, I, X) supporting quantitative, qualitative, mixed methods, and systematic review automation.
 
 **Core Principle**: "Human decisions remain with humans. AI handles what's beyond human scope."
 > "인간이 할 일은 인간이, AI는 인간의 범주를 벗어난 것을 수행"
@@ -100,18 +100,18 @@ Your AI research assistant for the **complete research lifecycle** - from questi
 
 ---
 
-## What's New in v6.7.0 (Systematic Review Automation)
+## What's New in v11.0 (Agent Consolidation)
 
-| Change | Before (v6.0) | After (v6.7.0) |
+| Change | Before (v10.3) | After (v11.0) |
 |--------|---------------|----------------|
-| **Agent Count** | 27 agents | **44 agents** across 9 categories |
-| **Category I** | - | **Systematic Review Automation** (I0-I3) |
-| **Meta-Analysis** | Basic | **C5/C6/C7 System** (Multi-gate validation) |
-| **Humanization** | - | **G5/G6/F5 Pipeline** (AI pattern detection) |
-| **Document Processing** | Sequential | **B5** (Parallel PDF processing) |
-| **Checkpoints** | 4 core | **8+ checkpoints** (including SCH_*) |
-| **Model Routing** | ✅ KEPT | Intelligent tier assignment |
-| **VS Methodology** | ✅ ENHANCED | Creative alternatives |
+| **Agent Count** | 44 agents across 9 categories | **24 agents** across 8 categories |
+| **Category H** | 2 standalone agents (H1, H2) | **Absorbed into C2** |
+| **Meta-Analysis** | C5 + C6 + C7 + B3 + E5 | **C5 consolidated** (absorbed C6, C7, B3, E5-meta) |
+| **Humanization** | G5/G6/F5 Pipeline | **Kept** (G5/G6/F5 unchanged) |
+| **Document Processing** | B5 standalone | **Absorbed into I3** |
+| **Quality** | F1-F5 (5 agents) | **F4, F5** (F1-F3 absorbed into G2) |
+| **Model Routing** | Kept | Intelligent tier assignment |
+| **VS Methodology** | Enhanced | Creative alternatives |
 
 ### Design Philosophy
 
@@ -309,96 +309,76 @@ Shall we proceed with this paradigm?
 
 ---
 
-## Agent Catalog (44 Agents)
+## Agent Catalog (24 Agents)
 
-### Category A: Research Foundation (6 Agents)
+### Category A: Research Foundation (3 Agents)
 
 | ID | Agent | Purpose | Tier |
 |----|-------|---------|------|
 | A1 | **Research Question Refiner** | Refine questions using PICO/SPIDER/PEO frameworks | HIGH |
-| A2 | **Theoretical Framework Architect** | Theory selection with VS methodology | HIGH |
-| A3 | **Devil's Advocate** | Critical review, anticipate reviewers | HIGH |
-| A4 | **Research Ethics Advisor** | IRB protocols, consent forms | MEDIUM |
-| A5 | **Paradigm & Worldview Advisor** | Epistemology, ontology guidance | HIGH |
-| **A6** | **Conceptual Framework Visualizer** | Visual framework design, diagrams | MEDIUM |
+| A2 | **Theoretical Framework Architect** | Theory selection + critique + visualization (absorbed A3, A6) | HIGH |
+| A5 | **Paradigm & Worldview Advisor** | Epistemology, ontology, ethics guidance (absorbed A4) | HIGH |
 
-### Category B: Literature & Evidence (5 Agents)
+### Category B: Literature & Evidence (2 Agents)
 
 | ID | Agent | Purpose | Tier |
 |----|-------|---------|------|
 | B1 | **Literature Review Strategist** | PRISMA-compliant search + scoping review | MEDIUM |
 | B2 | **Evidence Quality Appraiser** | RoB 2, ROBINS-I, CASP, JBI, GRADE | MEDIUM |
-| B3 | **Effect Size Extractor** | Calculate, convert effect sizes | LOW |
-| B4 | **Research Radar** | Track recent publications | LOW |
-| **B5** | **Parallel Document Processor** | High-throughput PDF/document batch processing | HIGH |
 
-### Category C: Study Design & Meta-Analysis (7 Agents)
+### Category C: Study Design & Meta-Analysis (4 Agents)
 
 | ID | Agent | Purpose | Tier |
 |----|-------|---------|------|
-| C1 | **Quantitative Design Consultant** | Experimental, quasi-experimental design | HIGH |
-| C2 | **Qualitative Design Consultant** | Phenomenology, grounded theory | HIGH |
+| C1 | **Quantitative Design Consultant** | Design + materials + sampling (absorbed C4, D1) | HIGH |
+| C2 | **Qualitative Design Consultant** | Design + ethnography + action research (absorbed H1, H2) | HIGH |
 | C3 | **Mixed Methods Design Consultant** | Convergent, sequential designs | HIGH |
-| C4 | **Experimental Materials Developer** | Stimuli, instruments, protocols | MEDIUM |
-| **C5** | **Meta-Analysis Master** | Multi-gate validation, workflow orchestration | HIGH |
-| **C6** | **Data Integrity Guard** | Data completeness, Hedges' g calculation, SD recovery | MEDIUM |
-| **C7** | **Error Prevention Engine** | Pattern detection, anomaly alerts, advisory | MEDIUM |
+| **C5** | **Meta-Analysis Master** | Multi-gate validation + data integrity + effect size + error prevention + sensitivity (absorbed C6, C7, B3, E5-meta) | HIGH |
 
-### Category D: Data Collection (4 Agents)
+### Category D: Data Collection (2 Agents)
 
 | ID | Agent | Purpose | Tier |
 |----|-------|---------|------|
-| D1 | **Sampling Strategy Advisor** | Probability, purposeful sampling | MEDIUM |
-| D2 | **Interview & Focus Group Specialist** | Protocol development | MEDIUM |
-| D3 | **Observation Protocol Designer** | Structured observation guides | LOW |
+| D2 | **Data Collection Specialist** | Interviews + focus groups + observation (absorbed D3) | MEDIUM |
 | D4 | **Measurement Instrument Developer** | Scale development, validation | HIGH |
 
-### Category E: Analysis (5 Agents)
+### Category E: Analysis (3 Agents)
 
 | ID | Agent | Purpose | Tier |
 |----|-------|---------|------|
-| E1 | **Quantitative Analysis Guide** | Statistical method selection | HIGH |
+| E1 | **Quantitative Analysis Guide** | Statistical methods + code generation + sensitivity (absorbed E4, E5-primary) | HIGH |
 | E2 | **Qualitative Coding Specialist** | Thematic analysis, grounded theory coding | HIGH |
 | E3 | **Mixed Methods Integration Specialist** | Joint displays, meta-inference | HIGH |
-| E4 | **Analysis Code Generator** | R, Python, SPSS, Stata code | LOW |
-| **E5** | **Sensitivity Analysis Designer** | Robustness checks, alternative specifications | MEDIUM |
 
-### Category F: Quality & Validation (5 Agents)
+### Category F: Quality & Validation (1 Agent)
 
 | ID | Agent | Purpose | Tier |
 |----|-------|---------|------|
-| F1 | **Internal Consistency Checker** | Logic flow verification | LOW |
-| F2 | **Checklist Manager** | CONSORT, STROBE, PRISMA, SRQR, COREQ | LOW |
-| F3 | **Reproducibility Auditor** | OSF, open science | MEDIUM |
-| F4 | **Bias & Trustworthiness Detector** | Bias + qualitative trustworthiness | MEDIUM |
 | **F5** | **Humanization Verifier** | Citation integrity, statistical accuracy, meaning preservation | LOW |
 
-### Category G: Publication & Communication (6 Agents)
+### Category G: Publication & Communication (4 Agents)
 
 | ID | Agent | Purpose | Tier |
 |----|-------|---------|------|
 | G1 | **Journal Matcher** | Find target journals | MEDIUM |
-| G2 | **Academic Communicator** | Plain language summaries | MEDIUM |
-| G3 | **Peer Review Strategist** | Response to reviewers | HIGH |
-| G4 | **Pre-registration Composer** | OSF, AsPredicted | MEDIUM |
+| G2 | **Publication Specialist** | Writing + review + pre-reg + quality (absorbed G3, G4, F1, F2, F3) | MEDIUM |
 | **G5** | **Academic Style Auditor** | AI pattern detection (24 categories), risk scoring | MEDIUM |
 | **G6** | **Academic Style Humanizer** | Transform AI patterns to natural academic prose | HIGH |
 
-### Category H: Specialized Approaches (2 Agents)
-
-| ID | Agent | Purpose | Tier |
-|----|-------|---------|------|
-| H1 | **Ethnographic Research Advisor** | Ethnographic methodology | HIGH |
-| H2 | **Action Research Facilitator** | Participatory action research | HIGH |
-
-### Category I: Systematic Review Automation (4 Agents) - NEW v6.5+
+### Category I: Systematic Review Automation (4 Agents)
 
 | ID | Agent | Purpose | Tier | Checkpoint |
 |----|-------|---------|------|------------|
 | **I0** | **Review Pipeline Orchestrator** | Pipeline coordination, checkpoint management | HIGH | All SCH_* |
 | **I1** | **Paper Retrieval Agent** | Multi-database fetching (Semantic Scholar, OpenAlex, arXiv) | MEDIUM | 🔴 SCH_DATABASE_SELECTION |
 | **I2** | **Screening Assistant** | AI-PRISMA 6-dimension screening | MEDIUM | 🔴 SCH_SCREENING_CRITERIA |
-| **I3** | **RAG Builder** | Vector database construction (zero cost) | LOW | 🟠 SCH_RAG_READINESS |
+| **I3** | **RAG Builder** | Vector DB + parallel processing (absorbed B5) | LOW | 🟠 SCH_RAG_READINESS |
+
+### Category X: Cross-cutting (1 Agent)
+
+| ID | Agent | Purpose | Tier |
+|----|-------|---------|------|
+| **X1** | **Research Guardian** | Ethics advisory + bias detection (absorbed A4, F4) | MEDIUM |
 
 ---
 
@@ -416,11 +396,11 @@ Shall we proceed with this paradigm?
 
 | Tier | Model | Count | Agents |
 |------|-------|-------|--------|
-| **HIGH** | Opus | 17 | A1, A2, A3, A5, B5, C1, C2, C3, C5, D4, E1, E2, E3, G3, G6, H1, H2, I0 |
-| **MEDIUM** | Sonnet | 18 | A4, A6, B1, B2, C4, C6, C7, D1, D2, E5, F3, F4, G1, G2, G4, G5, I1, I2 |
-| **LOW** | Haiku | 9 | B3, B4, D3, E4, F1, F2, F5, I3 |
+| **HIGH** | Opus | 13 | A1, A2, A5, C1, C2, C3, C5, D4, E1, E2, E3, G6, I0 |
+| **MEDIUM** | Sonnet | 9 | B1, B2, D2, G1, G2, G5, X1, I1, I2 |
+| **LOW** | Haiku | 2 | F5, I3 |
 
-**Total: 44 agents** (40 core + 4 Category I)
+**Total: 24 agents** (19 core + 4 Category I + 1 Cross-cutting)
 
 ### Task Tool Usage
 
@@ -643,6 +623,7 @@ The system will:
 
 ## Version History
 
+- **v11.0.0**: Agent Consolidation - 24 agents across 8 categories, 20 agents absorbed into expanded hosts
 - **v6.7.0**: Systematic Review Automation - 44 agents, Category I (I0-I3), SCH_* checkpoints
 - **v6.5.0**: Systematic Review Automation - Category I agents, Groq LLM support
 - **v6.3.0**: Meta-Analysis Agent System - C5/C6/C7 multi-gate validation
@@ -672,7 +653,7 @@ The system will:
 - **Kept**: Model routing (haiku/sonnet/opus) for efficiency
 
 ### ✅ What Remains
-- 44 specialized agents across 9 categories
+- 24 specialized agents across 8 categories
 - Model routing by complexity
 - VS methodology for creative alternatives
 - Checkpoint system (now mandatory)

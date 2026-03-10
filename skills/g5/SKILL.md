@@ -45,8 +45,8 @@ The goal is to provide researchers with **awareness** of AI patterns in their wr
 ## When to Use
 
 - Before submitting manuscripts to journals
-- After generating drafts with G2-AcademicCommunicator
-- When preparing response letters (G3-PeerReviewStrategist output)
+- After generating drafts with G2-PublicationSpecialist
+- When preparing response letters (G2 peer review response output)
 - Before exporting any AI-assisted writing to Word/PDF
 - When required by institutional AI disclosure policies
 
@@ -397,11 +397,10 @@ Different sections have different acceptable patterns:
 
 ## Related Agents
 
-- **G2-AcademicCommunicator**: Generates content this agent analyzes
-- **G3-PeerReviewStrategist**: Generates response letters for analysis
+- **G2-PublicationSpecialist**: Generates content and response letters for analysis
 - **G6-AcademicStyleHumanizer**: Transforms based on this analysis
 - **F5-HumanizationVerifier**: Verifies transformation quality
-- **F4-BiasTrustworthinessDetector**: Related quality checks
+- **X1-ResearchGuardian**: Related quality checks (absorbed F4)
 
 ## References
 

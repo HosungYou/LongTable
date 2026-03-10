@@ -1,11 +1,13 @@
 ---
 name: i3
 description: |
-  RAG Builder - Vector database construction with local embeddings (zero cost)
+  RAG Builder with Parallel Document Processing
+  Vector database construction with local embeddings (zero cost)
   Handles PDF download, text extraction, chunking, and vector database creation
-  Use when: building RAG, creating vector database, downloading PDFs, embedding documents
-  Triggers: build RAG, create vector database, download PDFs, embed documents
-version: "10.3.0"
+  Absorbed B5 (Parallel Document Processor) capabilities
+  Use when: building RAG, creating vector database, downloading PDFs, embedding documents, batch processing
+  Triggers: build RAG, create vector database, download PDFs, embed documents, batch PDF processing
+version: "11.0.0"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)
@@ -228,23 +230,15 @@ for doc in results:
 | download PDFs | PDF 다운로드 | Activate I3 |
 | embed documents | 문서 임베딩 | Activate I3 |
 
-## Integration with B5
+## Absorbed Capabilities (v11.0)
 
-I3 can call B5-parallel-document-processor for large PDF collections:
+### From B5 — Parallel Document Processor
 
-```python
-Task(
-    subagent_type="diverga:b5",
-    model="opus",
-    prompt="""
-    Process large PDF collection in parallel:
-    - Total PDFs: {count}
-    - Split across workers
-    - Handle memory limits
-    - Report extraction success
-    """
-)
-```
+- **Distributed Workload Splitting**: Partition PDF collection into balanced worker batches by file size, configurable worker count (default: CPU cores - 1, max: 8), dynamic rebalancing
+- **High-Throughput PDF Reading**: Parallel text extraction using multiprocessing Pool, per-worker memory limits (default: 2GB), automatic fallback (PyMuPDF -> pdfplumber -> OCR), streaming mode for PDFs > 50MB
+- **Batch Extraction Pipeline**: Pool-based parallel processing with configurable chunk size and overlap
+- **Performance Targets**: <50 PDFs sequential (<5 min), 50-200 PDFs 4 workers (<10 min), 200-500 PDFs 6 workers (<20 min), 500+ PDFs 8 workers (<45 min)
+- **Error Handling in Parallel Mode**: Failed PDFs logged without halting other workers, retry queue for transient failures, checkpoint files for resuming interrupted processing
 
 ## Error Handling
 
@@ -260,11 +254,10 @@ Task(
 ```yaml
 requires: ["I2-screening-assistant"]
 sequential_next: []
-parallel_compatible: ["B5-parallel-document-processor"]
+parallel_compatible: []
 ```
 
 ## Related Agents
 
 - **I0-review-pipeline-orchestrator**: Pipeline coordination
 - **I2-screening-assistant**: PRISMA screening
-- **B5-parallel-document-processor**: Large PDF batch processing

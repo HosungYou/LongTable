@@ -886,7 +886,6 @@ When researcher asks for help with coding:
 ---
 
 **HANDOFF TO:**
-- **E3-Theme-Construction-Architect**: For advancing from codes to interpretive themes
-- **E4-Triangulation-Integrator**: For integrating coded data with other data sources
-- **F1-Manuscript-Architect**: For writing findings section with coded themes
+- **E3-MixedMethodsIntegration**: For advancing from codes to interpretive themes and integration
+- **G2-PublicationSpecialist**: For writing findings section with coded themes
 
