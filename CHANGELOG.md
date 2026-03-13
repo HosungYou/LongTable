@@ -4,6 +4,48 @@ All notable changes to Diverga (formerly Research Coordinator) will be documente
 
 ---
 
+## [11.1.1] - 2026-03-13 (latex2omml Integration)
+
+### Overview
+
+**Diverga v11.1.1** — Adds `latex2omml` as an internal package for converting LaTeX math expressions to native Word equations (OMML). Integrates equation generation into G2 (Publication Specialist) and LaTeX syntax validation into G5 (Academic Style Auditor).
+
+### Added
+
+- **`packages/latex2omml/`**: Pure Python LaTeX-to-OMML converter
+  - Recursive-descent parser supporting fractions, subscripts, superscripts, Greek letters, text mode, accents, n-ary operators, functions, square roots, and 30+ symbols
+  - Zero external dependencies beyond lxml and python-docx (no Pandoc, no MS Office XSLT)
+  - 36 tests covering all constructs including real-world academic equations
+  - Public API: `add_display_equation()`, `add_inline_equation()`, `latex_to_omml_display()`, `latex_to_omml_inline()`
+
+- **G2 SKILL.md**: "Word Document Generation with Native Equations" section
+  - Core pattern for display and inline equations
+  - Markdown-to-Word equation pipeline instructions
+  - Supported LaTeX reference table
+  - Journal-specific formatting guide (Elsevier/APA 7th)
+
+- **G5 SKILL.md**: "Category 7: LaTeX Syntax Patterns" (X1-X6)
+  - X1: Unclosed Math Delimiter
+  - X2: Missing Braces
+  - X3: Inconsistent Subscripts
+  - X4: Unescaped Underscores in `\text{}`
+  - X5: Double Dollar Misuse
+  - X6: Invalid Commands
+  - Auto-fix rules and tokenizer-based validation example
+
+- **`pyproject.toml`**: `document` optional dependency group (`latex2omml`, `python-docx`, `lxml`)
+
+### Modified Files
+
+| File | Changes |
+|------|---------|
+| `packages/latex2omml/` | New internal package (converter, tests, pyproject.toml, README) |
+| `skills/g2/SKILL.md` | Word equation generation section |
+| `skills/g5/SKILL.md` | LaTeX syntax validation patterns (Category 7) |
+| `pyproject.toml` | `document` optional dependency group |
+
+---
+
 ## [10.3.2] - 2026-03-05 (Hook Path Portability Fix)
 
 ### Overview

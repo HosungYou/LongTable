@@ -48,6 +48,11 @@ visualization = [
     "numpy>=1.20.0",
     "networkx>=2.8.0",
 ]
+document = [
+    "latex2omml @ file:packages/latex2omml",
+    "python-docx>=0.8.11",
+    "lxml>=4.0",
+]
 
 [build-system]
 requires = ["setuptools>=61.0"]

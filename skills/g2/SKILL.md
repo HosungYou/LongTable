@@ -468,11 +468,84 @@ g2_humanization_workflow:
 
 ---
 
+## Word Document Generation with Native Equations
+
+When generating Word (.docx) documents that contain mathematical equations (e.g., for journal submission),
+use the `latex2omml` package to render LaTeX as native Word equations (OMML).
+
+### Core Pattern
+
+```python
+from docx import Document
+from latex2omml import add_display_equation, add_inline_equation
+
+doc = Document()
+
+# Display equation (centered, own line)
+p = doc.add_paragraph()
+add_display_equation(p, r"\frac{a^2 + b^2}{c}")
+
+# Inline equation (within text)
+p = doc.add_paragraph()
+p.add_run("The formula ")
+add_inline_equation(p, r"E = mc^{2}")
+p.add_run(" is well known.")
+
+doc.save("paper.docx")
+```
+
+### Markdown-to-Word Equation Pipeline
+
+When converting manuscripts from Markdown/LaTeX to Word:
+
+1. **Display math** (`$$...$$` on its own line): Parse LaTeX, call `add_display_equation(paragraph, latex)`
+2. **Inline math** (`$...$` within text): Split text at `$` delimiters, alternate between `p.add_run(text)` and `add_inline_equation(p, latex)`
+3. **Never render equations as plain text** (e.g., `a/b` instead of proper fraction)
+
+### Supported LaTeX
+
+| Construct | Example | OMML Element |
+|-----------|---------|-------------|
+| Fractions | `\frac{a}{b}` | Stacked fraction |
+| Sub/superscripts | `x_{i}^{2}` | Sub-superscript |
+| Greek letters | `\alpha`, `\Omega` | Unicode Greek |
+| Text mode | `\text{hello}` | Plain text run |
+| Accents | `\hat{x}`, `\bar{x}` | Accent element |
+| Sums/products | `\sum_{i=1}^{N}` | N-ary with limits |
+| Functions | `\log(x)`, `\sin(x)` | Function element |
+| Square roots | `\sqrt{x}`, `\sqrt[3]{x}` | Radical |
+
+### Journal-Specific Formatting (Elsevier)
+
+For CHB, IJHCS, C&E submissions, include before References:
+
+```yaml
+required_elements:
+  highlights: "3-5 items, max 85 chars each"
+  data_availability: "Data available at [URL]"
+  credit_statement: "Author: Conceptualization, Methodology, ..."
+  ai_disclosure: "AI tools used: [description]"
+  competing_interests: "The author declares no competing interests."
+```
+
+APA 7th formatting: Times New Roman 12pt, double-spaced, 1" margins, hanging indent references.
+
+### Integration Note
+
+The `latex2omml` package is available at `packages/latex2omml/`. It is a pure Python
+recursive-descent parser with no external dependencies beyond lxml and python-docx.
+No Pandoc, MS Office XSLT, or commercial libraries required.
+
+Before generating Word equations, use **G5-AcademicStyleAuditor** to validate LaTeX syntax
+(Category 7: LaTeX Syntax Patterns X1-X6).
+
+---
+
 ## Related Agents
 
 - **G1-JournalMatcher**: Select submission journal
 - **A2-TheoreticalFrameworkArchitect**: Clarify theoretical contribution
-- **G5-AcademicStyleAuditor**: Analyze AI patterns in G2 output
+- **G5-AcademicStyleAuditor**: Analyze AI patterns in G2 output; validates LaTeX syntax (X1-X6)
 - **G6-AcademicStyleHumanizer**: Transform G2 output
 - **F5-HumanizationVerifier**: Verify transformation quality
 

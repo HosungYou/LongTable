@@ -395,9 +395,61 @@ Different sections have different acceptable patterns:
 → Re-run analysis on improved text
 ```
 
+## Category 7: LaTeX Syntax Patterns (6 patterns)
+
+When scanning manuscripts with inline or display math (`$...$` or `$$...$$`), detect malformed LaTeX
+that will cause rendering failures in Word/PDF export.
+
+| ID | Pattern | Description | Example |
+|----|---------|-------------|---------|
+| X1 | Unclosed Math Delimiter | Unmatched `$` or `$$` | `$R_b` without closing `$` |
+| X2 | Missing Braces | `\frac{a}{b` missing `}` | `\frac{a}{b` → `\frac{a}{b}` |
+| X3 | Inconsistent Subscripts | Bare vs braced subscripts | `$R_b$` vs `$R_{b}$` in same doc |
+| X4 | Unescaped Underscores | `_` in `\text{}` without `\_` | `\text{p_value}` → `\text{p\_value}` |
+| X5 | Double Dollar Misuse | `$$` where `$` intended (inline) | `$$x$$` inline → `$x$` |
+| X6 | Invalid Commands | Misspelled or unsupported commands | `\fraq` → `\frac` |
+
+### LaTeX Auto-Fix Capability
+
+When LaTeX syntax errors are detected, G5 can suggest auto-corrections:
+
+```yaml
+latex_fixes:
+  X1_unclosed: "Add matching delimiter"
+  X2_missing_brace: "Insert closing brace at expected position"
+  X3_inconsistent: "Standardize to braced form: $R_{b}$"
+  X4_unescaped: "Escape with backslash: \_"
+  X5_double_dollar: "Replace $$ with $ for inline math"
+  X6_invalid_cmd: "Suggest closest valid command"
+```
+
+### Validation with latex2omml
+
+For deeper validation, use the `latex2omml` package (available in `packages/latex2omml/`):
+
+```python
+from latex2omml.converter import _Tokenizer
+
+def validate_latex(expr: str) -> list[str]:
+    """Tokenize LaTeX and return list of issues found."""
+    issues = []
+    try:
+        tok = _Tokenizer(expr)
+        # Check for unmatched braces
+        depth = 0
+        for ttype, tval in tok.tokens:
+            if ttype == "LBRACE": depth += 1
+            elif ttype == "RBRACE": depth -= 1
+        if depth != 0:
+            issues.append(f"X2: Unmatched braces (depth={depth})")
+    except Exception as e:
+        issues.append(f"X6: Parse error: {e}")
+    return issues
+```
+
 ## Related Agents
 
-- **G2-PublicationSpecialist**: Generates content and response letters for analysis
+- **G2-PublicationSpecialist**: Generates content and response letters for analysis; uses latex2omml for Word equation rendering
 - **G6-AcademicStyleHumanizer**: Transforms based on this analysis
 - **F5-HumanizationVerifier**: Verifies transformation quality
 - **X1-ResearchGuardian**: Related quality checks (absorbed F4)
