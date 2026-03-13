@@ -11,7 +11,7 @@ description: |
   - Embedded (QUAN(qual)): Secondary strand addresses different question
   - Multiphase: Long-term projects with iterative phases
   - Morse notation interpretation and recommendation
-version: "11.1.1"
+version: "11.1.2"
 ---
 
 ## VS Arena Check (v11.1)

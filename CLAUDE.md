@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-# Diverga v11.1.0 — Research Methodology AI Assistant
+# Diverga v11.1.2 — Research Methodology AI Assistant
 
 **Beyond Modal: AI Research Assistant That Thinks Creatively**
 
@@ -13,7 +13,7 @@ Built on Verbalized Sampling (VS) and HAVS methodologies to prevent mode collaps
 
 ## First-Run Detection (Session Start)
 
-On every session start, check if `~/.claude/plugins/diverga/config/diverga-config.json` exists and has `"version": "11.1.1"`:
+On every session start, check if `~/.claude/plugins/diverga/config/diverga-config.json` exists and has `"version": "11.1.2"`:
 - **Config missing or version outdated** → Display: `⚠ Diverga is installed but not configured. Run /diverga:setup to get started.`
 - **Config present and current** → Proceed normally, no message needed.
 

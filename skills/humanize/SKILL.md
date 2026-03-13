@@ -9,7 +9,7 @@ description: |
   G5+F5 parallel execution, section-selective humanization
   Triggers: humanize, humanize my draft, humanize manuscript, make natural, remove AI patterns
   Korean triggers: 휴먼화, 자연스럽게, AI 패턴 제거
-version: "11.1.1"
+version: "11.1.2"
 ---
 
 # Humanization Pipeline Orchestrator v3.1

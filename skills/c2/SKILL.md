@@ -6,7 +6,7 @@ description: |
   Absorbed H1 (Ethnographic Research Advisor) and H2 (Action Research Facilitator) capabilities
   Use when: selecting qualitative research design, planning phenomenology/grounded theory/case study/ethnography/action research
   Triggers: phenomenology, 현상학, grounded theory, 근거이론, case study, 사례연구, narrative inquiry, ethnography, 민족지, action research, 실행연구, qualitative design
-version: "11.1.1"
+version: "11.1.2"
 ---
 
 ## VS Arena Check (v11.1)

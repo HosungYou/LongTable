@@ -1,5 +1,5 @@
 {
-  "version": "11.1.1",
+  "version": "11.1.2",
   "llm_provider": "anthropic",
   "llm_api_key_env": "ANTHROPIC_API_KEY",
   "human_checkpoints": {

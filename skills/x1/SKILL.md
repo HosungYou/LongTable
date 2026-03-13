@@ -5,7 +5,7 @@ description: |
   Enhanced VS 3-Phase process: Surface-level screening, deep contextual analysis, constructive recommendations
   Use when: reviewing research ethics, checking for bias, assessing trustworthiness, QRP screening
   Triggers: ethics review, IRB, bias detection, QRP, trustworthiness, research integrity, p-hacking, HARKing
-version: "11.1.1"
+version: "11.1.2"
 ---
 
 ## Prerequisites (v8.2 -- MCP Enforcement)

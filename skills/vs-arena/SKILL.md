@@ -1,7 +1,7 @@
 ---
 name: vs-arena
 description: VS Arena - Multi-agent methodology debate with epistemological personas
-version: "11.1.1"
+version: "11.1.2"
 ---
 
 # VS Arena — Multi-Agent Methodology Debate

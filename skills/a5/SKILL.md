@@ -5,7 +5,7 @@ description: |
   Covers ontology, epistemology, axiology, and methodology alignment.
   Use when: establishing philosophical foundations, justifying methodological choices, writing positionality statements
   Triggers: paradigm, 패러다임, ontology, epistemology, worldview, 세계관, philosophical foundations, 철학적 기초
-version: "11.1.1"
+version: "11.1.2"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)

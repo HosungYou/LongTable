@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [11.1.2] - 2026-03-13
+
+### Fixed
+- **Setup wizard**: Sync with v11.1.1 config schema (4-step wizard, correct checkpoint mappings, VS Arena step, proper config save path)
+- **plugin.json**: Convert from git symlink to regular file for Windows compatibility
+
+### Added
+- **First-run detection**: CLAUDE.md displays setup suggestion when config is missing on session start
+- **Root-level plugin.json**: Enables symlink-based development where repo root = plugin directory
+- **Symlink development guide**: `docs/DEVELOPER.md` — setup script, 7 practical tips for plugin authors
+
+### Changed
+- **Skill namespace**: Recommend `/diverga:setup` (plugin namespace) over `/diverga-setup` (standalone) to avoid duplicates
+
+---
+
 ## [8.2.0] - 2026-02-12
 
 ### 🔧 Checkpoint Enforcement Strengthening Release

@@ -4,12 +4,12 @@ description: |
   Diverga v11.1 initial configuration wizard. 4-step setup.
   Sets up checkpoints, OpenAlex email, HUD, and VS Arena preferences.
   Triggers: setup, configure, 설정, install
-version: "11.1.1"
+version: "11.1.2"
 ---
 
 # /diverga:setup
 
-**Version**: 11.1.1
+**Version**: 11.1.2
 **Trigger**: `/diverga:setup`
 
 ## Description
@@ -24,7 +24,7 @@ When user invokes `/diverga:setup`, execute this interactive wizard:
 ### Step 0: Project Detection
 
 Check for existing project:
-- If `~/.claude/plugins/diverga/config/diverga-config.json` exists with `version` field → "Existing config detected (vX.Y.Z). Upgrade to v11.1.1?"
+- If `~/.claude/plugins/diverga/config/diverga-config.json` exists with `version` field → "Existing config detected (vX.Y.Z). Upgrade to v11.1.2?"
 - If `.research/` exists in CWD → "Existing research project detected."
 - Otherwise → "New project setup"
 
@@ -118,7 +118,7 @@ After collecting all preferences, generate `config/diverga-config.json` **in the
 
 ```json
 {
-  "version": "11.1.1",
+  "version": "11.1.2",
   "llm_provider": "anthropic",
   "llm_api_key_env": "ANTHROPIC_API_KEY",
   "human_checkpoints": {
@@ -177,7 +177,7 @@ Display completion:
 ## First-Run Detection
 
 When a user starts a new Claude Code session and the Diverga plugin is loaded:
-1. Check if `~/.claude/plugins/diverga/config/diverga-config.json` has `"version": "11.1.1"`
+1. Check if `~/.claude/plugins/diverga/config/diverga-config.json` has `"version": "11.1.2"`
 2. If config is missing or version is older → display:
    ```
    Diverga is installed but not configured. Run /diverga:setup to get started.

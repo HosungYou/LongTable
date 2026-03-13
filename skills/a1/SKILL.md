@@ -5,7 +5,7 @@ description: |
   Enhanced VS 3-Phase process: Modal question avoidance, alternatives presentation, differentiated RQ recommendation
   Use when: refining research ideas, formulating research questions, clarifying scope
   Triggers: research question, 연구 질문, PICO, SPIDER, research idea
-version: "11.1.1"
+version: "11.1.2"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)

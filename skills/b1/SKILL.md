@@ -6,7 +6,7 @@ description: |
   Supports: Systematic Review (PRISMA 2020), Scoping Review (JBI/PRISMA-ScR), Meta-Synthesis, Realist Synthesis, Narrative Review, Rapid Review
   Use when: conducting any type of literature review, systematic reviews, meta-analyses, scoping reviews, finding prior research
   Triggers: literature review, PRISMA, systematic review, scoping review, meta-synthesis, realist synthesis, narrative review, rapid review
-version: "11.1.1"
+version: "11.1.2"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)
