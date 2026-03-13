@@ -1,20 +1,20 @@
 ---
 name: setup
 description: |
-  Diverga v11.0 initial configuration wizard. 3-step setup.
-  Sets up checkpoints, OpenAlex email, and HUD preferences.
+  Diverga v11.1 initial configuration wizard. 4-step setup.
+  Sets up checkpoints, OpenAlex email, HUD, and VS Arena preferences.
   Triggers: setup, configure, 설정, install
 version: "11.1.1"
 ---
 
 # /diverga:setup
 
-**Version**: 11.0.0
+**Version**: 11.1.1
 **Trigger**: `/diverga:setup`
 
 ## Description
 
-Diverga v11.0 setup wizard. 3 steps: Checkpoint Level + OpenAlex Email + HUD.
+Diverga v11.1 setup wizard. 4 steps: Checkpoint Level + OpenAlex Email + HUD + VS Arena.
 LLM selection removed (Claude Code is already authenticated).
 
 ## Workflow
@@ -24,8 +24,8 @@ When user invokes `/diverga:setup`, execute this interactive wizard:
 ### Step 0: Project Detection
 
 Check for existing project:
-- If `.research/` exists → "Existing project detected. Upgrade to v8.4.0?"
-- If `config/diverga-config.json` exists with older version → "Upgrade from vX.Y.Z to v8.4.0?"
+- If `~/.claude/plugins/diverga/config/diverga-config.json` exists with `version` field → "Existing config detected (vX.Y.Z). Upgrade to v11.1.1?"
+- If `.research/` exists in CWD → "Existing research project detected."
 - Otherwise → "New project setup"
 
 ### Step 1: Welcome + Checkpoint Level
@@ -34,7 +34,7 @@ Display welcome message, then ask checkpoint level using AskUserQuestion:
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║                   Welcome to Diverga v11.0                       ║
+║                   Welcome to Diverga v11.1                      ║
 ║       AI Research Assistant - 24 Agents, 9 Categories           ║
 ╚══════════════════════════════════════════════════════════════════╝
 ```
@@ -44,16 +44,23 @@ question: "Select checkpoint level - how often should AI stop and ask for confir
 header: "Checkpoints"
 options:
   - label: "Full (Recommended)"
-    description: "All 11 checkpoints enabled. AI stops at every critical decision."
+    description: "All checkpoints enabled (2 required + 2 optional). AI stops at every critical decision."
   - label: "Minimal"
-    description: "Paradigm & Methodology checkpoints only. Faster progress, key decisions confirmed."
+    description: "Required checkpoints only (CP_PARADIGM, CP_METHODOLOGY). Key decisions confirmed."
   - label: "Off"
-    description: "Autonomous mode. No checkpoints. Not recommended for research."
+    description: "Config checkpoints disabled. Hook-level REQUIRED gates still enforced. Not recommended."
 ```
+
+**Note**: Regardless of this setting, the 5 hook-enforced REQUIRED checkpoints (CP_RESEARCH_DIRECTION, CP_PARADIGM_SELECTION, CP_METHODOLOGY_APPROVAL, SCH_DATABASE_SELECTION, SCH_SCREENING_CRITERIA) are always enforced by `prereq-enforcer.mjs` and cannot be disabled.
+
+**Mapping**:
+- Full → `enabled: true`, `required: ["CP_PARADIGM", "CP_METHODOLOGY"]`, `optional: ["CP_THEORY", "CP_DATA_VALIDATION"]`
+- Minimal → `enabled: true`, `required: ["CP_PARADIGM", "CP_METHODOLOGY"]`, `optional: []`
+- Off → `enabled: false`, `required: []`, `optional: []`
 
 ### Step 2: OpenAlex Email (Optional)
 
-Configure email for OpenAlex polite pool (faster API responses for Journal Intelligence MCP).
+Configure email for OpenAlex polite pool (faster API responses for Journal Intelligence MCP / Agent G1).
 
 ```
 question: "OpenAlex polite pool 이메일을 입력하세요 (선택사항) / Enter email for OpenAlex polite pool (optional)"
@@ -86,53 +93,50 @@ options:
     description: "No HUD display."
 ```
 
-### Step 4: VS Arena Configuration (v11.1)
+### Step 4: VS Arena Configuration
 
 ```
-question: "Enable VS Arena for methodology selection?"
+question: "Enable VS Arena - multi-agent methodology debate?"
 header: "VS Arena"
 options:
-  - label: "Classic VS (Default)"
-    description: "Single agent generates 3 methodology options using VS process."
+  - label: "Off (Recommended for beginners)"
+    description: "Standard single-perspective VS methodology. Simpler workflow."
   - label: "VS Arena"
-    description: "3 persona agents with distinct epistemological commitments debate methodology choices."
+    description: "3 epistemological personas (V1-V5) debate methodology. Richer but slower."
   - label: "VS Arena + Cross-Critique"
-    description: "VS Arena with inter-persona critique round for deeper analysis."
+    description: "Personas also critique each other's proposals. Most thorough, highest cost."
 ```
 
-**If VS Arena or VS Arena + Cross-Critique selected**, add to config:
-```json
-{
-  "vs_arena": {
-    "enabled": true,
-    "team_size": 3,
-    "cross_critique": false  // true if "VS Arena + Cross-Critique"
-  }
-}
-```
+**Mapping**:
+- Off → `vs_arena: { enabled: false, team_size: 3, cross_critique: false }`
+- VS Arena → `vs_arena: { enabled: true, team_size: 3, cross_critique: false }`
+- VS Arena + Cross-Critique → `vs_arena: { enabled: true, team_size: 3, cross_critique: true }`
 
 ### Step 5: Generate Configuration & Complete
 
-After collecting all preferences, generate `config/diverga-config.json`:
+After collecting all preferences, generate `config/diverga-config.json` **in the plugin directory** (`~/.claude/plugins/diverga/config/diverga-config.json`):
 
 ```json
 {
-  "version": "11.0.0",
+  "version": "11.1.1",
+  "llm_provider": "anthropic",
+  "llm_api_key_env": "ANTHROPIC_API_KEY",
   "human_checkpoints": {
     "enabled": true,
-    "level": "<full|minimal|off>",
-    "required": ["CP_PARADIGM", "CP_METHODOLOGY", ...],
-    "optional": [...]
+    "required": ["CP_PARADIGM", "CP_METHODOLOGY"],
+    "optional": ["CP_THEORY", "CP_DATA_VALIDATION"]
   },
-  "hud": {
-    "enabled": true,
-    "preset": "<research|minimal|off>"
-  },
+  "default_paradigm": "auto",
   "language": "en",
   "model_routing": {
     "high": "opus",
     "medium": "sonnet",
     "low": "haiku"
+  },
+  "vs_arena": {
+    "enabled": false,
+    "team_size": 3,
+    "cross_critique": false
   }
 }
 ```
@@ -149,29 +153,40 @@ Display completion:
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║                  Diverga v11.0 Setup Complete!                    ║
+║                  Diverga v11.1 Setup Complete!                  ║
 ╠══════════════════════════════════════════════════════════════════╣
-║  Configuration saved to: config/diverga-config.json             ║
+║  Configuration saved to:                                        ║
+║    ~/.claude/plugins/diverga/config/diverga-config.json         ║
 ║                                                                  ║
 ║  Quick Start:                                                    ║
-║  • Just describe your research in natural language               ║
-║  • "I want to conduct a systematic review on AI in education"    ║
-║  • Diverga will auto-detect and guide you with checkpoints       ║
+║  - Just describe your research in natural language               ║
+║  - "I want to conduct a systematic review on AI in education"    ║
+║  - Diverga will auto-detect and guide you with checkpoints       ║
 ║                                                                  ║
 ║  New in v11.1:                                                   ║
-║  • VS Arena — multi-agent methodology debate (optional)          ║
-║  • Hard-blocking checkpoint enforcement                          ║
-║  • 29 agents (24 core + 5 VS Arena personas)                     ║
+║  - VS Arena: Multi-agent methodology debate (5 personas)        ║
+║  - SQLite hard-blocking hooks for REQUIRED checkpoints          ║
+║  - 24 agents across 9 categories                                ║
 ║                                                                  ║
 ║  Commands:                                                       ║
-║  • /diverga:help     - View all 24 agents                       ║
-║  • /diverga:memory   - Memory system commands                    ║
+║  - /diverga:help     - View all 24 agents                       ║
+║  - /diverga:memory   - Memory system commands                    ║
 ╚══════════════════════════════════════════════════════════════════╝
 ```
+
+## First-Run Detection
+
+When a user starts a new Claude Code session and the Diverga plugin is loaded:
+1. Check if `~/.claude/plugins/diverga/config/diverga-config.json` has `"version": "11.1.1"`
+2. If config is missing or version is older → display:
+   ```
+   Diverga is installed but not configured. Run /diverga:setup to get started.
+   ```
+3. Do NOT auto-run the setup wizard — only display the suggestion.
 
 ## Error Handling
 
 If config directory doesn't exist, create it:
 ```bash
-mkdir -p config
+mkdir -p ~/.claude/plugins/diverga/config
 ```
