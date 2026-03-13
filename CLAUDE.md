@@ -13,11 +13,45 @@ Built on Verbalized Sampling (VS) and HAVS methodologies to prevent mode collaps
 
 ## First-Run Detection (Session Start)
 
-On every session start, check if `~/.claude/plugins/diverga/config/diverga-config.json` exists and has `"version": "11.1.2"`:
-- **Config missing or version outdated** → Display: `⚠ Diverga is installed but not configured. Run /diverga:setup to get started.`
-- **Config present and current** → Proceed normally, no message needed.
+On every session start, check if `~/.claude/plugins/diverga/config/diverga-config.json` exists with a `researcher` field:
+- **Config missing or no `researcher` field** → Display: `Welcome to Diverga! Run /diverga:setup to set up your researcher profile (1 minute).`
+- **Config present with `researcher`** → Proceed normally, no message needed.
 
 Do NOT auto-run the setup wizard. Only display the suggestion once per session.
+
+---
+
+## Researcher Profile (from config)
+
+When `config/diverga-config.json` contains a `researcher` object, ALL agents MUST adapt their behavior:
+
+### Experience Level Adaptation
+
+| Level | Agent Behavior |
+|-------|---------------|
+| `doctoral_student` | Explain frameworks (PICO, SPIDER), scaffold power analysis, add interpretation guidance, provide examples |
+| `early_career` | Brief explanations, focus on trade-offs and alternatives |
+| `faculty` | Skip explanations, go straight to options. Concise output. |
+
+### Stats Software Adaptation
+
+When generating analysis code (E1, C1, C5):
+- Generate code ONLY in the researcher's listed `stats_software`
+- If researcher has `["R", "SPSS"]` → generate R and SPSS syntax only, NOT Python/Stata/Mplus
+- If field is empty or missing → ask via AskUserQuestion before generating code
+
+### Database Access Adaptation
+
+When recommending databases (I1, I0, B1):
+- Prioritize databases listed in `db_access`
+- At `SCH_DATABASE_SELECTION` checkpoint, pre-select accessible databases
+- Free databases (ERIC, Semantic Scholar, OpenAlex) are always included
+
+### Discipline Adaptation
+
+- G1: Prioritize discipline-specific journals
+- I1: Lead with discipline-appropriate databases (ERIC for Education, PsycINFO for Psychology)
+- A1: Frame research questions in discipline conventions
 
 ---
 

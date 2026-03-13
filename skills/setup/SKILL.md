@@ -1,21 +1,27 @@
 ---
 name: setup
 description: |
-  Diverga v11.1 initial configuration wizard. 4-step setup.
-  Sets up checkpoints, OpenAlex email, HUD, and VS Arena preferences.
+  Diverga v11.2 setup wizard. 2-step researcher profile setup.
+  Captures discipline, experience, tools, and database access.
   Triggers: setup, configure, 설정, install
 version: "11.1.2"
 ---
 
 # /diverga:setup
 
-**Version**: 11.1.2
+**Version**: 11.2.0
 **Trigger**: `/diverga:setup`
 
 ## Description
 
-Diverga v11.1 setup wizard. 4 steps: Checkpoint Level + OpenAlex Email + HUD + VS Arena.
-LLM selection removed (Claude Code is already authenticated).
+Diverga setup wizard. 2 steps: Researcher Profile + Tools & Access.
+Captures information that genuinely changes agent behavior.
+
+## Design Principles
+
+1. **Only ask what agents actually use** — no dead config fields
+2. **Lazy config for rare features** — OpenAlex email, citation format, qual software are asked when the relevant agent runs for the first time
+3. **Researcher profile is stable** — discipline and tools don't change per project; checkpoints handle project-specific decisions
 
 ## Workflow
 
@@ -23,166 +29,200 @@ When user invokes `/diverga:setup`, execute this interactive wizard:
 
 ### Step 0: Project Detection
 
-Check for existing project:
-- If `~/.claude/plugins/diverga/config/diverga-config.json` exists with `version` field → "Existing config detected (vX.Y.Z). Upgrade to v11.1.2?"
-- If `.research/` exists in CWD → "Existing research project detected."
-- Otherwise → "New project setup"
+Check for existing config:
+- If `~/.claude/plugins/diverga/config/diverga-config.json` exists with `researcher` field → "Existing profile detected. Update?"
+- Otherwise → "New profile setup"
 
-### Step 1: Welcome + Checkpoint Level
+### Step 1: Welcome + Researcher Profile
 
-Display welcome message, then ask checkpoint level using AskUserQuestion:
+Display welcome message, then ask TWO questions using a single AskUserQuestion call:
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║                   Welcome to Diverga v11.1                      ║
-║       AI Research Assistant - 24 Agents, 9 Categories           ║
+║                    Welcome to Diverga v11.2                     ║
+║        AI Research Assistant - 24 Agents, 9 Categories          ║
+╠══════════════════════════════════════════════════════════════════╣
+║                                                                  ║
+║  Diverga adapts to your background.                             ║
+║  A doctoral student gets more scaffolding.                      ║
+║  An experienced faculty gets concise recommendations.           ║
+║  Your preferred tools determine code and database suggestions.  ║
+║                                                                  ║
 ╚══════════════════════════════════════════════════════════════════╝
 ```
 
-```
-question: "Select checkpoint level - how often should AI stop and ask for confirmation on research decisions?"
-header: "Checkpoints"
-options:
-  - label: "Full (Recommended)"
-    description: "All checkpoints enabled (2 required + 2 optional). AI stops at every critical decision."
-  - label: "Minimal"
-    description: "Required checkpoints only (CP_PARADIGM, CP_METHODOLOGY). Key decisions confirmed."
-  - label: "Off"
-    description: "Config checkpoints disabled. Hook-level REQUIRED gates still enforced. Not recommended."
-```
+```yaml
+questions:
+  - question: "What is your primary research discipline?"
+    header: "Discipline"
+    multiSelect: false
+    options:
+      - label: "Education"
+        description: "Educational Technology, Curriculum, Higher Ed, STEM Ed, etc."
+      - label: "Psychology"
+        description: "Clinical, Developmental, Social, Cognitive, I/O, etc."
+      - label: "Health Sciences"
+        description: "Public Health, Nursing, Medicine, Rehabilitation, etc."
+      - label: "Social Sciences"
+        description: "Sociology, Political Science, Communication, Business, etc."
+    # User can also type a custom discipline via "Other"
 
-**Note**: Regardless of this setting, the 5 hook-enforced REQUIRED checkpoints (CP_RESEARCH_DIRECTION, CP_PARADIGM_SELECTION, CP_METHODOLOGY_APPROVAL, SCH_DATABASE_SELECTION, SCH_SCREENING_CRITERIA) are always enforced by `prereq-enforcer.mjs` and cannot be disabled.
-
-**Mapping**:
-- Full → `enabled: true`, `required: ["CP_PARADIGM", "CP_METHODOLOGY"]`, `optional: ["CP_THEORY", "CP_DATA_VALIDATION"]`
-- Minimal → `enabled: true`, `required: ["CP_PARADIGM", "CP_METHODOLOGY"]`, `optional: []`
-- Off → `enabled: false`, `required: []`, `optional: []`
-
-### Step 2: OpenAlex Email (Optional)
-
-Configure email for OpenAlex polite pool (faster API responses for Journal Intelligence MCP / Agent G1).
-
-```
-question: "OpenAlex polite pool 이메일을 입력하세요 (선택사항) / Enter email for OpenAlex polite pool (optional)"
-header: "OpenAlex"
-options:
-  - label: "Enter email"
-    description: "더 빠른 API 응답 + 높은 rate limit / Faster API responses + higher rate limit"
-  - label: "Skip"
-    description: "이메일 없이도 작동합니다 (느린 rate limit) / Works without email (slower rate limit)"
+  - question: "What is your research experience level?"
+    header: "Experience"
+    multiSelect: false
+    options:
+      - label: "Doctoral Student"
+        description: "Currently pursuing PhD/EdD. More guidance on methodology and analysis."
+      - label: "Postdoc / Early Career"
+        description: "Completed doctorate. Familiar with research process."
+      - label: "Faculty / Senior Researcher"
+        description: "Experienced researcher. Concise recommendations preferred."
 ```
 
-**If email provided**:
-- Save to `.omc/config.json`: `{ "openalex_email": "{email}" }`
-- Create `.omc/` directory if not exists
+**How this affects agents:**
+- `Doctoral Student` → A1 explains PICO/SPIDER, C1 scaffolds power analysis, E1 adds interpretation guidance
+- `Faculty` → Agents skip explanations, go straight to options and trade-offs
+- Discipline → G1 prioritizes field-specific journals, I1 leads with field-appropriate databases
 
-**Environment variable override**:
-- `OPENALEX_EMAIL` env var takes precedence over config file when set
+### Step 2: Tools & Institutional Access
 
-### Step 3: HUD Configuration
+Ask TWO questions using a single AskUserQuestion call:
 
+```yaml
+questions:
+  - question: "Which statistical software do you use?"
+    header: "Stats Tools"
+    multiSelect: true
+    options:
+      - label: "R"
+        description: "tidyverse, lavaan, lme4, etc."
+      - label: "Python"
+        description: "pandas, statsmodels, scikit-learn, etc."
+      - label: "SPSS"
+        description: "IBM SPSS Statistics"
+      - label: "Stata"
+        description: "Stata/SE or Stata/MP"
+
+  - question: "Which academic databases can you access?"
+    header: "DB Access"
+    multiSelect: true
+    options:
+      - label: "Scopus"
+        description: "Elsevier Scopus (institutional subscription)"
+      - label: "Web of Science"
+        description: "Clarivate WoS (institutional subscription)"
+      - label: "PsycINFO"
+        description: "APA PsycINFO (institutional subscription)"
+      - label: "ERIC + Semantic Scholar (free)"
+        description: "Always available, no subscription needed"
 ```
-question: "Enable Diverga HUD statusline?"
-header: "HUD"
-options:
-  - label: "Research (Recommended)"
-    description: "Shows project name, stage, checkpoint progress, memory health."
-  - label: "Minimal"
-    description: "Compact display with stage and progress only."
-  - label: "Off"
-    description: "No HUD display."
-```
 
-### Step 4: VS Arena Configuration
+**How this affects agents:**
+- Stats tools → E1 generates code ONLY in selected languages (no more 4-language output)
+- DB access → I1/I0 recommends only accessible databases at `SCH_DATABASE_SELECTION` checkpoint
 
-```
-question: "Enable VS Arena - multi-agent methodology debate?"
-header: "VS Arena"
-options:
-  - label: "Off (Recommended for beginners)"
-    description: "Standard single-perspective VS methodology. Simpler workflow."
-  - label: "VS Arena"
-    description: "3 epistemological personas (V1-V5) debate methodology. Richer but slower."
-  - label: "VS Arena + Cross-Critique"
-    description: "Personas also critique each other's proposals. Most thorough, highest cost."
-```
+### Step 3: Generate Configuration & Complete
 
-**Mapping**:
-- Off → `vs_arena: { enabled: false, team_size: 3, cross_critique: false }`
-- VS Arena → `vs_arena: { enabled: true, team_size: 3, cross_critique: false }`
-- VS Arena + Cross-Critique → `vs_arena: { enabled: true, team_size: 3, cross_critique: true }`
-
-### Step 5: Generate Configuration & Complete
-
-After collecting all preferences, generate `config/diverga-config.json` **in the plugin directory** (`~/.claude/plugins/diverga/config/diverga-config.json`):
+After collecting all preferences, generate `config/diverga-config.json` at `~/.claude/plugins/diverga/config/`:
 
 ```json
 {
-  "version": "11.1.2",
-  "llm_provider": "anthropic",
-  "llm_api_key_env": "ANTHROPIC_API_KEY",
-  "human_checkpoints": {
-    "enabled": true,
-    "required": ["CP_PARADIGM", "CP_METHODOLOGY"],
-    "optional": ["CP_THEORY", "CP_DATA_VALIDATION"]
-  },
-  "default_paradigm": "auto",
-  "language": "en",
-  "model_routing": {
-    "high": "opus",
-    "medium": "sonnet",
-    "low": "haiku"
-  },
-  "vs_arena": {
-    "enabled": false,
-    "team_size": 3,
-    "cross_critique": false
+  "version": "11.2.0",
+  "researcher": {
+    "discipline": "Education",
+    "experience": "doctoral_student",
+    "stats_software": ["R", "SPSS"],
+    "db_access": ["Scopus", "ERIC", "Semantic Scholar"]
   }
 }
 ```
 
-If OpenAlex email was provided, also generate/update `.omc/config.json`:
-
-```json
-{
-  "openalex_email": "user@example.com"
-}
-```
+**Experience level mapping:**
+- "Doctoral Student" → `"doctoral_student"`
+- "Postdoc / Early Career" → `"early_career"`
+- "Faculty / Senior Researcher" → `"faculty"`
 
 Display completion:
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║                  Diverga v11.1 Setup Complete!                  ║
+║                  Diverga v11.2 Setup Complete!                  ║
 ╠══════════════════════════════════════════════════════════════════╣
-║  Configuration saved to:                                        ║
-║    ~/.claude/plugins/diverga/config/diverga-config.json         ║
+║                                                                  ║
+║  Profile saved:                                                  ║
+║    Discipline: Education                                        ║
+║    Experience: Doctoral Student                                  ║
+║    Stats: R, SPSS                                               ║
+║    Databases: Scopus, ERIC, Semantic Scholar                    ║
 ║                                                                  ║
 ║  Quick Start:                                                    ║
 ║  - Just describe your research in natural language               ║
 ║  - "I want to conduct a systematic review on AI in education"    ║
-║  - Diverga will auto-detect and guide you with checkpoints       ║
-║                                                                  ║
-║  New in v11.1:                                                   ║
-║  - VS Arena: Multi-agent methodology debate (5 personas)        ║
-║  - SQLite hard-blocking hooks for REQUIRED checkpoints          ║
-║  - 24 agents across 9 categories                                ║
+║  - Diverga adapts to your profile automatically                  ║
 ║                                                                  ║
 ║  Commands:                                                       ║
 ║  - /diverga:help     - View all 24 agents                       ║
 ║  - /diverga:memory   - Memory system commands                    ║
+║  - /diverga:setup    - Update your profile anytime               ║
+║                                                                  ║
 ╚══════════════════════════════════════════════════════════════════╝
+```
+
+## Lazy Config (Agent-Level)
+
+These settings are NOT asked during setup. Each agent asks when first needed:
+
+| Setting | Agent | When Asked | Storage |
+|---------|-------|------------|---------|
+| OpenAlex email | G1 (Journal Matcher) | First `journal_search_by_field` call | `.omc/config.json` |
+| Citation format | G2 (Publication) | First manuscript generation | `researcher.citation_format` in config |
+| Qualitative software | E2 (Coding) | First qualitative coding task | `researcher.qual_software` in config |
+
+**Lazy config prompt template** (for agents to use):
+
+When an agent needs a lazy config value that isn't set yet:
+1. Explain WHY the information is needed (1 sentence, tied to the current task)
+2. Ask via AskUserQuestion with relevant options
+3. Save to `config/diverga-config.json` under the `researcher` object
+4. Continue with the task — do NOT restart or re-prompt
+
+Example (G1 first call):
+```
+"Journal search uses OpenAlex API. Registering your email enables
+faster responses (polite pool). This is optional."
+→ AskUserQuestion: [Enter email] [Skip]
+→ If email: save to .omc/config.json
 ```
 
 ## First-Run Detection
 
-When a user starts a new Claude Code session and the Diverga plugin is loaded:
-1. Check if `~/.claude/plugins/diverga/config/diverga-config.json` has `"version": "11.1.2"`
-2. If config is missing or version is older → display:
+When a Diverga plugin session starts:
+1. Check if `~/.claude/plugins/diverga/config/diverga-config.json` exists with `researcher` field
+2. If missing → display:
    ```
-   Diverga is installed but not configured. Run /diverga:setup to get started.
+   Welcome to Diverga! Run /diverga:setup to set up your researcher profile (1 minute).
    ```
-3. Do NOT auto-run the setup wizard — only display the suggestion.
+3. Do NOT auto-run — only display the suggestion once.
+
+## Config Schema Reference
+
+```json
+{
+  "version": "11.2.0",
+  "researcher": {
+    "discipline": "string",
+    "experience": "doctoral_student | early_career | faculty",
+    "stats_software": ["R", "Python", "SPSS", "Stata", "Mplus"],
+    "db_access": ["Scopus", "Web of Science", "PsycINFO", "ERIC", "Semantic Scholar"],
+    "qual_software": "NVivo | ATLAS.ti | MAXQDA | Dedoose | manual",
+    "citation_format": "APA | Chicago | Vancouver | Harvard"
+  }
+}
+```
+
+Fields under `researcher` are added incrementally:
+- `discipline`, `experience`, `stats_software`, `db_access` — set during `/diverga:setup`
+- `qual_software`, `citation_format` — added by lazy config when relevant agent runs
 
 ## Error Handling
 
