@@ -3,7 +3,7 @@ name: help
 description: |
   Diverga help guide - displays all 24 agents across 9 categories, commands, and usage examples.
   Triggers: help, guide, how to use, 도움말
-version: "11.1.0"
+version: "11.1.1"
 ---
 
 # /diverga:help

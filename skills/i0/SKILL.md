@@ -6,7 +6,7 @@ description: |
   Delegates to specialized agents (I1, I2, I3) while enforcing human checkpoints
   Use when: conducting systematic reviews, building knowledge repositories, PRISMA automation
   Triggers: systematic review, PRISMA, literature review automation
-version: "11.1.0"
+version: "11.1.1"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)

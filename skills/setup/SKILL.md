@@ -4,7 +4,7 @@ description: |
   Diverga v11.0 initial configuration wizard. 3-step setup.
   Sets up checkpoints, OpenAlex email, and HUD preferences.
   Triggers: setup, configure, 설정, install
-version: "11.1.0"
+version: "11.1.1"
 ---
 
 # /diverga:setup

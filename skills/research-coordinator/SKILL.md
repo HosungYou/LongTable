@@ -11,7 +11,7 @@ description: |
   conceptual framework, visualization, systematic review, qualitative, phenomenology, grounded theory,
   thematic analysis, mixed methods, interview, focus group, ethnography, action research,
   paper retrieval, AI screening, RAG builder, humanization, AI pattern detection
-version: "11.1.0"
+version: "11.1.1"
 ---
 
 ## MANDATORY: Checkpoint Enforcement Rules (v8.2 — MCP-First)

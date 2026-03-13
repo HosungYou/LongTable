@@ -1,5 +1,5 @@
 /**
- * Diverga Agent Runtime v10.3.0
+ * Diverga Agent Runtime v11.1.1
  *
  * Independent Agent Runtime for Diverga Research Agents.
  * Enables parallel execution via Task(subagent_type="diverga:a1") etc.
@@ -26,7 +26,7 @@
 export * from './agents/index.js';
 
 // Package info
-export const VERSION = '10.3.2';
+export const VERSION = '11.1.1';
 export const PACKAGE_NAME = 'diverga';
 
 /**
