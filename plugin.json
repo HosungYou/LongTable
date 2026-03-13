@@ -1,1 +1,8 @@
-.claude-plugin/plugin.json
+{
+  "name": "diverga",
+  "version": "11.1.1",
+  "description": "AI Research Assistant - 24 specialized agents with VS methodology, human checkpoints, and parallel execution",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "hooks": "./hooks/hooks.json"
+}
