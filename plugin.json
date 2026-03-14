@@ -1,8 +1,7 @@
 {
   "name": "diverga",
-  "version": "11.1.2",
+  "version": "11.3.0",
   "description": "AI Research Assistant - 24 specialized agents with VS methodology, human checkpoints, and parallel execution",
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
-  "hooks": "./hooks/hooks.json"
+  "mcpServers": "./.mcp.json"
 }

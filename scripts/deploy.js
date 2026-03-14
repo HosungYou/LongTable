@@ -54,6 +54,7 @@ const DEPLOY_ALLOWLIST = [
   'CONTRIBUTING.md',
   'README.md',
   'CHANGELOG.md',
+  'plugin.json',
   'package.json',
   'pyproject.toml',
   'LICENSE',
@@ -254,6 +255,14 @@ function refreshCache(newVersion, dryRun) {
     } else {
       cpSync(sourcePath, targetPath);
     }
+  }
+
+  // Install MCP dependencies in cache
+  const mcpCachePath = join(newCachePath, 'mcp');
+  if (existsSync(join(mcpCachePath, 'package.json'))) {
+    console.log(`  ${DIM}Installing MCP dependencies...${RESET}`);
+    execSync('npm install --production', { cwd: mcpCachePath, stdio: 'pipe' });
+    console.log(`  ${GREEN}\u2713${RESET} MCP dependencies installed`);
   }
 
   console.log(`  ${GREEN}\u2713${RESET} Cache populated at ${newCachePath}`);

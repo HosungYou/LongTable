@@ -43,6 +43,9 @@ logs/
 .local/
 .dev-mode.json
 
+# Research session data
+.research/
+
 # oh-my-claudecode runtime state
 .omc/
 

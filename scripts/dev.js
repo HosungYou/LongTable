@@ -10,7 +10,7 @@
  *   node scripts/dev.js --help   # Show usage
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync, lstatSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, readlinkSync, renameSync, rmSync, symlinkSync, writeFileSync, lstatSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
@@ -34,6 +34,7 @@ const RESET = '\x1b[0m';
 
 const PLUGIN_NAME = 'diverga';
 const PLUGINS_BASE = join(process.env.HOME, '.claude', 'plugins');
+const PLUGIN_SYMLINK = join(PLUGINS_BASE, PLUGIN_NAME);
 const CACHE_BASE = join(PLUGINS_BASE, 'cache', PLUGIN_NAME, PLUGIN_NAME);
 const INSTALLED_PLUGINS_PATH = join(PLUGINS_BASE, 'installed_plugins.json');
 const DEV_STATE_FILE = join(ROOT, '.dev-mode.json');
@@ -179,7 +180,18 @@ function activate() {
     }
   }
 
-  // Step 6: Save dev state
+  // Step 6: Update plugin root symlink to point to source
+  let previousSymlinkTarget = null;
+  if (existsSync(PLUGIN_SYMLINK)) {
+    try {
+      previousSymlinkTarget = readlinkSync(PLUGIN_SYMLINK);
+    } catch { /* not a symlink */ }
+    rmSync(PLUGIN_SYMLINK, { force: true });
+  }
+  symlinkSync(ROOT, PLUGIN_SYMLINK);
+  console.log(`  ${GREEN}✓${RESET} Plugin symlink → ${ROOT}`);
+
+  // Step 7: Save dev state
   const state = {
     activatedAt: new Date().toISOString(),
     sourcePath: ROOT,
@@ -187,6 +199,7 @@ function activate() {
     backupPath: backupPath,
     originalVersion: currentVersion,
     linkedItems: linked,
+    previousSymlinkTarget,
   };
   writeJSON(DEV_STATE_FILE, state);
 
@@ -222,25 +235,50 @@ function deactivate() {
     console.log(`  ${RED}Warning:${RESET} Backup not found at ${backupPath}`);
   }
 
-  // Step 3: Restore installed_plugins.json
+  // Step 3: Restore plugin root symlink
+  if (state.previousSymlinkTarget) {
+    if (existsSync(PLUGIN_SYMLINK)) rmSync(PLUGIN_SYMLINK, { force: true });
+    symlinkSync(state.previousSymlinkTarget, PLUGIN_SYMLINK);
+    console.log(`  ${GREEN}✓${RESET} Plugin symlink → ${state.previousSymlinkTarget}`);
+  }
+
+  // Step 4: Restore installed_plugins.json
+  //   Claude Code's /plugin update can overwrite our dev entry, removing _original* fields.
+  //   Fall back to .dev-mode.json state + actual cache directory when that happens.
   if (existsSync(INSTALLED_PLUGINS_PATH)) {
     const plugins = readJSON(INSTALLED_PLUGINS_PATH);
     const key = `${PLUGIN_NAME}@${PLUGIN_NAME}`;
     if (plugins.plugins?.[key]?.[0]) {
       const entry = plugins.plugins[key][0];
-      if (entry._originalVersion) {
-        entry.version = entry._originalVersion;
-        entry.installPath = entry._originalInstallPath;
+
+      // Determine restore version: prefer _originalVersion, fall back to state, then find on disk
+      let restoreVersion = entry._originalVersion || state.originalVersion;
+      let restorePath = entry._originalInstallPath || join(CACHE_BASE, restoreVersion);
+
+      // If the restored cache doesn't exist on disk, find the latest non-dev cache
+      if (!existsSync(restorePath)) {
+        const latest = findCurrentCacheVersion();
+        if (latest) {
+          restoreVersion = latest;
+          restorePath = join(CACHE_BASE, latest);
+        }
+      }
+
+      if (restoreVersion && existsSync(restorePath)) {
+        entry.version = restoreVersion;
+        entry.installPath = restorePath;
         delete entry._originalVersion;
         delete entry._originalInstallPath;
         entry.lastUpdated = new Date().toISOString();
         writeJSON(INSTALLED_PLUGINS_PATH, plugins);
         console.log(`  ${GREEN}\u2713${RESET} installed_plugins.json restored (version: ${entry.version})`);
+      } else {
+        console.log(`  ${YELLOW}Warning:${RESET} Could not determine restore version for installed_plugins.json`);
       }
     }
   }
 
-  // Step 4: Remove state file
+  // Step 5: Remove state file
   rmSync(DEV_STATE_FILE, { force: true });
 
   console.log(`\n${GREEN}${BOLD}Dev mode deactivated.${RESET} Original cache restored.\n`);

@@ -139,7 +139,35 @@ function targets(version) {
     });
   }
 
-  // 5. .codex/skills/diverga-*/SKILL.md  -  metadata version field
+  // 5. plugin.json (root)  -  "version" field
+  const pluginJsonPath = join(ROOT, 'plugin.json');
+  if (existsSync(pluginJsonPath)) {
+    const data = readJSON(pluginJsonPath);
+    list.push({
+      file: 'plugin.json',
+      current: data.version || null,
+      update(v) {
+        data.version = v;
+        writeText(pluginJsonPath, JSON.stringify(data, null, 2) + '\n');
+      },
+    });
+  }
+
+  // 6. .claude-plugin/plugin.json  -  "version" field
+  const claudePluginJsonPath = join(ROOT, '.claude-plugin', 'plugin.json');
+  if (existsSync(claudePluginJsonPath)) {
+    const data = readJSON(claudePluginJsonPath);
+    list.push({
+      file: '.claude-plugin/plugin.json',
+      current: data.version || null,
+      update(v) {
+        data.version = v;
+        writeText(claudePluginJsonPath, JSON.stringify(data, null, 2) + '\n');
+      },
+    });
+  }
+
+  // 7. .codex/skills/diverga-*/SKILL.md  -  metadata version field
   const codexSkillsDir = join(ROOT, '.codex', 'skills');
   for (const name of subdirs(codexSkillsDir)) {
     const skillPath = join(codexSkillsDir, name, 'SKILL.md');
