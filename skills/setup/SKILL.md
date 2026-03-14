@@ -1,8 +1,8 @@
 ---
 name: setup
 description: |
-  Diverga v11.2 setup wizard. 2-step researcher profile setup.
-  Captures discipline, experience, tools, and database access.
+  Diverga v11.3 setup wizard. 3-step researcher profile setup.
+  Captures discipline, experience, tools, database access, and Agent Teams preference.
   Triggers: setup, configure, 설정, install
 version: "11.1.2"
 ---
@@ -121,18 +121,51 @@ questions:
 - Stats tools → E1 generates code ONLY in selected languages (no more 4-language output)
 - DB access → I1/I0 recommends only accessible databases at `SCH_DATABASE_SELECTION` checkpoint
 
-### Step 3: Generate Configuration & Complete
+### Step 3: Agent Teams (Experimental)
+
+Check if `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is already set:
+- If already `1` → display "Agent Teams: already enabled ✓" and skip question
+- Otherwise → ask:
+
+```
+question: "Enable Agent Teams for multi-agent collaboration?"
+header: "Agent Teams (Experimental)"
+options:
+  - label: "Enable (Recommended with VS Arena)"
+    description: "Agents debate and collaborate directly. Requires more tokens but enables deeper analysis."
+  - label: "Skip"
+    description: "Agents work independently via coordinator. Lower cost, still effective."
+```
+
+**If Enable selected:**
+1. Write to `~/.claude/settings.json`:
+   ```json
+   { "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" } }
+   ```
+   (merge with existing settings, don't overwrite)
+2. Add `"agent_teams": { "enabled": true, "auto_activate": true }` to config
+3. Note: "Agent Teams enables direct inter-agent debates for VS Arena, systematic reviews, and humanization pipelines."
+
+**If Skip selected:**
+- Add `"agent_teams": { "enabled": false }` to config
+- Note: "You can enable Agent Teams later by running /diverga:setup again."
+
+### Step 4: Generate Configuration & Complete
 
 After collecting all preferences, generate `config/diverga-config.json` at `~/.claude/plugins/diverga/config/`:
 
 ```json
 {
-  "version": "11.2.0",
+  "version": "11.3.0",
   "researcher": {
     "discipline": "Education",
     "experience": "doctoral_student",
     "stats_software": ["R", "SPSS"],
     "db_access": ["Scopus", "ERIC", "Semantic Scholar"]
+  },
+  "agent_teams": {
+    "enabled": true,
+    "auto_activate": true
   }
 }
 ```
@@ -146,7 +179,7 @@ Display completion:
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║                  Diverga v11.2 Setup Complete!                  ║
+║                  Diverga v11.3 Setup Complete!                  ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║                                                                  ║
 ║  Profile saved:                                                  ║
@@ -154,6 +187,7 @@ Display completion:
 ║    Experience: Doctoral Student                                  ║
 ║    Stats: R, SPSS                                               ║
 ║    Databases: Scopus, ERIC, Semantic Scholar                    ║
+║    Agent Teams: Enabled                                          ║
 ║                                                                  ║
 ║  Quick Start:                                                    ║
 ║  - Just describe your research in natural language               ║
@@ -208,7 +242,7 @@ When a Diverga plugin session starts:
 
 ```json
 {
-  "version": "11.2.0",
+  "version": "11.3.0",
   "researcher": {
     "discipline": "string",
     "experience": "doctoral_student | early_career | faculty",
@@ -216,13 +250,18 @@ When a Diverga plugin session starts:
     "db_access": ["Scopus", "Web of Science", "PsycINFO", "ERIC", "Semantic Scholar"],
     "qual_software": "NVivo | ATLAS.ti | MAXQDA | Dedoose | manual",
     "citation_format": "APA | Chicago | Vancouver | Harvard"
+  },
+  "agent_teams": {
+    "enabled": "boolean",
+    "auto_activate": "boolean"
   }
 }
 ```
 
-Fields under `researcher` are added incrementally:
-- `discipline`, `experience`, `stats_software`, `db_access` — set during `/diverga:setup`
-- `qual_software`, `citation_format` — added by lazy config when relevant agent runs
+Fields are added incrementally:
+- `researcher.discipline`, `experience`, `stats_software`, `db_access` — set during `/diverga:setup`
+- `researcher.qual_software`, `citation_format` — added by lazy config when relevant agent runs
+- `agent_teams` — set during `/diverga:setup` Step 3
 
 ## Error Handling
 
