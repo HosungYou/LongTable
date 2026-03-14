@@ -54,33 +54,46 @@ git remote add upstream https://github.com/HosungYou/Diverga.git
 ### 1. Install Dependencies
 
 ```bash
-# Install in development mode (symlinks)
-./scripts/install.sh
-
-# Verify installation
-./scripts/rc status
+npm install
 ```
 
-### 2. Set Up Python Environment (Optional)
+### 2. Activate Dev Mode
+
+Dev mode creates selective symlinks so your source changes reflect immediately
+in the plugin cache — no reinstall needed.
 
 ```bash
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install development dependencies
-pip install -r requirements-dev.txt
+npm run dev:on       # Activate
+npm run dev:status   # Verify
 ```
 
-### 3. Run Validation
+### 3. Build TypeScript
 
 ```bash
-# Validate all agents
-./scripts/rc validate
-
-# Or using Python directly
-python scripts/validate_agents.py --verbose
+npm run build        # One-time build
+npm run build:watch  # Watch mode for continuous development
 ```
+
+### 4. Run Validation
+
+```bash
+npm run test:all     # Typecheck + version check + generate check
+```
+
+### 5. Deactivate Dev Mode
+
+When done developing:
+```bash
+npm run dev:off      # Restore original cache
+```
+
+### Deploy a Release
+
+```bash
+npm run deploy -- patch    # or minor, major
+```
+
+This runs the full pipeline: validate → build → version sync → git → GitHub Release → cache refresh.
 
 ---
 

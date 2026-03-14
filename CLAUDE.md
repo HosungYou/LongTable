@@ -403,3 +403,40 @@ Confirmation always required via CP_PARADIGM_SELECTION.
 | Memory | 3-layer context with cross-session persistence |
 
 Developer notes: `docs/DEVELOPER.md`
+
+---
+
+## Development
+
+### Dev Mode (Auto-Managed)
+
+When working in this directory, Claude should automatically:
+1. Check dev mode status (`node scripts/dev.js status`)
+2. Activate if inactive (`node scripts/dev.js on`)
+3. Proceed with work
+
+Manual override: `npm run dev:on` / `npm run dev:off` / `npm run dev:status`
+
+Dev mode links only allowlisted paths (agents/, skills/, mcp/, hooks/, config/,
+dist/, src/, lib/, docs/, .claude-plugin/, .claude/skills, .claude/config,
+.mcp.json, CLAUDE.md, AGENTS.md, package.json, pyproject.toml) and blocks all
+build artifacts, caches, databases, and session data from leaking into the
+plugin cache.
+
+### Deploy
+
+One-command release pipeline: `npm run deploy -- patch|minor|major`
+
+Pipeline: dev off → generate → build → validate → version sync → git commit/tag/push → GitHub Release → cache refresh
+
+Dry run: `npm run deploy -- patch --dry-run`
+
+### Agent Teams
+
+When `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set and enabled in config,
+the orchestrator contextually activates Agent Teams for scenarios that benefit
+from inter-agent collaboration (VS Arena debates, systematic review pipeline,
+humanization pipeline, cross-method comparison). Falls back to subagents
+automatically when unavailable.
+
+Enable via `/diverga:setup` or set manually in `~/.claude/settings.json`.
