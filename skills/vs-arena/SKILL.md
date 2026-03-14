@@ -170,6 +170,27 @@ Enable via `/diverga:setup` or by editing config directly.
 
 ---
 
+## Agent Teams Mode (when available)
+
+When Agent Teams is enabled, VS Arena uses direct inter-persona debate:
+
+### Teams Flow
+1. Orchestrator creates team: `TeamCreate("vs-arena-debate")`
+2. Spawn 3 persona teammates (selected V1-V5 based on research question)
+3. Each persona independently analyzes the research question
+4. Cross-critique round: each persona challenges the others via `SendMessage`
+5. Personas refine their recommendations based on feedback
+6. Lead synthesizes all positions at CP_METHODOLOGY_APPROVAL
+7. Present to user with full debate transcript
+
+### Subagent Flow (fallback)
+(existing behavior — coordinator mediates all exchange)
+
+The skill file works identically in both modes. The orchestrator decides
+which execution path to use based on environment and config.
+
+---
+
 ## Backward Compatibility
 
 - No changes to existing agent behavior when VS Arena is disabled
