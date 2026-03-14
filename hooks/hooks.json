@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $HOME/.claude/plugins/diverga/hooks/prereq-enforcer.mjs",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/prereq-enforcer.mjs",
             "timeout": 10
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $HOME/.claude/plugins/diverga/hooks/prereq-enforcer.mjs",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/prereq-enforcer.mjs",
             "timeout": 10
           }
         ]
