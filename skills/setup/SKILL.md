@@ -1,20 +1,20 @@
 ---
 name: setup
 description: |
-  Diverga v11.3 setup wizard. 3-step researcher profile setup.
-  Captures discipline, experience, tools, database access, and Agent Teams preference.
+  Diverga v12.0 setup wizard. 4-step researcher profile setup.
+  Captures discipline, experience, tools, database access, and Agent Teams + VS Arena preference.
   Triggers: setup, configure, 설정, install
-version: "11.3.1"
+version: "12.0.0"
 ---
 
 # /diverga:setup
 
-**Version**: 11.2.0
+**Version**: 12.0.0
 **Trigger**: `/diverga:setup`
 
 ## Description
 
-Diverga setup wizard. 2 steps: Researcher Profile + Tools & Access.
+Diverga setup wizard. 4 steps: Researcher Profile, Tools & Access, Agent Teams + VS Arena, Config Generation.
 Captures information that genuinely changes agent behavior.
 
 ## Design Principles
@@ -39,8 +39,8 @@ Display welcome message, then ask TWO questions using a single AskUserQuestion c
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║                    Welcome to Diverga v11.2                     ║
-║        AI Research Assistant - 24 Agents, 9 Categories          ║
+║                    Welcome to Diverga v12.0                     ║
+║   AI Research Assistant - 29 Agents (24 core + 5 VS Arena)      ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║                                                                  ║
 ║  Diverga adapts to your background.                             ║
@@ -121,34 +121,49 @@ questions:
 - Stats tools → E1 generates code ONLY in selected languages (no more 4-language output)
 - DB access → I1/I0 recommends only accessible databases at `SCH_DATABASE_SELECTION` checkpoint
 
-### Step 3: Agent Teams (Experimental)
-
-Check if `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is already set:
-- If already `1` → display "Agent Teams: already enabled ✓" and skip question
-- Otherwise → ask:
+### Step 3: Agent Teams and VS Arena
 
 ```
-question: "Enable Agent Teams for multi-agent collaboration?"
-header: "Agent Teams (Experimental)"
+question: "Configure multi-agent collaboration mode"
+header: "Agent Teams"
 options:
-  - label: "Enable (Recommended with VS Arena)"
-    description: "Agents debate and collaborate directly. Requires more tokens but enables deeper analysis."
-  - label: "Skip"
-    description: "Agents work independently via coordinator. Lower cost, still effective."
+  - label: "Agent Teams + VS Arena (Recommended)"
+    description: "Full parallel execution with inter-agent communication. VS Arena debates use real cross-critique between personas. Requires Claude Code v2.1.32+. Higher token usage."
+  - label: "Subagents + Classic VS (Default)"
+    description: "Agents run as subagents. VS Arena generates options from single agent (no cross-critique). Lower cost."
+  - label: "Disabled"
+    description: "No multi-agent features. Single agent execution only."
 ```
 
-**If Enable selected:**
+**If "Agent Teams + VS Arena" selected**, add to config:
+```json
+{
+  "agent_teams": { "enabled": true },
+  "vs_arena": { "enabled": true, "team_size": 3, "cross_critique": true }
+}
+```
+Also set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in user's `settings.json` env:
 1. Write to `~/.claude/settings.json`:
    ```json
    { "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" } }
    ```
    (merge with existing settings, don't overwrite)
-2. Add `"agent_teams": { "enabled": true, "auto_activate": true }` to config
-3. Note: "Agent Teams enables direct inter-agent debates for VS Arena, systematic reviews, and humanization pipelines."
 
-**If Skip selected:**
-- Add `"agent_teams": { "enabled": false }` to config
-- Note: "You can enable Agent Teams later by running /diverga:setup again."
+**If "Subagents + Classic VS" selected**, add to config:
+```json
+{
+  "agent_teams": { "enabled": false },
+  "vs_arena": { "enabled": true, "team_size": 3, "cross_critique": false }
+}
+```
+
+**If "Disabled" selected**, add to config:
+```json
+{
+  "agent_teams": { "enabled": false },
+  "vs_arena": { "enabled": false }
+}
+```
 
 ### Step 4: Generate Configuration & Complete
 
@@ -156,17 +171,15 @@ After collecting all preferences, generate `config/diverga-config.json` at `~/.c
 
 ```json
 {
-  "version": "11.3.0",
+  "version": "12.0.0",
   "researcher": {
     "discipline": "Education",
     "experience": "doctoral_student",
     "stats_software": ["R", "SPSS"],
     "db_access": ["Scopus", "ERIC", "Semantic Scholar"]
   },
-  "agent_teams": {
-    "enabled": true,
-    "auto_activate": true
-  }
+  "agent_teams": { "enabled": true },
+  "vs_arena": { "enabled": true, "team_size": 3, "cross_critique": true }
 }
 ```
 
@@ -179,7 +192,7 @@ Display completion:
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║                  Diverga v11.3 Setup Complete!                  ║
+║                  Diverga v12.0 Setup Complete!                  ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║                                                                  ║
 ║  Profile saved:                                                  ║
@@ -188,6 +201,10 @@ Display completion:
 ║    Stats: R, SPSS                                               ║
 ║    Databases: Scopus, ERIC, Semantic Scholar                    ║
 ║    Agent Teams: Enabled                                          ║
+║    VS Arena: Cross-critique enabled                              ║
+║                                                                  ║
+║  29 agents (24 core + 5 VS Arena)                               ║
+║  Agent Teams orchestrator — unified parallel and debate workflows║
 ║                                                                  ║
 ║  Quick Start:                                                    ║
 ║  - Just describe your research in natural language               ║
@@ -195,7 +212,7 @@ Display completion:
 ║  - Diverga adapts to your profile automatically                  ║
 ║                                                                  ║
 ║  Commands:                                                       ║
-║  - /diverga:help     - View all 24 agents                       ║
+║  - /diverga:help     - View all 29 agents                       ║
 ║  - /diverga:memory   - Memory system commands                    ║
 ║  - /diverga:setup    - Update your profile anytime               ║
 ║                                                                  ║
@@ -242,7 +259,7 @@ When a Diverga plugin session starts:
 
 ```json
 {
-  "version": "11.3.0",
+  "version": "12.0.0",
   "researcher": {
     "discipline": "string",
     "experience": "doctoral_student | early_career | faculty",
@@ -252,8 +269,12 @@ When a Diverga plugin session starts:
     "citation_format": "APA | Chicago | Vancouver | Harvard"
   },
   "agent_teams": {
+    "enabled": "boolean"
+  },
+  "vs_arena": {
     "enabled": "boolean",
-    "auto_activate": "boolean"
+    "team_size": "number (default 3)",
+    "cross_critique": "boolean"
   }
 }
 ```
@@ -261,7 +282,7 @@ When a Diverga plugin session starts:
 Fields are added incrementally:
 - `researcher.discipline`, `experience`, `stats_software`, `db_access` — set during `/diverga:setup`
 - `researcher.qual_software`, `citation_format` — added by lazy config when relevant agent runs
-- `agent_teams` — set during `/diverga:setup` Step 3
+- `agent_teams`, `vs_arena` — set during `/diverga:setup` Step 3
 
 ## Error Handling
 
