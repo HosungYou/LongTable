@@ -21,7 +21,7 @@ import pytest
 BASE_DIR = Path(__file__).parent.parent
 SKILLS_DIR = BASE_DIR / "skills"
 
-# 24 core agent skill directories (v11.1 — consolidated from 44)
+# 24 core agent skill directories (v12.0 — consolidated from 44)
 AGENT_SKILLS = [
     "a1", "a2", "a5",
     "b1", "b2",
@@ -34,7 +34,7 @@ AGENT_SKILLS = [
     "x1",
 ]
 
-# 11 system/utility skill directories
+# 10 system/utility skill directories
 SYSTEM_SKILLS = [
     "diverga",
     "doctor",
@@ -42,11 +42,10 @@ SYSTEM_SKILLS = [
     "hud",
     "humanize",
     "memory",
+    "orchestrator",
     "research-coordinator",
-    "research-orchestrator",
     "setup",
     "universal-ma-codebook",
-    "vs-arena",
 ]
 
 ALL_EXPECTED_SKILLS = sorted(AGENT_SKILLS + SYSTEM_SKILLS)
@@ -113,7 +112,7 @@ class TestSkillDirectoryInventory:
         )
 
     def test_all_system_skill_directories_exist(self):
-        """All 11 system skill directories must exist under skills/."""
+        """All 10 system skill directories must exist under skills/."""
         missing = [
             name for name in SYSTEM_SKILLS
             if not (SKILLS_DIR / name).is_dir()
@@ -123,23 +122,23 @@ class TestSkillDirectoryInventory:
         )
 
     def test_system_skill_count(self):
-        """There must be exactly 11 system skill directories."""
+        """There must be exactly 10 system skill directories."""
         existing = [
             name for name in SYSTEM_SKILLS
             if (SKILLS_DIR / name).is_dir()
         ]
-        assert len(existing) == 11, (
-            f"Expected 11 system skill directories, found {len(existing)}"
+        assert len(existing) == 10, (
+            f"Expected 10 system skill directories, found {len(existing)}"
         )
 
     def test_total_skill_count(self):
-        """Total skill directories with SKILL.md must be 35 (24 agents + 11 system)."""
+        """Total skill directories with SKILL.md must be 34 (24 agents + 10 system)."""
         actual_dirs = sorted(
             d.name for d in SKILLS_DIR.iterdir()
             if d.is_dir() and (d / "SKILL.md").exists()
         )
-        assert len(actual_dirs) == 35, (
-            f"Expected 35 skill directories, found {len(actual_dirs)}: {actual_dirs}"
+        assert len(actual_dirs) == 34, (
+            f"Expected 34 skill directories, found {len(actual_dirs)}: {actual_dirs}"
         )
 
     def test_no_unexpected_skill_directories(self):

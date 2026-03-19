@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Tests for Version Consistency across Diverga v11.1.0
+Tests for Version Consistency across Diverga v12.0.0
 =====================================================
 
-Ensures ALL version references across the codebase match v11.1.0.
+Ensures ALL version references across the codebase match v12.0.0.
 Catches version drift between package.json, pyproject.toml, plugin.json,
 marketplace.json, config, SKILL.md frontmatter, CLAUDE.md, and README.md.
 
@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 BASE_DIR = Path(__file__).parent.parent
-EXPECTED_VERSION = "11.1.0"
+EXPECTED_VERSION = "12.0.0"
 
 
 class TestPackageVersions:
@@ -155,13 +155,13 @@ class TestSkillVersions:
         assert not errors, "\n".join(errors)
 
     def test_skill_count_matches_expected(self):
-        """The total number of skills with SKILL.md should be 35."""
+        """The total number of skills with SKILL.md should be 34."""
         skills_dir = BASE_DIR / "skills"
         skill_dirs = sorted(
             d for d in skills_dir.iterdir() if d.is_dir() and (d / "SKILL.md").exists()
         )
-        assert len(skill_dirs) == 35, (
-            f"Expected 35 skill directories with SKILL.md, found {len(skill_dirs)}: "
+        assert len(skill_dirs) == 34, (
+            f"Expected 34 skill directories with SKILL.md, found {len(skill_dirs)}: "
             f"{[d.name for d in skill_dirs]}"
         )
 
