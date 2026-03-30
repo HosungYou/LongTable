@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * prereq-enforcer.mjs — Claude Code PreToolUse hook (v11.1)
+ * prereq-enforcer.mjs — Claude Code PreToolUse hook (v11.2)
  *
  * Unified interceptor for Task and Skill tool calls targeting diverga:* agents.
  * Reads checkpoint state from SQLite (diverga.db) directly.
  *
  * Behavior:
+ *   - DIVERGA_TEAM_DISPATCH=1 → bypass all prerequisite checks (orchestrator-approved)
  *   - REQUIRED prerequisite missing → hard block (continue: false)
  *   - RECOMMENDED prerequisite missing → soft block (continue: true + warning)
  *   - Entry-point agents (a1, a5, g1, x1) → always allowed
@@ -171,6 +172,15 @@ function processHook(hookData) {
 
   const agentId = match[1].toLowerCase();
   log('Checking agent:', agentId);
+
+  // Team dispatch bypass: orchestrator already approved this dispatch.
+  // Checked via: (1) env var for testing, (2) prompt marker for runtime dispatch.
+  const prompt = toolInput.prompt || '';
+  if (process.env.DIVERGA_TEAM_DISPATCH === '1' ||
+      prompt.includes('DIVERGA_TEAM_DISPATCH=1')) {
+    log('Team dispatch mode, bypassing prerequisites for:', agentId);
+    return { continue: true };
+  }
 
   if (!prereqMap) {
     log('No prereq map loaded, allowing');
