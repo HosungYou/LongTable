@@ -6,7 +6,7 @@ description: |
   Absorbed A3 (Devil's Advocate) critique and A6 (Conceptual Framework Visualizer) capabilities
   Use when: building theoretical foundations, designing conceptual models, deriving hypotheses, critiquing frameworks, visualizing models
   Triggers: theoretical framework, 이론적 프레임워크, conceptual model, 개념적 모형, hypothesis derivation, critique, devil's advocate, 반론, visualization, diagram
-version: "12.0.1"
+version: "12.0.2"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)

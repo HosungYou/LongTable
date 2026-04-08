@@ -5,7 +5,7 @@ description: |
   Identifies 24+ writing patterns that reduce scholarly quality, adapted from Wikipedia AI Cleanup guidelines
   Use when: checking drafts before submission, improving academic writing quality, preparing for style improvement
   Triggers: writing quality, style audit, pattern check, writing review, academic style check
-version: "12.0.1"
+version: "12.0.2"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)

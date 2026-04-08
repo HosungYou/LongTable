@@ -5,7 +5,7 @@ description: |
   Multi-gate validation and workflow orchestration for meta-analysis.
   Absorbed C6 (Data Integrity Guard), C7 (Error Prevention Engine), B3 (Effect Size Extractor), E5 (Sensitivity Analysis - Meta) capabilities
   Triggers: meta-analysis, pooled effect, heterogeneity, forest plot, funnel plot, Hedges g, data integrity, effect size extraction, sensitivity analysis
-version: "12.0.1"
+version: "12.0.2"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)

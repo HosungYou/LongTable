@@ -7,7 +7,7 @@ description: |
   Replaces research-orchestrator and vs-arena skills.
   Triggers: orchestrator, agent team, create team, parallel agents, debate,
   competing, collaborate, VS Arena
-version: "12.0.1"
+version: "12.0.2"
 ---
 
 # Diverga Orchestrator

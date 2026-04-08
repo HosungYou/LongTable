@@ -9,7 +9,7 @@ description: |
   Triggers: statistical analysis, ANOVA, regression, t-test, power analysis, assumption checking, effect size,
   thematic analysis, grounded theory, content analysis, narrative analysis, NVivo, ATLAS.ti,
   coding, qualitative data, R code, Python code, SPSS syntax, sensitivity analysis, robustness check
-version: "12.0.1"
+version: "12.0.2"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)

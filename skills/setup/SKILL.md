@@ -4,7 +4,7 @@ description: |
   Diverga v12.0 setup wizard. 4-step researcher profile setup.
   Captures discipline, experience, tools, database access, and Agent Teams + VS Arena preference.
   Triggers: setup, configure, 설정, install
-version: "12.0.1"
+version: "12.0.2"
 ---
 
 # /diverga:setup

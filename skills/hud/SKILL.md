@@ -5,7 +5,7 @@ description: |
   Configure and manage the research project statusline display.
   Supports multiple presets: research, checkpoint, memory, minimal.
   Triggers: "hud", "statusline", "display settings"
-version: "12.0.1"
+version: "12.0.2"
 ---
 
 # Diverga HUD Skill

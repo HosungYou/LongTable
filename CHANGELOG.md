@@ -4,6 +4,40 @@ All notable changes to Diverga (formerly Research Coordinator) will be documente
 
 ---
 
+## [12.0.2] - 2026-04-08 (Team Dispatch Marker Injection + Node 20+ Compat)
+
+### Overview
+
+**Diverga v12.0.2** — Closes the gap between the v12.0.1 Team Dispatch Bypass mechanism and the orchestrator-style skills that are supposed to use it. Rule 7 introduced the `DIVERGA_TEAM_DISPATCH=1` prompt marker so `prereq-enforcer.mjs` can skip individual agent prerequisite checks when the user has already approved a multi-agent pipeline, but the five orchestrator skills that actually fan out to downstream agents never emitted the marker. Agent Teams pipelines (I0 systematic review, humanize, VS Arena subagent fallback, I1/I2 integrations) could therefore still be blocked by the checkpoint gate. This release aligns the skill-level dispatch patterns with the Rule 7 design intent so LLMs emit the marker consistently. The hook itself is unchanged.
+
+Ad-hoc single agent calls such as invoking `/diverga:e1` directly remain unaffected and continue to enforce checkpoints per Rule 2-6. Only downstream agents dispatched from within an approved orchestrator skill now bypass prerequisite checks.
+
+This release also fixes a Node 20+ compatibility issue in `scripts/dev.js` that prevented dev mode activation when an existing root symlink was present at `~/.claude/plugins/diverga`.
+
+### Bug Fixes
+
+- **Rule 7 marker not injected by orchestrator skills**: `skills/i0/SKILL.md`, `skills/i1/SKILL.md`, `skills/i2/SKILL.md`, `skills/humanize/SKILL.md`, and `skills/orchestrator/SKILL.md` contained `Task()` dispatch examples for downstream `diverga:*` agents but did not prepend `DIVERGA_TEAM_DISPATCH=1` to the prompt. LLMs copying these patterns would therefore trigger the prereq-enforcer hard block on agents with required checkpoints (A2, C3, C5, B2, etc.). All fifteen dispatch call sites across these five skills now explicitly include the marker, and each file carries a "Rule 7 — Team Dispatch Bypass" note that explains why the marker is required and where to read the full rule.
+- **`scripts/dev.js` fails on Node 20+ with `ERR_FS_EISDIR`**: When `activate()` encountered a pre-existing symlink at the plugin root, `rmSync(path, { force: true })` refused to remove it because the symlink resolved to a directory and `recursive` was not set. Using `recursive: true` would have been unsafe if the path happened to be a real directory with user files. The fix branches on `lstatSync().isSymbolicLink()` and uses `unlinkSync` for symlinks, `rmSync({ recursive: true, force: true })` for non-symlinks. Applied in both `activate()` (step 6) and `deactivate()` (step 3).
+
+### Modified
+
+- `skills/i0/SKILL.md`: 9 dispatch call sites updated (i1, i2, i3 in Agent Delegation Pattern; b1, b2, c5 in Integration section; 3 parallel fetchers in Agent Teams Mode). Added Rule 7 header to the Agent Delegation Pattern and Integration with Diverga sections.
+- `skills/i1/SKILL.md`: b1 dispatch in Integration with B1 section updated. Added Rule 7 note.
+- `skills/i2/SKILL.md`: b2 dispatch in Integration with B2 section updated. Added Rule 7 note.
+- `skills/humanize/SKILL.md`: g5, g6, f5 dispatches in Agent Spawning Rules section updated from placeholder `prompt="..."` to full marker-prefixed examples. Added Rule 7 note.
+- `skills/orchestrator/SKILL.md`: VS Arena subagent fallback example expanded from single-line placeholder to multi-line marker-prefixed form. Added Rule 7 note covering both team mode and subagent mode.
+- `scripts/dev.js`: Added `unlinkSync` import. Replaced `rmSync(PLUGIN_SYMLINK, { force: true })` with `lstat`-based branching in `activate()` step 6 and `deactivate()` step 3.
+
+### Design Notes
+
+An earlier internal proposal considered adding `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === 'true'` as a second bypass trigger in `prereq-enforcer.mjs`. This was rejected because the env var is typically set globally in `~/.claude/settings.json` and would therefore turn into a permanent checkpoint bypass for every diverga agent call, including ad-hoc single agent invocations. That would defeat the purpose of the checkpoint system, which is the primary object of study in Diverga's methodological research. The skill-level marker injection pursued here preserves the Rule 2-6 enforcement envelope for ad-hoc calls while making Rule 7 bypass automatic within orchestrator skills.
+
+### Verification
+
+Tested manually with the hook running against four representative agents (G1, G2, C3, E1) with `DIVERGA_HOOK_DEBUG=1`. All four returned `{"continue": true}` and emitted the debug line `Team dispatch mode, bypassing prerequisites for: <agent>` when the prompt contained `DIVERGA_TEAM_DISPATCH=1`, and the two non-entry-point agents (C3, E1) returned `BLOCKED: No checkpoint database found` when invoked without the marker from a directory without `diverga.db`. This confirms both the bypass path and the enforcement path are working as designed.
+
+---
+
 ## [12.0.1] - 2026-03-30 (Team Dispatch Bypass)
 
 ### Overview

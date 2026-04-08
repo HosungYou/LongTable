@@ -5,7 +5,7 @@ description: |
   Handles rate limiting, deduplication, and PDF URL extraction
   Use when: fetching papers, searching databases, paper retrieval
   Triggers: fetch papers, retrieve papers, database search, Semantic Scholar, OpenAlex, arXiv
-version: "12.0.1"
+version: "12.0.2"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)

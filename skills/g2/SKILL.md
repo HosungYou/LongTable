@@ -6,7 +6,7 @@ description: |
   Absorbed G3 (Peer Review Strategist), G4 (Pre-registration Composer), F1-F3 (Quality functions) capabilities
   Use when: writing abstracts, creating summaries, peer review response, pre-registration, reporting checklists, reproducibility
   Triggers: abstract, plain language, press release, summary, communication, peer review, revision, pre-registration, OSF, PRISMA, CONSORT, reproducibility
-version: "12.0.1"
+version: "12.0.2"
 ---
 
 # Publication Specialist (Writing, Review, Pre-registration & Quality Assurance)

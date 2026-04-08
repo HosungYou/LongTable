@@ -6,7 +6,7 @@ description: |
   Light VS applied: Avoids IF-centric recommendations + multi-dimensional matching strategy
   Use when: selecting target journals, planning submissions, comparing publication options
   Triggers: journal, submission, impact factor, academic journal, publication, submit
-version: "12.0.1"
+version: "12.0.2"
 ---
 
 # Journal Matcher

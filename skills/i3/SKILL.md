@@ -7,7 +7,7 @@ description: |
   Absorbed B5 (Parallel Document Processor) capabilities
   Use when: building RAG, creating vector database, downloading PDFs, embedding documents, batch processing
   Triggers: build RAG, create vector database, download PDFs, embed documents, batch PDF processing
-version: "12.0.1"
+version: "12.0.2"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)

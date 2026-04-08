@@ -6,7 +6,7 @@ description: |
   Absorbed C4 (Experimental Materials Developer) and D1 (Sampling Strategy Advisor) capabilities
   Use when: selecting quantitative research design, planning experimental/survey methodology, power analysis, developing materials, sampling
   Triggers: RCT, quasi-experimental, experimental design, survey design, power analysis, sample size, factorial design, materials, stimuli, sampling strategy
-version: "12.0.1"
+version: "12.0.2"
 ---
 
 ## VS Arena Check (v11.1)

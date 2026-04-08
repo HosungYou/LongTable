@@ -4,7 +4,7 @@ description: |
   Agent D2 - Data Collection Specialist - Interviews, Focus Groups & Observation.
   Covers protocol development, question design, probing strategies, transcription conventions, and systematic observation.
   Absorbed D3 (Observation Protocol Designer) capabilities.
-version: "12.0.1"
+version: "12.0.2"
 ---
 
 ## ⛔ Prerequisites (v8.2 — MCP Enforcement)
