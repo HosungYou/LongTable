@@ -79,6 +79,12 @@ interface DivergaConfig {
       experience_level: string;
       current_project_type: string;
     };
+    runtime_guidance?: {
+      ask_at_least_two_questions_in_explore: boolean;
+      preserve_narrative_trace_in_draft: boolean;
+      require_why_may_be_wrong_in_review: boolean;
+      question_bias_compensation?: string;
+    };
     imported_at: string;
   };
   installed_at: string;
@@ -90,6 +96,14 @@ interface ManagedProfileSeed {
   experienceLevel: 'novice' | 'intermediate' | 'advanced';
   currentProjectType: string;
   preferredCheckpointIntensity: 'low' | 'balanced' | 'high';
+  humanAuthorshipSignal?: string;
+}
+
+interface ManagedRuntimeGuidance {
+  askAtLeastTwoQuestionsInExplore: boolean;
+  preserveNarrativeTraceInDraft: boolean;
+  requireWhyMayBeWrongInReview: boolean;
+  questionBiasCompensation?: string;
 }
 
 interface ManagedSetupOutput {
@@ -107,6 +121,7 @@ interface ManagedCodexBridge {
   runtimeConfigPath: string;
   profileSeed: ManagedProfileSeed;
   checkpointInitialValues: string[];
+  runtimeGuidance?: ManagedRuntimeGuidance;
 }
 
 function checkpointDefaultsForIntensity(
@@ -121,6 +136,37 @@ function checkpointDefaultsForIntensity(
   }
 
   return ['required', 'recommended'];
+}
+
+function parseTomlBoolean(content: string, key: string): boolean | undefined {
+  const match = content.match(new RegExp(`^${key}\\s*=\\s*(true|false)$`, 'm'));
+  return match ? match[1] === 'true' : undefined;
+}
+
+function parseTomlString(content: string, key: string): string | undefined {
+  const match = content.match(new RegExp(`^${key}\\s*=\\s*"([^"]+)"$`, 'm'));
+  return match ? match[1] : undefined;
+}
+
+function readManagedCodexRuntimeGuidance(runtimePath: string): ManagedRuntimeGuidance | undefined {
+  if (!fs.existsSync(runtimePath)) {
+    return undefined;
+  }
+
+  try {
+    const raw = fs.readFileSync(runtimePath, 'utf8');
+    return {
+      askAtLeastTwoQuestionsInExplore:
+        parseTomlBoolean(raw, 'ask_at_least_two_questions_in_explore') ?? true,
+      preserveNarrativeTraceInDraft:
+        parseTomlBoolean(raw, 'preserve_narrative_trace_in_draft') ?? true,
+      requireWhyMayBeWrongInReview:
+        parseTomlBoolean(raw, 'require_why_may_be_wrong_in_review') ?? true,
+      questionBiasCompensation: parseTomlString(raw, 'question_bias_compensation'),
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 function detectManagedCodexBridge(): ManagedCodexBridge | null {
@@ -143,6 +189,7 @@ function detectManagedCodexBridge(): ManagedCodexBridge | null {
       checkpointInitialValues: checkpointDefaultsForIntensity(
         parsed.profileSeed.preferredCheckpointIntensity
       ),
+      runtimeGuidance: readManagedCodexRuntimeGuidance(MANAGED_CODEX_RUNTIME_PATH),
     };
   } catch {
     return null;
@@ -192,8 +239,14 @@ async function main(): Promise<void> {
           `${pc.cyan('Career stage:')}  ${managedBridge.profileSeed.careerStage}`,
           `${pc.cyan('Experience:')}    ${managedBridge.profileSeed.experienceLevel}`,
           `${pc.cyan('Project type:')}  ${managedBridge.profileSeed.currentProjectType}`,
+          `${pc.cyan('Authorship signal:')} ${
+            managedBridge.profileSeed.humanAuthorshipSignal ?? 'not provided'
+          }`,
           `${pc.cyan('Setup path:')}    ${managedBridge.setupPath}`,
           `${pc.cyan('Runtime path:')}  ${managedBridge.runtimeConfigPath}`,
+          `${pc.cyan('Question bias:')}  ${
+            managedBridge.runtimeGuidance?.questionBiasCompensation ?? 'default'
+          }`,
         ].join('\n'),
         'Imported Diverga-managed profile'
       );
@@ -346,6 +399,18 @@ async function main(): Promise<void> {
             experience_level: managedBridge.profileSeed.experienceLevel,
             current_project_type: managedBridge.profileSeed.currentProjectType,
           },
+          runtime_guidance: managedBridge.runtimeGuidance
+            ? {
+                ask_at_least_two_questions_in_explore:
+                  managedBridge.runtimeGuidance.askAtLeastTwoQuestionsInExplore,
+                preserve_narrative_trace_in_draft:
+                  managedBridge.runtimeGuidance.preserveNarrativeTraceInDraft,
+                require_why_may_be_wrong_in_review:
+                  managedBridge.runtimeGuidance.requireWhyMayBeWrongInReview,
+                question_bias_compensation:
+                  managedBridge.runtimeGuidance.questionBiasCompensation,
+              }
+            : undefined,
           imported_at: new Date().toISOString(),
         }
       : undefined,
@@ -410,6 +475,14 @@ async function main(): Promise<void> {
           `${pc.cyan('Managed runtime:')} ${config.runtime_bridge.runtime_config_path}`,
           `${pc.cyan('Imported field:')}  ${config.runtime_bridge.profile_summary.field}`,
           `${pc.cyan('Project type:')}    ${config.runtime_bridge.profile_summary.current_project_type}`,
+          `${pc.cyan('Question bias:')}   ${
+            config.runtime_bridge.runtime_guidance?.question_bias_compensation ?? 'default'
+          }`,
+          `${pc.cyan('Narrative trace:')} ${
+            config.runtime_bridge.runtime_guidance?.preserve_narrative_trace_in_draft
+              ? 'preserve in draft'
+              : 'not specified'
+          }`,
         ].join('\n'),
         'Diverga-managed runtime bridge'
       );

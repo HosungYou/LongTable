@@ -16,6 +16,7 @@ This branch implements two minimal bridge steps.
 
 - `packages/codex-setup` detects existing managed artifacts
 - the Codex installer can import profile and checkpoint defaults
+- the Codex installer can also import runtime guidance defaults such as question bias and narrative-trace preservation
 - `~/.codex/diverga/config.yaml` records the managed artifact paths
 - `src/runtime/managed-bridge.ts` provides a Claude-side reader shim for `~/.diverga/runtime/claude/diverga.json`
 - `skills/setup/SKILL.md` now defines Claude setup-time import from managed artifacts
@@ -37,6 +38,7 @@ It only provides:
 - `readManagedClaudeRuntimeConfig()`
 - `readManagedSetupOutput()`
 - `detectManagedClaudeBridge()`
+- `summarizeManagedRuntimeGuidance()`
 
 This keeps the next patch focused on runtime adoption rather than path conventions.
 

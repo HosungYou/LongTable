@@ -38,6 +38,11 @@ The setup creates the following in `~/.codex/diverga/`:
 
 If `~/.diverga/setup.json` and `~/.diverga/runtime/codex/diverga.toml` already exist, the installer can import them as a managed runtime bridge. In that mode, `config.yaml` keeps the legacy Codex installer settings while also recording the generated Diverga-managed artifact paths.
 
+When available, the installer also imports managed runtime guidance defaults:
+- stronger question bias in `explore`
+- narrative-trace preservation in `draft`
+- `why this may be wrong` requirement in `review`
+
 ## Configuration Options
 
 ### Research Paradigm

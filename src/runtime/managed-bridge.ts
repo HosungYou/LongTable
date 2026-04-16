@@ -15,6 +15,15 @@ export interface ManagedProfileSeed {
   experienceLevel: 'novice' | 'intermediate' | 'advanced';
   currentProjectType: string;
   preferredCheckpointIntensity: 'low' | 'balanced' | 'high';
+  humanAuthorshipSignal?: string;
+}
+
+export interface ManagedRuntimeGuidanceDefaults {
+  askAtLeastTwoQuestionsInExplore: boolean;
+  preserveNarrativeTraceInDraft: boolean;
+  requireWhyMayBeWrongInReview: boolean;
+  questionBiasCompensation?: string;
+  structuredQuestionBias?: string;
 }
 
 export interface ManagedSetupOutput {
@@ -38,6 +47,7 @@ export interface ManagedClaudeRuntimeConfig {
     experienceLevel: string;
     currentProjectType: string;
   };
+  runtimeGuidance?: ManagedRuntimeGuidanceDefaults;
 }
 
 export interface ManagedClaudeBridge {
@@ -45,6 +55,38 @@ export interface ManagedClaudeBridge {
   runtime: ManagedClaudeRuntimeConfig;
   setupPath: string;
   runtimePath: string;
+}
+
+export function summarizeManagedRuntimeGuidance(
+  guidance?: ManagedRuntimeGuidanceDefaults | null
+): string[] {
+  if (!guidance) {
+    return [];
+  }
+
+  const lines: string[] = [];
+
+  if (guidance.askAtLeastTwoQuestionsInExplore) {
+    lines.push('explore asks at least two questions before closure');
+  }
+
+  if (guidance.preserveNarrativeTraceInDraft) {
+    lines.push('draft preserves narrative trace');
+  }
+
+  if (guidance.requireWhyMayBeWrongInReview) {
+    lines.push('review must surface why this may be wrong');
+  }
+
+  if (guidance.questionBiasCompensation) {
+    lines.push(`question bias compensation: ${guidance.questionBiasCompensation}`);
+  }
+
+  if (guidance.structuredQuestionBias) {
+    lines.push(`structured question bias: ${guidance.structuredQuestionBias}`);
+  }
+
+  return lines;
 }
 
 export function resolveManagedRuntimePaths(home = homedir()): ManagedRuntimePaths {

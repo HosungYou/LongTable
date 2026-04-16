@@ -37,6 +37,7 @@ Check for managed runtime artifacts before asking profile questions:
 - If `~/.diverga/runtime/claude/diverga.json` exists, read it
 - If the JSON has `provider: "claude"`, also read its `setupPath`
 - If that setup file exists, offer: "Import researcher profile and checkpoint defaults from Diverga-managed setup?"
+- If runtime guidance exists, import the question-bias and narrative-trace defaults as well
 - If user accepts, use the managed profile as the default context for the rest of the wizard
 - Do not overwrite Claude-native config automatically; record the managed artifact paths in generated config
 
@@ -198,6 +199,12 @@ After collecting all preferences, generate `config/diverga-config.json` at `~/.c
       "career_stage": "doctoral",
       "experience_level": "intermediate",
       "current_project_type": "journal article"
+    },
+    "runtime_guidance": {
+      "ask_at_least_two_questions_in_explore": true,
+      "preserve_narrative_trace_in_draft": true,
+      "require_why_may_be_wrong_in_review": true,
+      "question_bias_compensation": "strong"
     }
   },
   "model_routing": {
