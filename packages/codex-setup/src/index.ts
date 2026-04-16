@@ -48,6 +48,14 @@ const CODEX_DIR = path.join(os.homedir(), '.codex');
 const DIVERGA_DIR = path.join(CODEX_DIR, 'diverga');
 const SKILLS_DIR = path.join(DIVERGA_DIR, 'skills');
 const CONFIG_PATH = path.join(DIVERGA_DIR, 'config.yaml');
+const MANAGED_ROOT = path.join(os.homedir(), '.diverga');
+const MANAGED_SETUP_PATH = path.join(MANAGED_ROOT, 'setup.json');
+const MANAGED_CODEX_RUNTIME_PATH = path.join(
+  MANAGED_ROOT,
+  'runtime',
+  'codex',
+  'diverga.toml'
+);
 
 interface DivergaConfig {
   version: string;
@@ -60,7 +68,85 @@ interface DivergaConfig {
     recommended: boolean;
     optional: boolean;
   };
+  runtime_bridge?: {
+    enabled: boolean;
+    source: 'diverga-managed-runtime';
+    setup_path: string;
+    runtime_config_path: string;
+    profile_summary: {
+      field: string;
+      career_stage: string;
+      experience_level: string;
+      current_project_type: string;
+    };
+    imported_at: string;
+  };
   installed_at: string;
+}
+
+interface ManagedProfileSeed {
+  field: string;
+  careerStage: string;
+  experienceLevel: 'novice' | 'intermediate' | 'advanced';
+  currentProjectType: string;
+  preferredCheckpointIntensity: 'low' | 'balanced' | 'high';
+}
+
+interface ManagedSetupOutput {
+  profileSeed: ManagedProfileSeed;
+  providerSelection: {
+    provider: 'codex' | 'claude';
+    checkpointProtocol: string;
+    supportsStructuredQuestions: boolean;
+  };
+  defaultInteractionMode?: string;
+}
+
+interface ManagedCodexBridge {
+  setupPath: string;
+  runtimeConfigPath: string;
+  profileSeed: ManagedProfileSeed;
+  checkpointInitialValues: string[];
+}
+
+function checkpointDefaultsForIntensity(
+  intensity: ManagedProfileSeed['preferredCheckpointIntensity']
+): string[] {
+  if (intensity === 'low') {
+    return ['required'];
+  }
+
+  if (intensity === 'high') {
+    return ['required', 'recommended', 'optional'];
+  }
+
+  return ['required', 'recommended'];
+}
+
+function detectManagedCodexBridge(): ManagedCodexBridge | null {
+  if (!fs.existsSync(MANAGED_SETUP_PATH)) {
+    return null;
+  }
+
+  try {
+    const raw = fs.readFileSync(MANAGED_SETUP_PATH, 'utf8');
+    const parsed = JSON.parse(raw) as ManagedSetupOutput;
+
+    if (parsed.providerSelection?.provider !== 'codex' || !parsed.profileSeed) {
+      return null;
+    }
+
+    return {
+      setupPath: MANAGED_SETUP_PATH,
+      runtimeConfigPath: MANAGED_CODEX_RUNTIME_PATH,
+      profileSeed: parsed.profileSeed,
+      checkpointInitialValues: checkpointDefaultsForIntensity(
+        parsed.profileSeed.preferredCheckpointIntensity
+      ),
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function main(): Promise<void> {
@@ -80,6 +166,37 @@ async function main(): Promise<void> {
     if (clack.isCancel(reinstall) || !reinstall) {
       clack.outro('Setup cancelled. Your existing configuration is preserved.');
       process.exit(0);
+    }
+  }
+
+  const managedBridge = detectManagedCodexBridge();
+  let useManagedBridge = false;
+
+  if (managedBridge) {
+    const shouldImportManaged = await clack.confirm({
+      message:
+        'Found Diverga-managed setup artifacts. Import researcher profile and checkpoint defaults into this Codex setup?',
+      initialValue: true,
+    });
+
+    if (clack.isCancel(shouldImportManaged)) {
+      clack.cancel('Setup cancelled.');
+      process.exit(0);
+    }
+
+    if (shouldImportManaged) {
+      useManagedBridge = true;
+      clack.note(
+        [
+          `${pc.cyan('Field:')}         ${managedBridge.profileSeed.field}`,
+          `${pc.cyan('Career stage:')}  ${managedBridge.profileSeed.careerStage}`,
+          `${pc.cyan('Experience:')}    ${managedBridge.profileSeed.experienceLevel}`,
+          `${pc.cyan('Project type:')}  ${managedBridge.profileSeed.currentProjectType}`,
+          `${pc.cyan('Setup path:')}    ${managedBridge.setupPath}`,
+          `${pc.cyan('Runtime path:')}  ${managedBridge.runtimeConfigPath}`,
+        ].join('\n'),
+        'Imported Diverga-managed profile'
+      );
     }
   }
 
@@ -194,7 +311,9 @@ async function main(): Promise<void> {
         hint: 'Visualization, search strategy, writing style',
       },
     ],
-    initialValues: ['required', 'recommended'],
+    initialValues: managedBridge && useManagedBridge
+      ? managedBridge.checkpointInitialValues
+      : ['required', 'recommended'],
     required: true,
   });
 
@@ -215,6 +334,21 @@ async function main(): Promise<void> {
       recommended: (checkpoints as string[]).includes('recommended'),
       optional: (checkpoints as string[]).includes('optional'),
     },
+    runtime_bridge: managedBridge && useManagedBridge
+      ? {
+          enabled: true,
+          source: 'diverga-managed-runtime',
+          setup_path: managedBridge.setupPath,
+          runtime_config_path: managedBridge.runtimeConfigPath,
+          profile_summary: {
+            field: managedBridge.profileSeed.field,
+            career_stage: managedBridge.profileSeed.careerStage,
+            experience_level: managedBridge.profileSeed.experienceLevel,
+            current_project_type: managedBridge.profileSeed.currentProjectType,
+          },
+          imported_at: new Date().toISOString(),
+        }
+      : undefined,
     installed_at: new Date().toISOString(),
   };
 
@@ -261,11 +395,25 @@ async function main(): Promise<void> {
         `${pc.cyan('Creativity:')}    ${creativity}`,
         `${pc.cyan('Model:')}         ${model}`,
         `${pc.cyan('Checkpoints:')}   ${(checkpoints as string[]).join(', ')}`,
+        `${pc.cyan('Managed bridge:')} ${config.runtime_bridge ? 'enabled' : 'disabled'}`,
         '',
         `${pc.dim('Config saved to:')} ${CONFIG_PATH}`,
       ].join('\n'),
       'Configuration Summary'
     );
+
+    if (config.runtime_bridge) {
+      console.log('');
+      clack.note(
+        [
+          `${pc.cyan('Managed setup:')}   ${config.runtime_bridge.setup_path}`,
+          `${pc.cyan('Managed runtime:')} ${config.runtime_bridge.runtime_config_path}`,
+          `${pc.cyan('Imported field:')}  ${config.runtime_bridge.profile_summary.field}`,
+          `${pc.cyan('Project type:')}    ${config.runtime_bridge.profile_summary.current_project_type}`,
+        ].join('\n'),
+        'Diverga-managed runtime bridge'
+      );
+    }
 
     // Show agent count
     const totalAgents = Object.values(AGENT_CATEGORIES).flat().length;

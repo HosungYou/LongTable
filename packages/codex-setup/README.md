@@ -36,6 +36,8 @@ The setup creates the following in `~/.codex/diverga/`:
 └── skills/           # Agent skill files
 ```
 
+If `~/.diverga/setup.json` and `~/.diverga/runtime/codex/diverga.toml` already exist, the installer can import them as a managed runtime bridge. In that mode, `config.yaml` keeps the legacy Codex installer settings while also recording the generated Diverga-managed artifact paths.
+
 ## Configuration Options
 
 ### Research Paradigm
@@ -78,6 +80,16 @@ Use keywords in your Codex sessions to trigger agents:
 "meta-analysis" → C5-MetaAnalysisMaster
 "theoretical framework" → A2-TheoreticalFrameworkArchitect
 ```
+
+## Managed Runtime Bridge
+
+This package now supports a minimal bridge from the refactoring installer surface.
+
+- managed setup input: `~/.diverga/setup.json`
+- managed Codex runtime config: `~/.diverga/runtime/codex/diverga.toml`
+- recorded bridge output: `~/.codex/diverga/config.yaml`
+
+This bridge does not replace native Codex configuration. It only records and imports Diverga-managed setup artifacts so the migration path can stay incremental.
 
 ## CLI Commands
 
