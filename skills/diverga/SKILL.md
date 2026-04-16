@@ -42,6 +42,7 @@ Read `config/diverga-config.json` (relative to the plugin directory at `~/.claud
 - `hud.preset` if present
 - `language`
 - `version`
+- `runtime_bridge.enabled` and `runtime_bridge.runtime_config_path` if present
 
 If config file doesn't exist, show "Not configured — run /diverga:setup"
 
@@ -79,6 +80,7 @@ CONFIGURATION
   Checkpoint:  [level from config or "Full (default)"]
   HUD Preset:  [preset from config or "research (default)"]
   VS Method:   Enabled
+  Runtime Bridge: [enabled -> path | disabled]
 
 PROJECT
   Active:      [project name or "No active project"]
@@ -147,6 +149,7 @@ No additional setup needed.
 
 - Use Bash tool to check environment variables: `echo $VARIABLE_NAME`
 - Use Read tool to check config file existence and contents
+- If `runtime_bridge.enabled` exists, show the Claude managed runtime path and note that it is a generated Diverga-managed artifact
 - Use Glob tool to check for `.research/project-state.yaml`
 - Display everything as formatted text output
 - The dashboard is READ-ONLY — it doesn't modify any files

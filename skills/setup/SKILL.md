@@ -33,9 +33,18 @@ Check for existing config:
 - If `~/.claude/plugins/diverga/config/diverga-config.json` exists with `researcher` field → "Existing profile detected. Update?"
 - Otherwise → "New profile setup"
 
+Check for managed runtime artifacts before asking profile questions:
+- If `~/.diverga/runtime/claude/diverga.json` exists, read it
+- If the JSON has `provider: "claude"`, also read its `setupPath`
+- If that setup file exists, offer: "Import researcher profile and checkpoint defaults from Diverga-managed setup?"
+- If user accepts, use the managed profile as the default context for the rest of the wizard
+- Do not overwrite Claude-native config automatically; record the managed artifact paths in generated config
+
 ### Step 1: Welcome + Researcher Profile
 
 Display welcome message, then ask TWO questions using a single AskUserQuestion call:
+
+This step establishes the baseline checkpoint posture for the researcher profile. Detailed checkpoint configuration still appears later through `human_checkpoints`, but Step 1 must capture enough context for checkpoint intensity and scaffolding decisions.
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
@@ -83,6 +92,7 @@ questions:
 - `Doctoral Student` → A1 explains PICO/SPIDER, C1 scaffolds power analysis, E1 adds interpretation guidance
 - `Faculty` → Agents skip explanations, go straight to options and trade-offs
 - Discipline → G1 prioritizes field-specific journals, I1 leads with field-appropriate databases
+- Checkpoint posture → later `human_checkpoints` defaults should reflect imported or selected profile context
 
 ### Step 2: Tools & Institutional Access
 
@@ -178,10 +188,31 @@ After collecting all preferences, generate `config/diverga-config.json` at `~/.c
     "stats_software": ["R", "SPSS"],
     "db_access": ["Scopus", "ERIC", "Semantic Scholar"]
   },
+  "runtime_bridge": {
+    "enabled": true,
+    "source": "diverga-managed-runtime",
+    "setup_path": "/Users/you/.diverga/setup.json",
+    "runtime_config_path": "/Users/you/.diverga/runtime/claude/diverga.json",
+    "profile_summary": {
+      "field": "education",
+      "career_stage": "doctoral",
+      "experience_level": "intermediate",
+      "current_project_type": "journal article"
+    }
+  },
+  "model_routing": {
+    "high": "opus",
+    "medium": "sonnet",
+    "low": "haiku"
+  },
   "agent_teams": { "enabled": true },
   "vs_arena": { "enabled": true, "team_size": 3, "cross_critique": true }
 }
 ```
+
+If no managed runtime artifact exists or the user declines import, omit `runtime_bridge`.
+
+If the user wants HUD integration, preserve or add a lightweight HUD preference in the generated config or guide them to `/diverga:hud` after setup. The setup flow should acknowledge HUD configuration even if the detailed HUD preset is configured separately.
 
 **Experience level mapping:**
 - "Doctoral Student" → `"doctoral_student"`

@@ -18,6 +18,8 @@ This branch implements two minimal bridge steps.
 - the Codex installer can import profile and checkpoint defaults
 - `~/.codex/diverga/config.yaml` records the managed artifact paths
 - `src/runtime/managed-bridge.ts` provides a Claude-side reader shim for `~/.diverga/runtime/claude/diverga.json`
+- `skills/setup/SKILL.md` now defines Claude setup-time import from managed artifacts
+- `skills/diverga/SKILL.md` now exposes runtime bridge status in the dashboard
 
 ## Why This Is Safe
 
@@ -37,6 +39,11 @@ It only provides:
 - `detectManagedClaudeBridge()`
 
 This keeps the next patch focused on runtime adoption rather than path conventions.
+
+The first Claude adoption surface is the setup and dashboard skills:
+
+- setup can import managed researcher profile context
+- dashboard can show whether a managed runtime bridge is active
 
 ## Next Patch
 
