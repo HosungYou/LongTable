@@ -24,6 +24,7 @@
 
 // Re-export everything from agents module
 export * from './agents/index.js';
+export * from './runtime/managed-bridge.js';
 
 // Package info
 export const VERSION = '12.0.2';
