@@ -2,11 +2,16 @@
 
 Researcher-facing CLI for LongTable.
 
-LongTable is designed around a simple contract:
+LongTable is an npm-first, provider-neutral research harness. It keeps the core
+product contract in project files and shared packages, while Codex prompts,
+Claude skills, and future MCP surfaces remain generated adapter artifacts.
+
+The basic contract is:
 
 1. seed the researcher profile once
 2. create a workspace for each project
 3. continue the research conversation inside that workspace
+4. preserve decisions, tensions, and evidence as durable project state
 
 ## Install
 
@@ -75,6 +80,15 @@ longtable start
 longtable resume --cwd "<project-path>"
 longtable roles
 longtable ask --cwd "<project-path>" --prompt "..."
+longtable panel --prompt "..."
+```
+
+Useful structured routes:
+
+```bash
+longtable panel --prompt "review this methods section" --json
+longtable review --role methods_critic,measurement_auditor --panel --prompt "review this methods section" --json
+longtable ask --prompt "lt panel: show the disagreement before I commit" --json
 ```
 
 ## Inside Codex
@@ -89,6 +103,47 @@ lt review: What is weak in this claim?
 lt panel: Show me the disagreement before I commit.
 lt methods: Where is the design vulnerable?
 ```
+
+## Panel Orchestration
+
+Panel orchestration is for moments where disagreement matters: methods risk,
+measurement validity, theory fit, literature positioning, and claims that need
+challenge before they become project memory.
+
+The CLI creates a provider-neutral `PanelPlan` and returns a planned
+`PanelResult`. When native subagents are unavailable, LongTable uses a stable
+sequential fallback prompt. That keeps the same research semantics available in
+Codex and Claude Code without making either provider's native question or agent
+tool the source of truth.
+
+Default panel roles include:
+
+- `reviewer`
+- `methods_critic`
+- `measurement_auditor`
+- `theory_critic`
+
+Use `--role` to constrain the panel when the research problem is already clear.
+
+## Evidence And Search Direction
+
+LongTable should not behave like a generic web scraper. Research search should
+start from scholarly routes when the user needs literature discovery, citation
+verification, publication metadata, or evidence-backed research decisions.
+
+Planned scholarly routes include arXiv, Crossref, OpenAlex, Semantic Scholar,
+PubMed/NCBI, ERIC, DOAJ, and Unpaywall. They have different setup requirements:
+some work without keys, some require a contact email, and some need API keys for
+reliable use.
+
+Citation support should be checked explicitly. A reference can be useful as
+background while still failing to support the specific claim attached to it.
+
+See:
+
+- [Research Search](https://github.com/HosungYou/LongTable/blob/main/docs/RESEARCH-SEARCH.md)
+- [Evidence Policy](https://github.com/HosungYou/LongTable/blob/main/docs/EVIDENCE-POLICY.md)
+- [LongTable Command Surface](https://github.com/HosungYou/LongTable/blob/main/docs/LONGTABLE-COMMAND-SURFACE.md)
 
 ## Validation
 
