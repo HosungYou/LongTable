@@ -1,0 +1,27 @@
+{
+  "profileSeed": {
+    "field": "psychology",
+    "careerStage": "faculty",
+    "experienceLevel": "advanced",
+    "preferredCheckpointIntensity": "low",
+    "aiAutonomyPreference": "balanced"
+  },
+  "providerSelection": {
+    "provider": "claude",
+    "checkpointProtocol": "native_structured",
+    "supportsStructuredQuestions": true
+  },
+  "defaultInteractionMode": "explore",
+  "initialState": {
+    "explicitState": {
+      "field": "psychology",
+      "careerStage": "faculty",
+      "experienceLevel": "advanced",
+      "preferredCheckpointIntensity": "low"
+    },
+    "inferredHypotheses": [],
+    "openTensions": [],
+    "decisionLog": [],
+    "artifactRecords": []
+  }
+}

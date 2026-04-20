@@ -1,83 +1,16 @@
 {
-  "name": "diverga",
-  "version": "12.0.2",
-  "description": "Diverga Agent Runtime - 24 specialized AI research agents with VS-Research methodology",
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./agents": {
-      "import": "./dist/agents/index.js",
-      "types": "./dist/agents/index.d.ts"
-    },
-    "./agents/definitions": {
-      "import": "./dist/agents/definitions.js",
-      "types": "./dist/agents/definitions.d.ts"
-    }
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "CLAUDE.md"
+  "name": "longtable-monorepo",
+  "version": "0.1.9",
+  "private": true,
+  "description": "Monorepo for the LongTable product surface and provider-neutral runtime packages",
+  "workspaces": [
+    "packages/*"
   ],
   "scripts": {
-    "build": "tsc",
-    "build:watch": "tsc --watch",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "npm run build",
-    "typecheck": "tsc --noEmit",
-    "generate": "node scripts/generate.js --write",
-    "generate:check": "node scripts/generate.js --check",
-    "version:sync": "node scripts/sync-version.js --fix",
-    "version:check": "node scripts/sync-version.js --check",
-    "release": "node scripts/release.js",
-    "release:patch": "node scripts/release.js patch",
-    "release:minor": "node scripts/release.js minor",
-    "release:major": "node scripts/release.js major",
-    "doctor": "node scripts/doctor.js",
-    "precommit": "npm run version:check && npm run generate:check",
-    "test:all": "npm run typecheck && npm run version:check && npm run generate:check",
-    "test:hooks": "NODE_PATH=mcp/node_modules node --test tests/hooks/*.test.mjs",
-    "dev": "node scripts/dev.js",
-    "dev:on": "node scripts/dev.js on",
-    "dev:off": "node scripts/dev.js off",
-    "dev:status": "node scripts/dev.js status",
-    "deploy": "node scripts/deploy.js"
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/HosungYou/Diverga.git"
-  },
-  "keywords": [
-    "research",
-    "social-science",
-    "meta-analysis",
-    "systematic-review",
-    "academic-writing",
-    "verbalized-sampling",
-    "claude-code",
-    "agent-runtime",
-    "qualitative-research",
-    "quantitative-research",
-    "mixed-methods",
-    "PRISMA"
-  ],
-  "author": "Hosung You",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/HosungYou/Diverga/issues"
-  },
-  "homepage": "https://github.com/HosungYou/Diverga#readme",
   "engines": {
     "node": ">=18.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "husky": "^9.0.0",
-    "typescript": "^5.3.0"
   }
 }

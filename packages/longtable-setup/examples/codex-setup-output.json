@@ -1,0 +1,27 @@
+{
+  "profileSeed": {
+    "field": "education",
+    "careerStage": "doctoral",
+    "experienceLevel": "intermediate",
+    "preferredCheckpointIntensity": "balanced",
+    "aiAutonomyPreference": "balanced"
+  },
+  "providerSelection": {
+    "provider": "codex",
+    "checkpointProtocol": "numbered",
+    "supportsStructuredQuestions": false
+  },
+  "defaultInteractionMode": "explore",
+  "initialState": {
+    "explicitState": {
+      "field": "education",
+      "careerStage": "doctoral",
+      "experienceLevel": "intermediate",
+      "preferredCheckpointIntensity": "balanced"
+    },
+    "inferredHypotheses": [],
+    "openTensions": [],
+    "decisionLog": [],
+    "artifactRecords": []
+  }
+}

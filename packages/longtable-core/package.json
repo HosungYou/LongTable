@@ -1,0 +1,45 @@
+{
+  "name": "@longtable/core",
+  "version": "0.1.9",
+  "private": false,
+  "description": "Provider-neutral domain models and contracts for LongTable",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "keywords": [
+    "longtable",
+    "research",
+    "contracts",
+    "types"
+  ],
+  "author": "Hosung You",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HosungYou/LongTable.git"
+  },
+  "homepage": "https://github.com/HosungYou/LongTable#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

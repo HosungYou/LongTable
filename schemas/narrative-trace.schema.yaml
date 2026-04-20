@@ -1,0 +1,42 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: NarrativeTrace
+type: object
+additionalProperties: false
+required:
+  - id
+  - timestamp
+  - source
+  - traceType
+  - summary
+  - visibility
+  - importance
+properties:
+  id:
+    type: string
+  timestamp:
+    type: string
+  source:
+    type: string
+  traceType:
+    type: string
+    enum:
+      - experience
+      - judgment
+      - voice
+      - context
+      - tension
+  summary:
+    type: string
+  visibility:
+    type: string
+    enum:
+      - explicit
+      - inferred
+  importance:
+    type: string
+    enum:
+      - low
+      - medium
+      - high
+  linkedDecisionRecordId:
+    type: string

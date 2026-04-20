@@ -1,0 +1,59 @@
+{
+  "name": "@longtable/cli",
+  "version": "0.1.9",
+  "private": false,
+  "description": "Researcher-facing LongTable CLI",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "longtable": "./bin/longtable"
+  },
+  "directories": {
+    "bin": "./bin"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@longtable/memory": "0.1.9",
+    "@longtable/provider-codex": "0.1.9",
+    "@longtable/setup": "0.1.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "typescript": "^5.6.0"
+  },
+  "keywords": [
+    "long-table",
+    "research",
+    "codex",
+    "onboarding",
+    "checkpoints"
+  ],
+  "author": "Hosung You",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HosungYou/LongTable.git"
+  },
+  "homepage": "https://github.com/HosungYou/LongTable#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

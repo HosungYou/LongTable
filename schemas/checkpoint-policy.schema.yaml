@@ -1,0 +1,41 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: ResolvedCheckpointPolicy
+type: object
+additionalProperties: false
+required:
+  - checkpointKey
+  - level
+  - blocking
+  - promptStyle
+  - requiresDecisionLog
+  - updateExplicitState
+  - rationale
+properties:
+  checkpointKey:
+    type: string
+    minLength: 1
+  level:
+    type: string
+    enum:
+      - universal_required
+      - adaptive_required
+      - recommended
+      - log_only
+      - none
+  blocking:
+    type: boolean
+  promptStyle:
+    type: string
+    enum:
+      - structured_choice
+      - confirm_or_revise
+      - advisory_summary
+      - passive_log
+  requiresDecisionLog:
+    type: boolean
+  updateExplicitState:
+    type: boolean
+  rationale:
+    type: array
+    items:
+      type: string

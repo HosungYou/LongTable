@@ -1,0 +1,64 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: ResearchState
+type: object
+additionalProperties: false
+required:
+  - explicitState
+  - workingState
+  - inferredHypotheses
+  - openTensions
+  - decisionLog
+  - artifactRecords
+  - narrativeTraces
+properties:
+  explicitState:
+    type: object
+    description: Facts explicitly confirmed by the researcher.
+  workingState:
+    type: object
+    description: Mutable task cursor for the current research session.
+  inferredHypotheses:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required:
+        - hypothesis
+        - confidence
+        - evidence
+        - status
+      properties:
+        hypothesis:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        evidence:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum:
+            - unconfirmed
+            - confirmed
+            - rejected
+  openTensions:
+    type: array
+    items:
+      type: string
+  decisionLog:
+    type: array
+    items:
+      $ref: "./decision-record.schema.yaml"
+  artifactRecords:
+    type: array
+    items:
+      $ref: "./artifact-record.schema.yaml"
+  narrativeTraces:
+    type: array
+    items:
+      $ref: "./narrative-trace.schema.yaml"
+  studyContract:
+    $ref: "./study-contract.schema.yaml"

@@ -1,0 +1,43 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: ArtifactRecord
+type: object
+additionalProperties: false
+required:
+  - id
+  - timestamp
+  - artifactType
+  - stakes
+  - source
+  - provenanceSummary
+properties:
+  id:
+    type: string
+    minLength: 1
+  timestamp:
+    type: string
+    minLength: 1
+  artifactType:
+    type: string
+    minLength: 1
+  stakes:
+    type: string
+    enum:
+      - private_note
+      - internal_draft
+      - study_protocol
+      - external_submission
+  source:
+    type: string
+    minLength: 1
+  provider:
+    type: string
+    enum:
+      - claude
+      - codex
+  location:
+    type: string
+  decisionRecordId:
+    type: string
+  provenanceSummary:
+    type: string
+    minLength: 1

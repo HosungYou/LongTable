@@ -1,0 +1,49 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: DecisionRecord
+type: object
+additionalProperties: false
+required:
+  - id
+  - timestamp
+  - checkpointKey
+  - level
+  - mode
+  - summary
+properties:
+  id:
+    type: string
+    minLength: 1
+  timestamp:
+    type: string
+    minLength: 1
+  checkpointKey:
+    type: string
+    minLength: 1
+  level:
+    type: string
+    enum:
+      - universal_required
+      - adaptive_required
+      - recommended
+      - log_only
+      - none
+  mode:
+    type: string
+    enum:
+      - explore
+      - review
+      - critique
+      - draft
+      - commit
+      - submit
+  summary:
+    type: string
+    minLength: 1
+  selectedOption:
+    type: string
+  rationale:
+    type: string
+  explicitStateUpdates:
+    type: object
+  studyContractId:
+    type: string

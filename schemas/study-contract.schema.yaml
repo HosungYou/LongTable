@@ -1,0 +1,55 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: StudyContract
+type: object
+additionalProperties: false
+required:
+  - id
+  - title
+  - problemFraming
+  - theoryAnchor
+  - methodology
+  - measurementPlan
+  - currentStage
+  - openTensions
+  - decisionRecordIds
+properties:
+  id:
+    type: string
+    minLength: 1
+  title:
+    type: string
+    minLength: 1
+  problemFraming:
+    type: string
+    minLength: 1
+  targetVenue:
+    type: string
+  theoryAnchor:
+    type: string
+    minLength: 1
+  methodology:
+    type: string
+    minLength: 1
+  measurementPlan:
+    type: string
+    minLength: 1
+  analysisPlan:
+    type: string
+  currentStage:
+    type: string
+    enum:
+      - problem_framing
+      - theory_selection
+      - method_design
+      - measurement_design
+      - analysis_planning
+      - writing
+      - submission
+  openTensions:
+    type: array
+    items:
+      type: string
+  decisionRecordIds:
+    type: array
+    items:
+      type: string

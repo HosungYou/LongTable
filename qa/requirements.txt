@@ -1,2 +1,0 @@
-# Diverga QA Framework Dependencies
-pyyaml>=6.0

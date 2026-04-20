@@ -1,0 +1,70 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: ResearcherProfile
+type: object
+additionalProperties: false
+required:
+  - field
+  - careerStage
+  - experienceLevel
+  - preferredCheckpointIntensity
+  - currentProjectType
+properties:
+  field:
+    type: string
+    minLength: 1
+  careerStage:
+    type: string
+    minLength: 1
+  experienceLevel:
+    type: string
+    enum:
+      - novice
+      - intermediate
+      - advanced
+  preferredCheckpointIntensity:
+    type: string
+    enum:
+      - low
+      - balanced
+      - high
+  currentProjectType:
+    type: string
+    minLength: 1
+  humanAuthorshipSignal:
+    type: string
+    minLength: 1
+  aiAutonomyPreference:
+    type: string
+    enum:
+      - low
+      - balanced
+      - high
+  forceCheckpointsOn:
+    type: array
+    items:
+      type: string
+  relaxCheckpointsOn:
+    type: array
+    items:
+      type: string
+  confidenceByDomain:
+    type: object
+    additionalProperties: false
+    properties:
+      theory:
+        $ref: "#/$defs/confidenceLevel"
+      methodology:
+        $ref: "#/$defs/confidenceLevel"
+      measurement:
+        $ref: "#/$defs/confidenceLevel"
+      analysis:
+        $ref: "#/$defs/confidenceLevel"
+      writing:
+        $ref: "#/$defs/confidenceLevel"
+$defs:
+  confidenceLevel:
+    type: string
+    enum:
+      - low
+      - medium
+      - high

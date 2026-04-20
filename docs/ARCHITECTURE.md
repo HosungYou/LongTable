@@ -1,75 +1,55 @@
-# Architecture — v12.0.0
+# Architecture
 
-System architecture reference for Diverga.
+## Goal
 
-**Clean Split: coordinator handles WHAT, orchestrator handles HOW.**
+Refactor LongTable from a Claude-centered plugin architecture into a provider-neutral research harness.
 
----
+## Architectural Shift
 
-## Core Systems
+### Before
 
-| System | Implementation |
-|--------|---------------|
-| State | SQLite WAL mode (YAML fallback) |
-| Hooks | prereq-enforcer.mjs (SQLite-based, hard-block for REQUIRED) |
-| Config | config/agents.json (29 agents: 24 core + 5 VS Arena) |
-| MCP | diverga-server.js (16 tools) + journal-server.js (6 tools) |
-| Memory | 3-layer context with cross-session persistence |
+- agent-first
+- provider-specific
+- checkpoint tied to agent prerequisites
+- heavy always-on context
 
----
+### After
 
-## Key Pipelines
+- state-first
+- provider-neutral core
+- checkpoint tied to commitment semantics
+- lightweight persistent context + retrieval
 
-- **Humanization**: G5 (audit) -> G6 (transform) -> F5 (verify). Details: `docs/HUMANIZATION.md`
-- **Meta-Analysis**: C5 (orchestrator with integrated data integrity + effect size + sensitivity)
-- **Systematic Review**: I0 -> I1 (retrieval) -> I2 (screening) -> I3 (RAG)
-- **Journal Matching**: G1 with journal MCP (search -> CP_JOURNAL_PRIORITIES -> rank -> CP_JOURNAL_SELECTION -> report)
+## Layers
 
----
+### 1. Core Layer
 
-## Hook Enforcement (v11.1)
+- domain objects
+- state transitions
+- checkpoint policy engine
+- decision log model
 
-The `prereq-enforcer.mjs` hook reads checkpoint state from SQLite (`diverga.db`) and enforces prerequisites:
+### 2. Memory Layer
 
-| Missing Level | Behavior | Result |
-|---------------|----------|--------|
-| **REQUIRED** | **Hard block** | `continue: false` — agent CANNOT run |
-| **RECOMMENDED** | Soft block | `continue: true` + warning in additionalContext |
-| **OPTIONAL** | Pass through | No action |
+- explicit state
+- working state
+- inferred hypotheses
+- open tensions
+- artifact provenance
 
-### Debug Mode
+### 3. Adapter Layer
 
-```bash
-DIVERGA_HOOK_DEBUG=1  # Enables verbose stderr logging
-DIVERGA_RESEARCH_DIR=/path/to/project  # Override research directory detection
-```
+- Claude adapter
+- Codex adapter
+- future web app adapter
 
----
+### 4. Interaction Layer
 
-## Memory System
+- setup
+- checkpoint prompts
+- review mode
+- submit mode
 
-### 3-Layer Context
+## Key Principle
 
-| Layer | Trigger | Description |
-|-------|---------|-------------|
-| Layer 1 | Keywords | "my research", "연구 진행", "where was I" auto-load context |
-| Layer 2 | Task tool | `Task(subagent_type="diverga:*")` auto-injects context to agents |
-| Layer 3 | CLI | `/diverga:memory context` for explicit full context |
-
-### Key Commands
-
-| Command | Description |
-|---------|-------------|
-| `/diverga:memory status` | Show project status |
-| `/diverga:memory context` | Display full context |
-| `/diverga:memory init` | Initialize new project |
-| `/diverga:memory decision list` | List decisions |
-| `/diverga:memory decision add` | Add decision |
-| `/diverga:memory search "query"` | Semantic memory search |
-| `/diverga:memory export --format md` | Export to Markdown |
-
-### Context Keywords
-
-**English**: "my research", "research status", "research progress", "where was I", "continue research", "remember", "memory", "context"
-
-**Korean**: "내 연구", "연구 진행", "연구 상태", "어디까지", "지금 단계", "기억", "맥락"
+Coordinator decides `what kind of research act is happening`; adapter decides `how the platform asks and records it`.

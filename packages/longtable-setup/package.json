@@ -1,0 +1,54 @@
+{
+  "name": "@longtable/setup",
+  "version": "0.1.9",
+  "private": false,
+  "description": "Researcher onboarding and setup flows for LongTable",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "examples"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@longtable/core": "0.1.9",
+    "@longtable/memory": "0.1.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "keywords": [
+    "longtable",
+    "research",
+    "setup",
+    "onboarding",
+    "codex",
+    "claude"
+  ],
+  "author": "Hosung You",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HosungYou/LongTable.git"
+  },
+  "homepage": "https://github.com/HosungYou/LongTable#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

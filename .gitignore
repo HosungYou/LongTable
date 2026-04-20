@@ -1,65 +1,12 @@
-# OS generated files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# Node
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-.venv/
-.env
-
-# Logs
-logs/
-*.log
-
-# Backup files
-*.bak
-*.backup
-
-# Local development
-.local/
-.dev-mode.json
-
-# Research session data
-.research/
-
-# oh-my-claudecode runtime state
-.omc/
-
-# Coverage reports
-coverage/
-
-# Build artifacts
 dist/
-*.tsbuildinfo
-
-# Package lock files (use npm ci with package-lock.json if needed)
-package-lock.json
-
-# TypeScript build cache
-*.js.map
-*.d.ts.map
-config/diverga-config.json
+build/
+.omx/
+.codex/
+.claude/
+.env
+.env.*
+coverage/
+tmp/
+*.log
