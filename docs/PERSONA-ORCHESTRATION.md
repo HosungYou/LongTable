@@ -20,6 +20,7 @@
 2. natural-language routing
 3. response disclosure
 4. bilingual language policy
+5. panel invocation and inspectable disagreement
 
 ## Canonical roles
 
@@ -144,6 +145,34 @@ role이 하나라도 호출되면, 응답 초반에 짧게 공개한다.
 - 하나의 책임 있는 인터페이스를 유지하면서
 - 필요할 때만 구조화된 disagreement를 보여준다
 
+## Panel orchestration
+
+Panel orchestration is the multi-role version of persona orchestration.
+
+It is not the same as a persistent agent team. LongTable does not need worker mailboxes, task claims, heartbeats, or tmux panes to support useful panel review.
+
+The panel coordinator should:
+
+1. select roles from the canonical role registry
+2. build a `PanelPlan`
+3. collect role outputs through the strongest available provider surface
+4. fall back to sequential role passes when native parallel agents are unavailable
+5. synthesize the result without hiding disagreement
+6. record enough structured data for technical inspection
+
+Panel discussion is inspectable through records such as:
+
+- selected role
+- role prompt or role contract version
+- role output summary
+- claims, objections, or open questions raised by that role
+- disagreement with other roles
+- synthesis decision
+- provider surface used
+- fallback/native execution mode
+
+Panel discussion must not expose raw hidden reasoning, private tool traces, or provider chain-of-thought. The inspectable artifact is a structured deliberation record, not an internal transcript.
+
 ## Language policy
 
 - input: bilingual
@@ -165,4 +194,8 @@ role이 하나라도 호출되면, 응답 초반에 짧게 공개한다.
 
 하지만 아직 이것은 **real multi-agent panel runtime**이 아니다.
 
-지금은 Codex wrapper prompt를 shaping하는 1차 구현이며, 이후 worker orchestration으로 확장할 수 있다.
+지금은 Codex wrapper prompt를 shaping하는 1차 구현이다.
+
+다음 구현 범위는 provider-neutral panel contract와 sequential fallback이다. 그 다음에 Claude generated skills, Codex native subagent usage, MCP transport를 붙인다.
+
+LongTable should grow toward panel orchestration, not general team orchestration.

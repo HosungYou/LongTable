@@ -18,6 +18,7 @@ Active supporting docs are:
 - `docs/PROVIDER-STRATEGY.md`
 - `docs/STUDY-CONTRACT.md`
 - `docs/PERSONA-ORCHESTRATION.md`
+- `docs/AGENT-SKILL-INVOCATION-REVIEW.md`
 - `docs/QUESTION-RUNTIME.md`
 - `docs/LONGTABLE-COMMAND-SURFACE.md`
 - `docs/CODEX-ALIAS-OVERLAY.md`
@@ -35,6 +36,8 @@ Historical exploration and release notes may be moved under `docs/archive/`.
 5. Codex는 native AskUserQuestion에 의존하지 않고 numbered choice protocol로 처리한다.
 6. researcher-facing execution and supporting packages should use the `longtable` identifier consistently.
 7. question semantics are provider-neutral, but provider adapters may use the strongest native question surface available.
+8. Panel orchestration is a first-class LongTable interaction pattern, but it is not OMX-style team orchestration.
+9. Panel discussion must be inspectable through structured role outputs and invocation records, not raw hidden reasoning logs.
 
 ## Proposed Repository Shape
 
@@ -88,6 +91,7 @@ Current code-level scaffolds now cover:
 - current product contract is workspace-first: `longtable start` prepares a project directory before `codex` is opened inside it
 - factual, current, and external claims now require source discipline; unsupported claims must be labeled as inference or estimate
 - question runtime contracts now separate shared checkpoint judgment from Claude/Codex-specific presentation surfaces
+- panel orchestration is now scoped as provider-neutral `InvocationIntent` and `PanelPlan` semantics with provider-specific execution surfaces and sequential fallback
 
 ## Core Domain Objects
 
@@ -97,6 +101,10 @@ Current code-level scaffolds now cover:
 - `DecisionRecord`
 - `ArtifactRecord`
 - `InteractionMode`
+- `InvocationIntent`
+- `PanelPlan`
+- `PanelResult`
+- `ProviderCapabilities`
 
 ## Researcher Profile Model
 
@@ -152,6 +160,39 @@ Current code-level scaffolds now cover:
 
 Mode는 checkpoint 강도와 memory loading level에 영향을 준다.
 
+`panel` is not a separate research commitment mode at first. It is an invocation pattern layered over review, critique, draft, or commit work.
+
+## Panel Orchestration Contract
+
+Panel orchestration lets LongTable consult multiple research roles and make their disagreement visible.
+
+The first implementation target is Option A:
+
+- provider-neutral panel contract
+- deterministic panel plan construction
+- sequential fallback execution
+- structured panel result records
+
+This means panel orchestration should work even when Codex native subagents or Claude Code generated skills are unavailable.
+
+The researcher-facing result should include:
+
+- LongTable synthesis
+- role-by-role panel opinions
+- explicit conflict summary when roles disagree
+- decision prompt or checkpoint prompt when a human commitment is needed
+
+The technical record should include:
+
+- planned roles
+- consulted roles
+- provider surface used
+- whether execution was native parallel, generated skill, prompt alias, or sequential fallback
+- checkpoint or question records that shaped the run
+- final synthesis summary
+
+Panel records must not expose raw hidden reasoning, private tool traces, or provider-specific internal chain-of-thought. Inspectability means auditable structured outputs, not internal transcript leakage.
+
 ## Hook Policy
 
 ### Keep
@@ -176,6 +217,8 @@ Mode는 checkpoint 강도와 memory loading level에 영향을 준다.
 - existing hook system 재사용 가능
 - team dispatch는 mode-aware bypass로 축소
 - LongTable core must decide whether the question is required; Claude only decides how the structured question is presented.
+- Claude may later receive generated LongTable skill files, but those files are adapter output, not source of truth.
+- Claude panel execution should normalize back to the same `PanelResult` contract as Codex.
 
 ## Codex Adapter
 
@@ -185,6 +228,8 @@ Mode는 checkpoint 강도와 memory loading level에 영향을 준다.
 - invalid input 시 재질문
 - Codex-native orchestration patterns는 참고 가능하되 provider runtime이 product contract를 지배하면 안 됨
 - Codex answers must normalize to the same decision/answer contract as Claude native question answers.
+- Codex native subagents may be used when available, but the stable contract must also work through sequential fallback.
+- Codex panel execution should normalize back to the same `PanelResult` contract as Claude.
 
 ## Numbered Checkpoint Interaction Contract
 
