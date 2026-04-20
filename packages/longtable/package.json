@@ -28,6 +28,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@longtable/core": "0.1.9",
     "@longtable/memory": "0.1.9",
     "@longtable/provider-codex": "0.1.9",
     "@longtable/setup": "0.1.9"

@@ -1,4 +1,5 @@
 import { resolveCheckpointPolicy } from "@longtable/checkpoints";
+import type { ProviderCapabilities } from "@longtable/core";
 import type {
   CheckpointSignal,
   ResearcherProfile,
@@ -67,6 +68,25 @@ export interface ClaudeRuntimeBridge {
   defaultInteractionMode: SetupPersistedOutput["defaultInteractionMode"];
   profile: SetupPersistedOutput["profileSeed"];
   runtimeDefaults: ClaudeRuntimeDefaults;
+}
+
+export const CLAUDE_PROVIDER_CAPABILITIES: ProviderCapabilities = {
+  provider: "claude",
+  nativeStructuredQuestions: true,
+  generatedSkills: "unavailable",
+  promptAliases: "unavailable",
+  nativeParallelSubagents: "session_dependent",
+  sequentialFallback: true,
+  mcpTransport: "planned",
+  notes: [
+    "Claude should prefer native structured questions when the runtime exposes them.",
+    "Generated LongTable skills should be adapter output from the shared role registry.",
+    "Sequential panel fallback remains required so Claude and Codex share one semantic contract."
+  ]
+};
+
+export function getClaudeProviderCapabilities(): ProviderCapabilities {
+  return CLAUDE_PROVIDER_CAPABILITIES;
 }
 
 function buildRequiredSections(guidance: RuntimeGuidance): string[] {

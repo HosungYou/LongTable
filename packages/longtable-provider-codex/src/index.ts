@@ -1,4 +1,5 @@
 import { resolveCheckpointPolicy } from "@longtable/checkpoints";
+import type { ProviderCapabilities } from "@longtable/core";
 import type {
   CheckpointSignal,
   ResearcherProfile,
@@ -45,6 +46,25 @@ export interface CodexRuntimeBridge {
   defaultInteractionMode: SetupPersistedOutput["defaultInteractionMode"];
   profile: ResearcherProfile;
   runtimeDefaults: CodexRuntimeDefaults;
+}
+
+export const CODEX_PROVIDER_CAPABILITIES: ProviderCapabilities = {
+  provider: "codex",
+  nativeStructuredQuestions: false,
+  generatedSkills: "unavailable",
+  promptAliases: "stable",
+  nativeParallelSubagents: "session_dependent",
+  sequentialFallback: true,
+  mcpTransport: "planned",
+  notes: [
+    "Codex prompt aliases are a convenience surface and depend on the installed Codex build.",
+    "Native parallel subagents may exist in an interactive session, but the npm CLI must not require them.",
+    "Sequential panel fallback is the stable provider-neutral path."
+  ]
+};
+
+export function getCodexProviderCapabilities(): ProviderCapabilities {
+  return CODEX_PROVIDER_CAPABILITIES;
 }
 
 export function normalizeResearcherProfile(

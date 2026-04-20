@@ -8,7 +8,7 @@ import type { Interface as ReadlineInterface } from "node:readline/promises";
 import { stdin as input, stdout as output, cwd, exit } from "node:process";
 import { dirname, resolve } from "node:path";
 import { homedir } from "node:os";
-import type { InteractionMode, ResearchStage } from "@longtable/core";
+import type { InteractionMode, PanelVisibility, ProviderKind, ResearchStage } from "@longtable/core";
 import {
   buildProviderChoices,
   buildQuickSetupFlow,
@@ -34,6 +34,7 @@ import {
 } from "./prompt-aliases.js";
 import { buildPersonaGuidance, parseInvocationDirective } from "./persona-router.js";
 import { PERSONA_DEFINITIONS } from "./personas.js";
+import { buildPanelFallback, renderPanelSummary } from "./panel.js";
 import {
   createOrUpdateProjectWorkspace,
   loadProjectContextFromDirectory,
@@ -141,6 +142,7 @@ function usage(): string {
     "  longtable show [--json] [--path <file>]",
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
+    "  longtable panel [--prompt <text>] [--role <role[,role]>] [--mode review|critique|draft|commit] [--visibility synthesis_only|show_on_conflict|always_visible] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable explore|review|critique|draft|commit|submit [--prompt <text>] [--role <role[,role]>] [--panel] [--show-conflicts] [--show-deliberation] [--print] [--json] [--stage <stage>] [--setup <path>] [--cwd <path>]",
     "  longtable codex persist-init [--answers-json <json> | --stdin | full setup flags] [--install-prompts] [--json]",
     "  longtable codex install-prompts [--dir <path>]",
@@ -166,7 +168,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "start", "resume", "roles", "show", "install", "codex", "ask"].includes(command);
+    command && ["init", "start", "resume", "roles", "show", "install", "codex", "ask", "panel"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -1107,6 +1109,24 @@ function inferModeFromPrompt(prompt: string): InteractionMode | "panel" | "statu
   return "explore";
 }
 
+function parsePanelVisibility(value?: string): PanelVisibility | undefined {
+  if (
+    value === "synthesis_only" ||
+    value === "show_on_conflict" ||
+    value === "always_visible"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function parsePanelMode(value?: string): InteractionMode {
+  if (value && VALID_MODES.has(value as InteractionMode) && value !== "explore" && value !== "submit") {
+    return value as InteractionMode;
+  }
+  return "review";
+}
+
 async function loadOptionalSetup(path?: string) {
   try {
     return await loadSetupOutput(path);
@@ -1193,6 +1213,69 @@ async function runModeCommand(
   exit(exitCode);
 }
 
+async function runPanelCommand(args: Record<string, string | boolean>): Promise<void> {
+  const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+  const prompt = await resolvePrompt(typeof args.prompt === "string" ? args.prompt : undefined);
+  if (!prompt) {
+    throw new Error("A prompt is required.");
+  }
+
+  const setup = await loadOptionalSetup(typeof args.setup === "string" ? args.setup : undefined);
+  const projectAware = await buildProjectAwarePrompt(prompt, workingDirectory);
+  const provider = setup?.providerSelection.provider as ProviderKind | undefined;
+  const visibility =
+    parsePanelVisibility(typeof args.visibility === "string" ? args.visibility : undefined) ??
+    parsePanelVisibility(setup?.profileSeed.panelPreference) ??
+    "always_visible";
+  const mode = parsePanelMode(typeof args.mode === "string" ? args.mode : undefined);
+  const fallback = buildPanelFallback({
+    prompt: projectAware.prompt,
+    mode,
+    roleFlag: typeof args.role === "string" ? args.role : undefined,
+    provider,
+    visibility
+  });
+
+  if (args.json === true) {
+    console.log(
+      JSON.stringify(
+        {
+          intent: fallback.intent,
+          plan: fallback.plan,
+          result: fallback.result,
+          execution: {
+            status: "planned",
+            stableSurface: "sequential_fallback",
+            nativeParallel: "not_required_for_option_a",
+            projectContextFound: projectAware.projectContextFound
+          },
+          fallbackPrompt: fallback.prompt
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
+
+  if (args.print === true) {
+    console.log(fallback.prompt);
+    return;
+  }
+
+  console.log(renderPanelSummary(fallback.plan));
+  console.log("");
+
+  const exitCode = await runCodexThinWrapper({
+    prompt: fallback.prompt,
+    mode,
+    setupPath: typeof args.setup === "string" ? args.setup : undefined,
+    workingDirectory,
+    json: false
+  });
+  exit(exitCode);
+}
+
 async function runAsk(args: Record<string, string | boolean>): Promise<void> {
   const prompt = await resolvePrompt(typeof args.prompt === "string" ? args.prompt : undefined);
   if (!prompt) {
@@ -1215,9 +1298,12 @@ async function runAsk(args: Record<string, string | boolean>): Promise<void> {
   if (directive.roles.length > 0 && typeof delegatedArgs.role !== "string") {
     delegatedArgs.role = directive.roles.join(",");
   }
-  if ((inferred === "panel" || directive.panel) && delegatedArgs.panel !== true) {
-    delegatedArgs.panel = true;
-    delegatedArgs["show-conflicts"] = true;
+  if (inferred === "panel" || directive.panel || delegatedArgs.panel === true) {
+    await runPanelCommand({
+      ...delegatedArgs,
+      visibility: "always_visible"
+    });
+    return;
   }
   await runModeCommand(mode, delegatedArgs);
 }
@@ -1228,6 +1314,9 @@ async function runRoles(args: Record<string, string | boolean>): Promise<void> {
     label: persona.label,
     description: persona.shortDescription,
     triggerMode: persona.triggerMode,
+    defaultPanelMember: persona.defaultPanelMember,
+    checkpointSensitivity: persona.checkpointSensitivity,
+    supportedModes: persona.supportedModes,
     exampleTriggers: persona.synonyms.slice(0, 4)
   }));
 
@@ -1246,6 +1335,8 @@ async function runRoles(args: Record<string, string | boolean>): Promise<void> {
     console.log(
       `  Trigger: ${persona.triggerMode === "auto-callable" ? "auto-callable when your language strongly implies it" : "explicit request only"}`
     );
+    console.log(`  Panel: ${persona.defaultPanelMember ? "default member" : "contextual member"}`);
+    console.log(`  Checkpoint sensitivity: ${persona.checkpointSensitivity}`);
     console.log(`  Examples: ${persona.exampleTriggers.join(", ")}`);
   }
 }
@@ -1457,12 +1548,24 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "panel") {
+    await runPanelCommand(values);
+    return;
+  }
+
   if (command === "codex") {
     await runCodexSubcommand(subcommand, values);
     return;
   }
 
   if (VALID_MODES.has(command as InteractionMode)) {
+    if (values.panel === true) {
+      await runPanelCommand({
+        ...values,
+        mode: command
+      });
+      return;
+    }
     await runModeCommand(command as InteractionMode, values);
     return;
   }

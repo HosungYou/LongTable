@@ -40,6 +40,23 @@ export type HypothesisStatus = "unconfirmed" | "confirmed" | "rejected";
 
 export type ProviderKind = "claude" | "codex";
 
+export type RoleKey = string;
+
+export type InvocationKind = "single_role" | "panel" | "status";
+
+export type InvocationSurface =
+  | "native_parallel"
+  | "generated_skill"
+  | "prompt_alias"
+  | "sequential_fallback"
+  | "mcp_transport";
+
+export type InvocationStatus = "planned" | "running" | "completed" | "blocked" | "degraded" | "error";
+
+export type PanelVisibility = "synthesis_only" | "show_on_conflict" | "always_visible";
+
+export type CheckpointSensitivity = "low" | "medium" | "high";
+
 export type CheckpointLevel =
   | "universal_required"
   | "adaptive_required"
@@ -86,6 +103,103 @@ export interface ResearcherProfile {
   forceCheckpointsOn?: string[];
   relaxCheckpointsOn?: string[];
   confidenceByDomain?: Partial<ResearcherConfidenceByDomain>;
+}
+
+export interface RoleDefinition {
+  key: RoleKey;
+  label: string;
+  shortDescription: string;
+  triggerMode: "auto-callable" | "explicit-only";
+  synonyms: string[];
+  defaultPanelMember: boolean;
+  checkpointSensitivity: CheckpointSensitivity;
+  supportedModes: InteractionMode[];
+}
+
+export interface ProviderCapabilities {
+  provider: ProviderKind;
+  nativeStructuredQuestions: boolean;
+  generatedSkills: "stable" | "available" | "unavailable";
+  promptAliases: "stable" | "available" | "unavailable";
+  nativeParallelSubagents: "stable" | "session_dependent" | "unavailable";
+  sequentialFallback: boolean;
+  mcpTransport: "stable" | "available" | "planned" | "unavailable";
+  notes: string[];
+}
+
+export interface InvocationIntent {
+  id: string;
+  kind: InvocationKind;
+  mode: InteractionMode;
+  prompt: string;
+  roles: RoleKey[];
+  provider?: ProviderKind;
+  requestedSurface?: InvocationSurface;
+  visibility: PanelVisibility;
+  checkpointSensitivity: CheckpointSensitivity;
+  rationale: string[];
+}
+
+export interface PanelMember {
+  role: RoleKey;
+  label: string;
+  reason: string;
+  required: boolean;
+}
+
+export interface PanelPlan {
+  id: string;
+  createdAt: string;
+  mode: InteractionMode;
+  prompt: string;
+  members: PanelMember[];
+  visibility: PanelVisibility;
+  preferredSurface: InvocationSurface;
+  fallbackSurface: "sequential_fallback";
+  checkpointSensitivity: CheckpointSensitivity;
+  rationale: string[];
+}
+
+export interface PanelMemberResult {
+  role: RoleKey;
+  label: string;
+  status: InvocationStatus;
+  summary?: string;
+  claims?: string[];
+  objections?: string[];
+  openQuestions?: string[];
+  evidenceRefs?: string[];
+  error?: string;
+}
+
+export interface PanelResult {
+  id: string;
+  planId: string;
+  createdAt: string;
+  updatedAt: string;
+  provider?: ProviderKind;
+  surface: InvocationSurface;
+  status: InvocationStatus;
+  memberResults: PanelMemberResult[];
+  synthesis?: string;
+  conflictSummary?: string;
+  decisionPrompt?: string;
+  linkedQuestionRecordIds: string[];
+  linkedDecisionRecordIds: string[];
+}
+
+export interface InvocationRecord {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  intent: InvocationIntent;
+  status: InvocationStatus;
+  provider?: ProviderKind;
+  surface: InvocationSurface;
+  panelPlan?: PanelPlan;
+  panelResult?: PanelResult;
+  degradationReason?: string;
+  error?: string;
 }
 
 export interface InferredHypothesis {
