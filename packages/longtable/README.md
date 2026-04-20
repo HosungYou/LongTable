@@ -81,9 +81,11 @@ longtable resume --cwd "<project-path>"
 longtable roles
 longtable ask --cwd "<project-path>" --prompt "..."
 longtable panel --prompt "..."
+longtable codex install-prompts
+longtable claude install-skills
 ```
 
-Useful structured routes:
+Useful structured routes for scripts and debugging:
 
 ```bash
 longtable panel --prompt "review this methods section" --json
@@ -103,6 +105,20 @@ lt review: What is weak in this claim?
 lt panel: Show me the disagreement before I commit.
 lt methods: Where is the design vulnerable?
 ```
+
+Provider-native surfaces are available when installed:
+
+```bash
+longtable codex install-prompts
+longtable claude install-skills
+```
+
+Codex prompt aliases include `/prompts:longtable`, `/prompts:longtable-panel`,
+and role-specific aliases such as `/prompts:longtable-methods`.
+
+Claude Code skills include `longtable`, `longtable-panel`, and generated
+role-specific skills such as `longtable-methods-critic`. They are adapter files
+generated from the LongTable role registry.
 
 ## Panel Orchestration
 

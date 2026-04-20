@@ -72,26 +72,63 @@ lt editor: how should I position this for a journal?
 lt panel: show disagreement before I commit this argument
 ```
 
-You can also call LongTable directly from the shell:
+These forms are handled by the LongTable router. They are not separate source
+files or separate agent definitions. The router maps the phrase to a mode,
+detects relevant research roles, and then uses the strongest installed provider
+surface.
+
+You can also call LongTable directly from the shell when you want an explicit
+debuggable route:
 
 ```bash
 longtable ask --prompt "I need to narrow this project into a defensible study."
 ```
 
-Optional Codex prompt aliases:
+## Provider Surfaces
+
+LongTable should feel native in Codex and Claude Code, but the native files are
+adapters. The source of truth remains the LongTable role registry and project
+state.
+
+Codex prompt aliases:
 
 ```bash
 longtable init --flow interview --provider codex --install-prompts
 longtable codex install-prompts
 ```
 
-Native provider shortcuts are optional. The stable LongTable surface is still
-`longtable ...` plus natural language inside the project workspace.
+After installation, use prompt aliases such as:
+
+```text
+/prompts:longtable help me narrow this project
+/prompts:longtable-panel review this methods section
+/prompts:longtable-methods check whether my design matches the question
+```
+
+Claude Code skills:
+
+```bash
+longtable init --flow interview --provider claude --install-skills
+longtable claude install-skills
+```
+
+After installation, invoke LongTable naturally in Claude Code:
+
+```text
+longtable: help me narrow this project
+lt review: what is weak in this claim?
+lt panel: show disagreement before I commit this argument
+use the LongTable methods critic on this design
+```
+
+This mirrors the OMX/OMC pattern: commands and skills are entrypoints, while the
+workflow logic stays in shared runtime state.
 
 ## Agent Roles
 
-LongTable roles are research perspectives, not separate products. List available
-roles with:
+LongTable roles are research perspectives. They can be triggered naturally by
+the request, through provider skills, or through an explicit CLI flag for
+testing. List available roles with:
 
 ```bash
 longtable roles
@@ -107,7 +144,16 @@ Common roles:
 - `voice_keeper`: authorship, tone, and narrative trace
 - `venue_strategist`: journal or conference positioning
 
-Invoke a specific role:
+Natural role requests:
+
+```text
+Use the methods critic on this design.
+Reviewer view: what would a hostile reviewer reject?
+Editor view: is this positioned for the right journal?
+Measurement auditor: do these scales support the construct?
+```
+
+Explicit CLI role calls are mainly for testing, scripts, or reproducible runs:
 
 ```bash
 longtable review --role methods_critic --prompt "Review this design."
@@ -118,6 +164,16 @@ longtable critique --role theory_critic --prompt "Challenge this framework."
 
 Use a panel when the work needs visible disagreement from multiple research
 roles.
+
+Natural panel requests:
+
+```text
+lt panel: review this methods section
+Show me reviewer, methods critic, and measurement auditor disagreement.
+Before I commit this argument, run a LongTable panel.
+```
+
+Explicit CLI panel calls:
 
 ```bash
 longtable panel --prompt "Review this methods section." --json

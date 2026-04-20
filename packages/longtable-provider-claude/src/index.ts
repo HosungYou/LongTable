@@ -73,14 +73,14 @@ export interface ClaudeRuntimeBridge {
 export const CLAUDE_PROVIDER_CAPABILITIES: ProviderCapabilities = {
   provider: "claude",
   nativeStructuredQuestions: true,
-  generatedSkills: "unavailable",
+  generatedSkills: "stable",
   promptAliases: "unavailable",
   nativeParallelSubagents: "session_dependent",
   sequentialFallback: true,
   mcpTransport: "planned",
   notes: [
     "Claude should prefer native structured questions when the runtime exposes them.",
-    "Generated LongTable skills should be adapter output from the shared role registry.",
+    "Generated LongTable skills are adapter output from the shared role registry.",
     "Sequential panel fallback remains required so Claude and Codex share one semantic contract."
   ]
 };
@@ -197,3 +197,4 @@ export function createClaudeRuntimeBridge(
 }
 
 export * from "./config.js";
+export * from "./skills.js";

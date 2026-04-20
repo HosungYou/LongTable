@@ -27,13 +27,19 @@ import {
 } from "@longtable/setup";
 import { buildCodexThinWrappedPrompt, runCodexThinWrapper } from "@longtable/provider-codex";
 import {
+  installClaudeSkills,
+  listInstalledClaudeSkills,
+  removeClaudeSkills,
+  resolveClaudeSkillsDir
+} from "@longtable/provider-claude";
+import {
   installCodexPromptAliases,
   listInstalledCodexPromptAliases,
   removeCodexPromptAliases,
   resolveCodexPromptsDir
 } from "./prompt-aliases.js";
 import { buildPersonaGuidance, parseInvocationDirective } from "./persona-router.js";
-import { PERSONA_DEFINITIONS } from "./personas.js";
+import { PERSONA_DEFINITIONS, listRoleDefinitions } from "./personas.js";
 import { buildPanelFallback, renderPanelSummary } from "./panel.js";
 import {
   createOrUpdateProjectWorkspace,
@@ -135,7 +141,7 @@ function usage(): string {
     "  Run `longtable ...` in your terminal, not inside the Codex chat box.",
     "  After `longtable start`, move into the created project directory and open `codex` there.",
     "",
-    "  longtable init [--flow quickstart|interview] [--provider codex|claude] [--field <field>] [--career-stage <stage>] [--experience novice|intermediate|advanced] [--checkpoint low|balanced|high] [--authorship-signal <text>] [--entry-mode explore|review|critique|draft|commit] [--weakest-domain theory|methodology|measurement|analysis|writing] [--panel-preference synthesis_only|show_on_conflict|always_visible] [--json] [--no-install] [--install-prompts]",
+    "  longtable init [--flow quickstart|interview] [--provider codex|claude] [--field <field>] [--career-stage <stage>] [--experience novice|intermediate|advanced] [--checkpoint low|balanced|high] [--authorship-signal <text>] [--entry-mode explore|review|critique|draft|commit] [--weakest-domain theory|methodology|measurement|analysis|writing] [--panel-preference synthesis_only|show_on_conflict|always_visible] [--json] [--no-install] [--install-prompts] [--install-skills]",
     "  longtable start [--path <dir>] [--name <project>] [--goal <text>] [--blocker <text>] [--perspectives <role[,role]>] [--disagreement synthesis_only|show_on_conflict|always_visible] [--setup <path>] [--json]",
     "  longtable resume [--cwd <path>] [--json]",
     "  longtable roles [--json]",
@@ -148,6 +154,9 @@ function usage(): string {
     "  longtable codex install-prompts [--dir <path>]",
     "  longtable codex remove-prompts [--dir <path>]",
     "  longtable codex status [--dir <path>] [--json]",
+    "  longtable claude install-skills [--dir <path>]",
+    "  longtable claude remove-skills [--dir <path>]",
+    "  longtable claude status [--dir <path>] [--json]",
     "",
     "Examples:",
     "  longtable init --flow interview --install-prompts",
@@ -157,7 +166,8 @@ function usage(): string {
     "  longtable roles",
     "  longtable ask --prompt \"연구를 시작하고 싶어. 지금 어디서부터 좁혀야 할지 모르겠어.\"",
     "  printf '{\"provider\":\"codex\",...}' | longtable codex persist-init --stdin --install-prompts",
-    "  longtable codex install-prompts"
+    "  longtable codex install-prompts",
+    "  longtable claude install-skills"
   ].join("\n");
 }
 
@@ -168,13 +178,13 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "start", "resume", "roles", "show", "install", "codex", "ask", "panel"].includes(command);
+    command && ["init", "start", "resume", "roles", "show", "install", "codex", "claude", "ask", "panel"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
     subcommand = undefined;
     startIndex = 1;
-  } else if (command === "codex") {
+  } else if (command === "codex" || command === "claude") {
     startIndex = 2;
   } else if (directCommand) {
     subcommand = undefined;
@@ -908,9 +918,11 @@ async function runInit(args: Record<string, string | boolean>): Promise<void> {
   const json = args.json === true;
   const installRuntime = args["no-install"] !== true;
   const installPrompts = args["install-prompts"] === true;
+  const installSkills = args["install-skills"] === true;
   const customPath = typeof args.path === "string" ? args.path : undefined;
   const runtimePath = typeof args["runtime-path"] === "string" ? args["runtime-path"] : undefined;
   const promptsDir = typeof args.dir === "string" ? args.dir : undefined;
+  const skillsDir = typeof args["skills-dir"] === "string" ? args["skills-dir"] : promptsDir;
 
   const { flow, provider, answers } = hasCompleteFlagInput(args)
     ? {
@@ -930,9 +942,28 @@ async function runInit(args: Record<string, string | boolean>): Promise<void> {
   if (provider === "codex" && installPrompts) {
     installedPrompts = await installCodexPromptAliases(promptsDir);
   }
+  let installedSkills = [] as Awaited<ReturnType<typeof installClaudeSkills>>;
+  if (provider === "claude" && installSkills) {
+    installedSkills = await installClaudeSkills(listRoleDefinitions(), skillsDir);
+  }
 
   if (json) {
-    console.log(serializeSetupOutput(outputValue));
+    if (installedPrompts.length === 0 && installedSkills.length === 0) {
+      console.log(serializeSetupOutput(outputValue));
+      return;
+    }
+
+    console.log(
+      JSON.stringify(
+        {
+          setup: outputValue,
+          installedPrompts: installedPrompts.map((prompt) => prompt.name),
+          installedSkills: installedSkills.map((skill) => skill.name)
+        },
+        null,
+        2
+      )
+    );
     return;
   }
 
@@ -949,6 +980,14 @@ async function runInit(args: Record<string, string | boolean>): Promise<void> {
     }
     console.log("  Note: whether Codex exposes these as slash commands depends on your Codex build.");
   }
+  if (installedSkills.length > 0) {
+    console.log("");
+    console.log("Installed Claude skill files:");
+    for (const skill of installedSkills) {
+      console.log(`- ${skill.name}`);
+    }
+    console.log("  Use these inside Claude Code by naming LongTable naturally, e.g. `lt panel: ...`.");
+  }
 
   if (provider === "codex") {
     console.log("");
@@ -957,6 +996,13 @@ async function runInit(args: Record<string, string | boolean>): Promise<void> {
     console.log("- If you want a direct natural-language entry: `longtable ask --prompt \"...\"`.");
     console.log("- Codex prompt files are available as an experimental integration, not the primary path.");
     console.log("- Suggested next action: create a project workspace and let LongTable interview the current session.");
+  }
+  if (provider === "claude") {
+    console.log("");
+    console.log("Next step:");
+    console.log("- Start here: `longtable start`.");
+    console.log("- In Claude Code, use natural language such as `lt explore: ...` or `lt panel: ...`.");
+    console.log("- Claude skills are adapter output from LongTable roles, not the source of truth.");
   }
 }
 
@@ -1504,6 +1550,65 @@ async function runCodexSubcommand(
   throw new Error("Unknown codex subcommand.");
 }
 
+async function runClaudeSubcommand(
+  subcommand: string | undefined,
+  args: Record<string, string | boolean>
+): Promise<void> {
+  const customDir = typeof args.dir === "string" ? args.dir : undefined;
+  const roles = listRoleDefinitions();
+
+  if (subcommand === "install-skills") {
+    const installed = await installClaudeSkills(roles, customDir);
+    console.log(`Installed ${installed.length} LongTable Claude skills in ${resolveClaudeSkillsDir(customDir)}`);
+    console.log("Use them inside Claude Code with natural-language triggers such as `lt explore: ...` or `lt panel: ...`.");
+    for (const skill of installed) {
+      console.log(`- ${skill.name}`);
+    }
+    return;
+  }
+
+  if (subcommand === "remove-skills") {
+    const removed = await removeClaudeSkills(roles, customDir);
+    console.log(`Removed ${removed.length} LongTable Claude skills from ${resolveClaudeSkillsDir(customDir)}`);
+    return;
+  }
+
+  if (subcommand === "status") {
+    const skills = await listInstalledClaudeSkills(roles, customDir);
+    const setupPath = resolveDefaultSetupPath(typeof args.path === "string" ? args.path : undefined).path;
+    const runtimePath = resolveDefaultRuntimeConfigPath("claude", typeof args["runtime-path"] === "string" ? args["runtime-path"] : undefined).path;
+    const status = {
+      setupPath,
+      setupExists: existsSync(setupPath),
+      runtimePath,
+      runtimeExists: existsSync(runtimePath),
+      skillsDir: resolveClaudeSkillsDir(customDir),
+      skillsInstalled: skills.map((skill) => skill.name)
+    };
+
+    if (args.json === true) {
+      console.log(JSON.stringify(status, null, 2));
+      return;
+    }
+
+    console.log("LongTable Claude status");
+    console.log(`- setup: ${status.setupExists ? "present" : "missing"} (${setupPath})`);
+    console.log(`- claude runtime artifact: ${status.runtimeExists ? "present" : "missing"} (${runtimePath})`);
+    console.log(`- skills dir: ${status.skillsDir}`);
+    if (skills.length === 0) {
+      console.log("- skills: none");
+    } else {
+      console.log("- skills:");
+      for (const skill of skills) {
+        console.log(`  - ${skill.name}`);
+      }
+    }
+    return;
+  }
+
+  throw new Error("Unknown claude subcommand.");
+}
+
 async function main(): Promise<void> {
   const parsed = parseArgs(process.argv.slice(2));
   const { command, subcommand, values } = parsed;
@@ -1555,6 +1660,11 @@ async function main(): Promise<void> {
 
   if (command === "codex") {
     await runCodexSubcommand(subcommand, values);
+    return;
+  }
+
+  if (command === "claude") {
+    await runClaudeSubcommand(subcommand, values);
     return;
   }
 
