@@ -54,6 +54,9 @@ export interface LongTableSessionRecord {
   projectPath: string;
   currentGoal: string;
   currentBlocker?: string;
+  researchObject?: string;
+  gapRisk?: string;
+  protectedDecision?: string;
   nextAction?: string;
   openQuestions?: string[];
   requestedPerspectives: string[];
@@ -252,6 +255,9 @@ function buildCurrentGuide(
       "## 지금 초점",
       `- 현재 목표: ${session.currentGoal}`,
       ...(session.currentBlocker ? [`- 현재 blocker: ${session.currentBlocker}`] : []),
+      ...(session.researchObject ? [`- 연구 객체: ${session.researchObject}`] : []),
+      ...(session.gapRisk ? [`- 공백/암묵지 위험: ${session.gapRisk}`] : []),
+      ...(session.protectedDecision ? [`- 보호할 결정: ${session.protectedDecision}`] : []),
       `- 다음 액션: ${nextAction}`,
       `- 관점: ${session.requestedPerspectives.length > 0 ? session.requestedPerspectives.join(", ") : "auto"}`,
       `- disagreement: ${session.disagreementPreference}`,
@@ -302,6 +308,9 @@ function buildCurrentGuide(
     "## Focus Now",
     `- Current goal: ${session.currentGoal}`,
     ...(session.currentBlocker ? [`- Current blocker: ${session.currentBlocker}`] : []),
+    ...(session.researchObject ? [`- Research object: ${session.researchObject}`] : []),
+    ...(session.gapRisk ? [`- Gap/tacit risk: ${session.gapRisk}`] : []),
+    ...(session.protectedDecision ? [`- Protected decision: ${session.protectedDecision}`] : []),
     `- Next action: ${nextAction}`,
     `- Perspectives: ${session.requestedPerspectives.length > 0 ? session.requestedPerspectives.join(", ") : "auto"}`,
     `- Disagreement: ${session.disagreementPreference}`,
@@ -504,6 +513,9 @@ function buildProjectAgentsMd(
     `- Project: ${project.projectName}`,
     `- Current goal: ${session.currentGoal}`,
     ...(session.currentBlocker ? [`- Current blocker: ${session.currentBlocker}`] : []),
+    ...(session.researchObject ? [`- Research object: ${session.researchObject}`] : []),
+    ...(session.gapRisk ? [`- Gap/tacit risk: ${session.gapRisk}`] : []),
+    ...(session.protectedDecision ? [`- Protected decision: ${session.protectedDecision}`] : []),
     `- Requested perspectives: ${session.requestedPerspectives.length > 0 ? session.requestedPerspectives.join(", ") : "auto"}`,
     `- Disagreement visibility: ${session.disagreementPreference}`,
     "- These instructions apply to this directory and its children."
@@ -518,8 +530,8 @@ function buildStateSeed(
   const state = createEmptyResearchState();
   state.explicitState = {
     field: setup.profileSeed.field ?? "unspecified",
-    careerStage: setup.profileSeed.careerStage,
-    experienceLevel: setup.profileSeed.experienceLevel,
+    careerStage: setup.profileSeed.careerStage ?? "unspecified",
+    experienceLevel: setup.profileSeed.experienceLevel ?? "advanced",
     projectName: project.projectName,
     disagreementPreference: session.disagreementPreference,
     requestedPerspectives: session.requestedPerspectives
@@ -527,6 +539,9 @@ function buildStateSeed(
   state.workingState = {
     currentGoal: session.currentGoal,
     ...(session.currentBlocker ? { currentBlocker: session.currentBlocker } : {}),
+    ...(session.researchObject ? { researchObject: session.researchObject } : {}),
+    ...(session.gapRisk ? { gapRisk: session.gapRisk } : {}),
+    ...(session.protectedDecision ? { protectedDecision: session.protectedDecision } : {}),
     ...(session.nextAction ? { nextAction: session.nextAction } : {}),
     openQuestions: session.openQuestions ?? [],
     activeModes: session.activeModes ?? [],
@@ -534,6 +549,9 @@ function buildStateSeed(
   };
   if (session.currentBlocker) {
     state.openTensions.push(session.currentBlocker);
+  }
+  if (session.gapRisk) {
+    state.openTensions.push(`Gap/tacit risk: ${session.gapRisk}`);
   }
   if (setup.profileSeed.humanAuthorshipSignal) {
     state.explicitState.humanAuthorshipSignal = setup.profileSeed.humanAuthorshipSignal;
@@ -554,6 +572,21 @@ function buildStateSeed(
       source: "longtable-start",
       traceType: "tension",
       summary: `Current session blocker: ${session.currentBlocker}.`,
+      visibility: "explicit",
+      importance: "high"
+    });
+  }
+  if (session.researchObject || session.gapRisk || session.protectedDecision) {
+    state.narrativeTraces.push({
+      id: "project-session-risk-profile",
+      timestamp: nowIso(),
+      source: "longtable-start",
+      traceType: "tension",
+      summary: [
+        session.researchObject ? `Research object: ${session.researchObject}.` : "",
+        session.gapRisk ? `Gap/tacit risk: ${session.gapRisk}.` : "",
+        session.protectedDecision ? `Protected decision: ${session.protectedDecision}.` : ""
+      ].filter(Boolean).join(" "),
       visibility: "explicit",
       importance: "high"
     });
@@ -1232,6 +1265,9 @@ export async function createOrUpdateProjectWorkspace(options: {
   projectPath: string;
   currentGoal: string;
   currentBlocker?: string;
+  researchObject?: string;
+  gapRisk?: string;
+  protectedDecision?: string;
   requestedPerspectives: string[];
   disagreementPreference: ProjectDisagreementPreference;
   setup: SetupPersistedOutput;
@@ -1268,9 +1304,9 @@ export async function createOrUpdateProjectWorkspace(options: {
         locale,
         globalSetupSummary: {
           field: options.setup.profileSeed.field ?? "unspecified",
-          careerStage: options.setup.profileSeed.careerStage,
-          experienceLevel: options.setup.profileSeed.experienceLevel,
-          checkpointIntensity: options.setup.profileSeed.preferredCheckpointIntensity,
+          careerStage: options.setup.profileSeed.careerStage ?? "unspecified",
+          experienceLevel: options.setup.profileSeed.experienceLevel ?? "advanced",
+          checkpointIntensity: options.setup.profileSeed.preferredCheckpointIntensity ?? "balanced",
           ...(options.setup.profileSeed.humanAuthorshipSignal
             ? { humanAuthorshipSignal: options.setup.profileSeed.humanAuthorshipSignal }
             : {}),
@@ -1292,6 +1328,9 @@ export async function createOrUpdateProjectWorkspace(options: {
     projectPath,
     currentGoal: options.currentGoal,
     ...(options.currentBlocker ? { currentBlocker: options.currentBlocker } : {}),
+    ...(options.researchObject ? { researchObject: options.researchObject } : {}),
+    ...(options.gapRisk ? { gapRisk: options.gapRisk } : {}),
+    ...(options.protectedDecision ? { protectedDecision: options.protectedDecision } : {}),
     nextAction: buildNextAction({
       schemaVersion: 1,
       id: sessionId,
@@ -1300,6 +1339,9 @@ export async function createOrUpdateProjectWorkspace(options: {
       projectPath,
       currentGoal: options.currentGoal,
       ...(options.currentBlocker ? { currentBlocker: options.currentBlocker } : {}),
+      ...(options.researchObject ? { researchObject: options.researchObject } : {}),
+      ...(options.gapRisk ? { gapRisk: options.gapRisk } : {}),
+      ...(options.protectedDecision ? { protectedDecision: options.protectedDecision } : {}),
       requestedPerspectives: options.requestedPerspectives,
       disagreementPreference: options.disagreementPreference
     }),
@@ -1311,6 +1353,9 @@ export async function createOrUpdateProjectWorkspace(options: {
       projectPath,
       currentGoal: options.currentGoal,
       ...(options.currentBlocker ? { currentBlocker: options.currentBlocker } : {}),
+      ...(options.researchObject ? { researchObject: options.researchObject } : {}),
+      ...(options.gapRisk ? { gapRisk: options.gapRisk } : {}),
+      ...(options.protectedDecision ? { protectedDecision: options.protectedDecision } : {}),
       requestedPerspectives: options.requestedPerspectives,
       disagreementPreference: options.disagreementPreference
     }),
@@ -1325,6 +1370,9 @@ export async function createOrUpdateProjectWorkspace(options: {
       projectPath,
       currentGoal: options.currentGoal,
       ...(options.currentBlocker ? { currentBlocker: options.currentBlocker } : {}),
+      ...(options.researchObject ? { researchObject: options.researchObject } : {}),
+      ...(options.gapRisk ? { gapRisk: options.gapRisk } : {}),
+      ...(options.protectedDecision ? { protectedDecision: options.protectedDecision } : {}),
       requestedPerspectives: options.requestedPerspectives,
       disagreementPreference: options.disagreementPreference
     }),

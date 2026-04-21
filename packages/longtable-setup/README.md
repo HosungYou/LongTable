@@ -8,7 +8,7 @@ Researchers should use the unified CLI:
 
 ```bash
 npm install -g @longtable/cli
-longtable init --flow interview
+longtable setup --provider codex
 ```
 
 This package exists so the setup flow can also be consumed programmatically or tested in isolation during development.
@@ -23,14 +23,15 @@ The generated runtime config does not overwrite platform-native config files dir
 
 ## Package Role
 
-The setup contract combines technical setup with researcher-profile calibration rather than treating installation as a purely technical step.
+The setup contract stores runtime permission and intervention defaults. It
+should not front-load researcher-profile calibration.
 
 Global setup should answer:
 
-- who the researcher is
-- how much challenge or slowdown they want
-- what makes writing still feel like theirs
-- how visible disagreement should be by default
+- which provider is being configured
+- where LongTable may install runtime support
+- which provider surfaces are approved
+- how strongly LongTable may interrupt research decisions
 
 Project and session intake belongs to `longtable start`, not library-level setup helpers.
 

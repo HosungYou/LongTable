@@ -80,9 +80,9 @@ export function normalizeResearcherProfile(
 ): ResearcherProfile {
   return {
     field: profile.field ?? "unspecified",
-    careerStage: profile.careerStage,
-    experienceLevel: profile.experienceLevel,
-    preferredCheckpointIntensity: profile.preferredCheckpointIntensity,
+    careerStage: profile.careerStage ?? "unspecified",
+    experienceLevel: profile.experienceLevel ?? "advanced",
+    preferredCheckpointIntensity: profile.preferredCheckpointIntensity ?? "balanced",
     currentProjectType: profile.currentProjectType ?? "unspecified research task",
     ...(profile.humanAuthorshipSignal ? { humanAuthorshipSignal: profile.humanAuthorshipSignal } : {}),
     ...(profile.aiAutonomyPreference ? { aiAutonomyPreference: profile.aiAutonomyPreference } : {})
