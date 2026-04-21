@@ -27,7 +27,7 @@ export function createClaudeConfigFragment(
     checkpointProtocol: bridge.checkpointProtocol,
     defaultInteractionMode: bridge.defaultInteractionMode,
     profileSummary: {
-      field: bridge.profile.field,
+      field: bridge.profile.field ?? "unspecified",
       careerStage: bridge.profile.careerStage,
       experienceLevel: bridge.profile.experienceLevel,
       currentProjectType: bridge.profile.currentProjectType ?? "unspecified research task"

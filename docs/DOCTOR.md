@@ -68,9 +68,10 @@ It does not create a setup profile. If setup is missing, run:
 longtable init --flow interview --provider codex --install-skills
 ```
 
-This is intentional. Setup contains field, career stage, checkpoint intensity,
+This is intentional. Setup contains career stage, checkpoint intensity,
 authorship preferences, and other researcher-specific values that should not be
-guessed by an automated repair command.
+guessed by an automated repair command. Research field is optional and defaults
+to `unspecified` unless the researcher provides it.
 
 ## Expected Healthy Shape
 

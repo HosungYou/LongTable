@@ -517,7 +517,7 @@ function buildStateSeed(
 ): string {
   const state = createEmptyResearchState();
   state.explicitState = {
-    field: setup.profileSeed.field,
+    field: setup.profileSeed.field ?? "unspecified",
     careerStage: setup.profileSeed.careerStage,
     experienceLevel: setup.profileSeed.experienceLevel,
     projectName: project.projectName,
@@ -1267,7 +1267,7 @@ export async function createOrUpdateProjectWorkspace(options: {
         contractVersion: "workspace-v2",
         locale,
         globalSetupSummary: {
-          field: options.setup.profileSeed.field,
+          field: options.setup.profileSeed.field ?? "unspecified",
           careerStage: options.setup.profileSeed.careerStage,
           experienceLevel: options.setup.profileSeed.experienceLevel,
           checkpointIntensity: options.setup.profileSeed.preferredCheckpointIntensity,

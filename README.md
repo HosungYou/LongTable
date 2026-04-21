@@ -239,7 +239,7 @@ Default config targets:
 The server can also be run directly:
 
 ```bash
-npx -y @longtable/mcp@0.1.18
+npx -y @longtable/mcp@0.1.19
 longtable-state --self-test
 ```
 

@@ -24,12 +24,12 @@ import type {
 
 function printUsage(): void {
   console.log(`Usage:
-  longtable-setup init [--flow quickstart|interview] --provider <codex|claude> --field <field> --career-stage <stage> --experience <novice|intermediate|advanced> --checkpoint <low|balanced|high> [--authorship-signal <text>] [--entry-mode <explore|review|critique|draft|commit>] [--weakest-domain <theory|methodology|measurement|analysis|writing>] [--panel-preference <synthesis_only|show_on_conflict|always_visible>] [--json]
+  longtable-setup init [--flow quickstart|interview] --provider <codex|claude> --career-stage <stage> --experience <novice|intermediate|advanced> --checkpoint <low|balanced|high> [--field <field>] [--authorship-signal <text>] [--entry-mode <explore|review|critique|draft|commit>] [--weakest-domain <theory|methodology|measurement|analysis|writing>] [--panel-preference <synthesis_only|show_on_conflict|always_visible>] [--json]
   longtable-setup install [--path <file>] [--runtime-path <file>] [--json]
   longtable-setup show [--path <file>] [--json]
 
 Example:
-  longtable-setup init --flow interview --provider codex --field education --career-stage doctoral --experience intermediate --checkpoint balanced --entry-mode explore --panel-preference show_on_conflict --json
+  longtable-setup init --flow interview --provider codex --career-stage doctoral --experience intermediate --checkpoint balanced --entry-mode explore --panel-preference show_on_conflict --json
 
 If required flags are omitted, interactive setup starts automatically.
 Use --write to save setup.json and --install to also generate provider runtime config.`);
@@ -76,7 +76,10 @@ function requireString(
 
 function toSetupAnswers(args: Record<string, string | boolean>): SetupAnswers {
   return {
-    field: requireString(args, "field"),
+    field:
+      typeof args.field === "string" && args.field.trim().length > 0
+        ? args.field.trim()
+        : "unspecified",
     careerStage: requireString(args, "career-stage"),
     experienceLevel: requireString(args, "experience") as SetupAnswers["experienceLevel"],
     preferredCheckpointIntensity: requireString(args, "checkpoint") as SetupAnswers["preferredCheckpointIntensity"],
@@ -102,7 +105,6 @@ function toSetupAnswers(args: Record<string, string | boolean>): SetupAnswers {
 function hasCompleteFlagInput(args: Record<string, string | boolean>): boolean {
   const requiredKeys = [
     "provider",
-    "field",
     "career-stage",
     "experience",
     "checkpoint"

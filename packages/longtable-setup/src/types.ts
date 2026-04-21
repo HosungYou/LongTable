@@ -25,7 +25,7 @@ export interface SetupQuestion {
 export type SetupFlow = "quickstart" | "interview";
 
 export interface SetupAnswers {
-  field: string;
+  field?: string;
   careerStage: string;
   experienceLevel: ExperienceLevel;
   currentProjectType?: string;

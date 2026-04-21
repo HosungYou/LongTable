@@ -13,13 +13,6 @@ import type {
 export function buildQuickSetupFlow(flow: SetupFlow = "quickstart"): SetupQuestion[] {
   const baseQuestions: SetupQuestion[] = [
     {
-      id: "field",
-      prompt: "Before we begin, which research field best matches your work right now?",
-      required: true,
-      kind: "single_choice",
-      choices: buildFieldChoices()
-    },
-    {
       id: "careerStage",
       prompt: "What kind of researcher role best fits you today?",
       required: true,
@@ -164,6 +157,7 @@ export function normalizeProviderChoice(choice: string): ProviderKind {
 
 export function createResearcherProfileSeed(answers: SetupAnswers): ResearcherProfileSeed {
   return {
+    field: answers.field ?? "unspecified",
     currentProjectType: answers.currentProjectType ?? "unspecified research task",
     ...answers,
     aiAutonomyPreference:

@@ -16,7 +16,6 @@ Target time: 2-3 minutes
 
 Collect:
 
-- field
 - career stage
 - current project type
 - current priority: novelty / balance / defensibility

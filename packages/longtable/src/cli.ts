@@ -87,7 +87,7 @@ interface ParsedArgs {
 interface CodexPersistAnswers {
   provider: "codex" | "claude";
   flow?: SetupFlow;
-  field: string;
+  field?: string;
   careerStage: string;
   experienceLevel: SetupAnswers["experienceLevel"];
   preferredCheckpointIntensity: SetupAnswers["preferredCheckpointIntensity"];
@@ -190,7 +190,7 @@ const ANSI = {
 };
 
 const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
-const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.18";
+const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.19";
 const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
 const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 
@@ -231,7 +231,7 @@ function usage(): string {
     "  Run `longtable ...` in your terminal, not inside the Codex chat box.",
     "  After `longtable start`, move into the created project directory and open `codex` there.",
     "",
-    "  longtable init [--flow quickstart|interview] [--provider codex|claude] [--field <field>] [--career-stage <stage>] [--experience novice|intermediate|advanced] [--checkpoint low|balanced|high] [--authorship-signal <text>] [--entry-mode explore|review|critique|draft|commit] [--weakest-domain theory|methodology|measurement|analysis|writing] [--panel-preference synthesis_only|show_on_conflict|always_visible] [--json] [--no-install] [--install-skills] [--install-prompts]",
+    "  longtable init [--flow quickstart|interview] [--provider codex|claude] [--career-stage <stage>] [--experience novice|intermediate|advanced] [--checkpoint low|balanced|high] [--field <field>] [--authorship-signal <text>] [--entry-mode explore|review|critique|draft|commit] [--weakest-domain theory|methodology|measurement|analysis|writing] [--panel-preference synthesis_only|show_on_conflict|always_visible] [--json] [--no-install] [--install-skills] [--install-prompts]",
     "  longtable setup [--provider codex|claude] [--json] [--dir <path>] [--skills-dir <path>] [--runtime-path <file>] [--setup-path <file>]",
     "  longtable start [--path <dir>] [--name <project>] [--goal <text>] [--blocker <text>] [--perspectives <role[,role]>] [--disagreement synthesis_only|show_on_conflict|always_visible] [--setup <path>] [--json]",
     "  longtable resume [--cwd <path>] [--json]",
@@ -366,7 +366,7 @@ function renderQuestionHeader(
 }
 
 function questionSection(questionId: string): string {
-  if (questionId === "field" || questionId === "careerStage" || questionId === "experienceLevel") {
+  if (questionId === "careerStage" || questionId === "experienceLevel") {
     return "Researcher profile";
   }
   if (questionId === "preferredCheckpointIntensity" || questionId === "preferredEntryMode") {
@@ -705,7 +705,7 @@ async function promptMultiChoice(
 }
 
 function hasCompleteFlagInput(args: Record<string, string | boolean>): boolean {
-  const required = ["provider", "field", "career-stage", "experience", "checkpoint"];
+  const required = ["provider", "career-stage", "experience", "checkpoint"];
   return required.every((key) => typeof args[key] === "string" && String(args[key]).trim().length > 0);
 }
 
@@ -715,7 +715,9 @@ function resolveSetupFlow(args: Record<string, string | boolean>): SetupFlow {
 
 function toSetupAnswers(args: Record<string, string | boolean>): SetupAnswers {
   return {
-    field: String(args.field),
+    field: typeof args.field === "string" && args.field.trim().length > 0
+      ? String(args.field)
+      : "unspecified",
     careerStage: String(args["career-stage"]),
     experienceLevel: String(args.experience) as SetupAnswers["experienceLevel"],
     currentProjectType:
@@ -762,6 +764,7 @@ async function collectInteractiveAnswers(initialFlow?: SetupFlow): Promise<{
 
     const provider = await promptChoice(rl, "Which provider do you want to configure?", buildProviderChoices()) as "codex" | "claude";
     const answers: Partial<SetupAnswers> = {
+      field: "unspecified",
       currentProjectType: "unspecified research task"
     };
     const questions = buildQuickSetupFlow(flow);
@@ -781,7 +784,6 @@ async function collectInteractiveAnswers(initialFlow?: SetupFlow): Promise<{
         continue;
       }
 
-      if (question.id === "field") answers.field = value;
       if (question.id === "careerStage") answers.careerStage = value;
       if (question.id === "experienceLevel") answers.experienceLevel = value as SetupAnswers["experienceLevel"];
       if (question.id === "preferredCheckpointIntensity") {
@@ -1167,7 +1169,7 @@ function normalizePersistAnswers(raw: CodexPersistAnswers): {
     flow: raw.flow === "interview" ? "interview" : "quickstart",
     provider: raw.provider === "claude" ? "claude" : "codex",
     answers: {
-      field: raw.field,
+      field: raw.field?.trim() ? raw.field.trim() : "unspecified",
       careerStage: raw.careerStage,
       experienceLevel: raw.experienceLevel,
       currentProjectType: "unspecified research task",

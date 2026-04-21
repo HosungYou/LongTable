@@ -1,6 +1,6 @@
 {
   "name": "@longtable/memory",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "private": false,
   "description": "Memory contracts for LongTable explicit state, inferred hypotheses, and open tensions",
   "type": "module",
@@ -21,7 +21,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@longtable/core": "0.1.18"
+    "@longtable/core": "0.1.19"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

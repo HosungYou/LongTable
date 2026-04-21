@@ -79,7 +79,7 @@ export function normalizeResearcherProfile(
   profile: SetupPersistedOutput["profileSeed"]
 ): ResearcherProfile {
   return {
-    field: profile.field,
+    field: profile.field ?? "unspecified",
     careerStage: profile.careerStage,
     experienceLevel: profile.experienceLevel,
     preferredCheckpointIntensity: profile.preferredCheckpointIntensity,
