@@ -94,6 +94,7 @@ longtable panel --prompt "..."
 longtable sentinel --prompt "Should I define a new measurement construct?"
 longtable hud --watch
 longtable team --tmux --prompt "Review this measurement plan."
+longtable team --debate --prompt "Review this measurement plan." --role editor,measurement_auditor --json
 longtable codex install-skills
 longtable claude install-skills
 ```
@@ -179,6 +180,11 @@ blocker, pending checkpoints, recent decisions, and invocation counts.
 writes logs under `.longtable/team/<id>/`. This is panel discussion, not merely
 parallel execution: role panes are prompted to state claims, objections, open
 questions, and likely disagreement.
+
+`longtable team --debate` creates a fixed five-round debate record under
+`.longtable/team/<id>/`: independent review, cross-review, rebuttal,
+convergence, and synthesis/checkpoint. Tmux can show live role panes, but the
+file-backed artifact directory is the source of truth.
 
 ## Evidence And Search Direction
 

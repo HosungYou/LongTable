@@ -349,6 +349,7 @@ async function loadResearchState(stateFilePath: string): Promise<ResearchState> 
 
   const parsed = JSON.parse(await readFile(stateFilePath, "utf8")) as Partial<ResearchState>;
   return {
+    ...parsed,
     explicitState: parsed.explicitState ?? {},
     workingState: parsed.workingState ?? {},
     inferredHypotheses: parsed.inferredHypotheses ?? [],
@@ -1253,6 +1254,7 @@ export async function createOrUpdateProjectWorkspace(options: {
   const project: LongTableProjectRecord = existsSync(projectFilePath)
     ? {
         ...(JSON.parse(await readFile(projectFilePath, "utf8")) as LongTableProjectRecord),
+        projectPath,
         contractVersion: "workspace-v2",
         locale
       }
@@ -1361,8 +1363,15 @@ export async function loadProjectContextFromDirectory(
     const sessionFilePath = join(metaDir, "current-session.json");
 
     if (existsSync(projectFilePath) && existsSync(sessionFilePath)) {
-      const project = JSON.parse(await readFile(projectFilePath, "utf8")) as LongTableProjectRecord;
-      const session = JSON.parse(await readFile(sessionFilePath, "utf8")) as LongTableSessionRecord;
+      const workspaceRoot = current;
+      const project = {
+        ...(JSON.parse(await readFile(projectFilePath, "utf8")) as LongTableProjectRecord),
+        projectPath: workspaceRoot
+      };
+      const session = {
+        ...(JSON.parse(await readFile(sessionFilePath, "utf8")) as LongTableSessionRecord),
+        projectPath: workspaceRoot
+      };
 
       return {
         project,
@@ -1376,8 +1385,8 @@ export async function loadProjectContextFromDirectory(
         },
         projectFilePath,
         sessionFilePath,
-        stateFilePath: resolveStateFilePath(project.projectPath),
-        currentFilePath: resolveCurrentFilePath(project.projectPath),
+        stateFilePath: resolveStateFilePath(workspaceRoot),
+        currentFilePath: resolveCurrentFilePath(workspaceRoot),
         metaDir
       };
     }

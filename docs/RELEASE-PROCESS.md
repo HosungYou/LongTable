@@ -45,8 +45,8 @@ npm run pack:check
 For the `0.1.x` line:
 
 ```bash
-git tag -a v0.1.16 -m "Release LongTable 0.1.16"
-git push origin v0.1.16
+git tag -a v0.1.18 -m "Release LongTable 0.1.18"
+git push origin v0.1.18
 ```
 
 The release workflow publishes all public workspaces when a `v0.1.*` tag is

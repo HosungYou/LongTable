@@ -72,6 +72,11 @@ import {
   type LongTableWorkspaceInspection,
   type ProjectDisagreementPreference
 } from "./project-session.js";
+import {
+  buildTeamDebate,
+  renderTeamDebateSummary,
+  type TeamDebateBundle
+} from "./debate.js";
 
 interface ParsedArgs {
   command?: string;
@@ -185,7 +190,7 @@ const ANSI = {
 };
 
 const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
-const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.14";
+const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.18";
 const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
 const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 
@@ -238,7 +243,7 @@ function usage(): string {
     "  longtable mcp install [--provider codex|claude|all] [--write] [--json] [--codex-config <path>] [--claude-settings <path>] [--package <spec>]",
     "  longtable hud [--watch] [--tmux] [--preset minimal|full] [--cwd <path>] [--json]",
     "  longtable sentinel --prompt <text> [--cwd <path>] [--json] [--record]",
-    "  longtable team --prompt <text> [--role <role[,role]>] [--tmux] [--cwd <path>] [--json]",
+    "  longtable team --prompt <text> [--role <role[,role]>] [--tmux] [--debate] [--rounds 5] [--cwd <path>] [--json]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable clarify --prompt <task-context> [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json] [--force]",
     "  longtable question --prompt <decision-context> [--title <text>] [--text <question>] [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json]",
@@ -2065,9 +2070,6 @@ async function runModeCommand(
 
   const setup = await loadOptionalSetup(typeof args.setup === "string" ? args.setup : undefined);
   const projectContext = await loadProjectContextFromDirectory(workingDirectory);
-  if (projectContext) {
-    await assertWorkspaceNotBlocked(projectContext);
-  }
   const projectAware = await buildProjectAwarePrompt(prompt, workingDirectory);
   const panelPreference = setup?.profileSeed.panelPreference;
   const panelRequested =
@@ -2527,6 +2529,27 @@ function shellEscape(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
+async function writeJsonFile(path: string, value: unknown): Promise<void> {
+  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+async function writeTeamDebateArtifacts(bundle: TeamDebateBundle, teamDir: string, prompt: string): Promise<void> {
+  await mkdir(teamDir, { recursive: true });
+  await writeFile(join(teamDir, "prompt.txt"), prompt, "utf8");
+  await writeJsonFile(join(teamDir, "plan.json"), bundle.plan);
+  await writeJsonFile(join(teamDir, "run.json"), bundle.run);
+  for (const round of bundle.run.rounds) {
+    await mkdir(round.artifactDir, { recursive: true });
+    await writeJsonFile(join(round.artifactDir, "round.json"), round);
+    for (const contribution of round.contributions) {
+      await writeJsonFile(join(teamDir, contribution.artifactPath), contribution);
+    }
+  }
+  await writeJsonFile(join(teamDir, "synthesis.json"), bundle.run.synthesis);
+  await writeJsonFile(join(teamDir, "checkpoint.json"), bundle.questionRecord);
+  await writeJsonFile(join(teamDir, "invocation.json"), bundle.invocationRecord);
+}
+
 function sentinelSummary(prompt: string, workingDirectory: string) {
   const trigger = classifyCheckpointTrigger(prompt, {
     fallbackMode: "explore",
@@ -2673,15 +2696,110 @@ async function runTeam(args: Record<string, string | boolean>): Promise<void> {
   if (!prompt) {
     throw new Error("A prompt is required.");
   }
+  const rounds = typeof args.rounds === "string" ? Number(args.rounds) : 5;
+  if (!Number.isInteger(rounds) || rounds !== 5) {
+    throw new Error("LongTable team debate v1 supports `--rounds 5` only.");
+  }
+  const setup = await loadOptionalSetup(typeof args.setup === "string" ? args.setup : undefined);
+  const projectContext = await loadProjectContextFromDirectory(workingDirectory);
+  if (projectContext) {
+    await assertWorkspaceNotBlocked(projectContext);
+  }
+  const projectAware = await buildProjectAwarePrompt(prompt, workingDirectory);
   const fallback = buildPanelFallback({
     prompt,
     mode: "review",
     roleFlag: typeof args.role === "string" ? args.role : undefined,
-    provider: "codex",
+    provider: setup?.providerSelection.provider as ProviderKind | undefined,
     visibility: "always_visible"
   });
   const teamId = localId("team");
   const teamDir = join(workingDirectory, ".longtable", "team", teamId);
+
+  if (args.debate === true) {
+    const debate = buildTeamDebate({
+      teamId,
+      teamDir,
+      prompt: projectAware.prompt,
+      roleFlag: typeof args.role === "string" ? args.role : undefined,
+      provider: setup?.providerSelection.provider as ProviderKind | undefined,
+      visibility: "always_visible",
+      roundCount: rounds,
+      tmux: args.tmux === true
+    });
+    await writeTeamDebateArtifacts(debate, teamDir, prompt);
+
+    const canRecordWorkspace = projectAware.projectContextFound && projectContext && existsSync(projectContext.stateFilePath);
+    if (canRecordWorkspace) {
+      await appendInvocationRecordToWorkspace(projectContext, debate.invocationRecord, [debate.questionRecord]);
+    }
+
+    if (args.json === true) {
+      console.log(
+        JSON.stringify(
+          {
+            teamId,
+            teamDir,
+            plan: debate.plan,
+            run: debate.run,
+            questionRecord: debate.questionRecord,
+            invocationRecord: debate.invocationRecord,
+            execution: {
+              status: "completed",
+              surface: debate.run.surface,
+              projectContextFound: projectAware.projectContextFound,
+              invocationLogged: canRecordWorkspace
+            }
+          },
+          null,
+          2
+        )
+      );
+      return;
+    }
+
+    if (args.tmux === true) {
+      const sessionName = `longtable-${teamId.replaceAll("_", "-")}`;
+      const shell = process.env.SHELL || "/bin/sh";
+      const launcher = process.argv[1] ?? "longtable";
+      const leaderCommand = [
+        `echo ${shellEscape(`LongTable debate ${teamId}`)}`,
+        `echo ${shellEscape(`Artifacts: ${teamDir}`)}`,
+        `echo ${shellEscape("Fixed rounds are recorded. Role panes can add live review logs.")}`,
+        `echo ${shellEscape(`Checkpoint: ${debate.questionRecord.id}`)}`,
+        `exec ${shellEscape(shell)}`
+      ].join("; ");
+      execFileSync("tmux", ["new-session", "-d", "-s", sessionName, "-c", workingDirectory, leaderCommand], { stdio: "inherit" });
+
+      for (const member of debate.plan.members) {
+        const rolePrompt = [
+          `LongTable autonomous debate role: ${member.label} (${member.role}).`,
+          "Use the fixed debate artifacts as the shared record. Add live notes only; do not answer the researcher checkpoint.",
+          `Artifacts: ${teamDir}`,
+          "",
+          projectAware.prompt
+        ].join("\n");
+        const logPath = join(teamDir, `${member.role}.debate.log`);
+        const command = [
+          `node ${shellEscape(launcher)} review --role ${shellEscape(member.role)} --prompt ${shellEscape(rolePrompt)} --cwd ${shellEscape(workingDirectory)} 2>&1 | tee ${shellEscape(logPath)}`,
+          `echo ${shellEscape(`Debate role log written to ${logPath}`)}`,
+          `exec ${shellEscape(shell)}`
+        ].join("; ");
+        execFileSync("tmux", ["split-window", "-t", sessionName, "-c", workingDirectory, command], { stdio: "inherit" });
+        execFileSync("tmux", ["select-layout", "-t", sessionName, "tiled"], { stdio: "ignore" });
+      }
+
+      console.log(`LongTable tmux debate launched: ${sessionName}`);
+      console.log(`Attach with: tmux attach -t ${sessionName}`);
+      console.log(`Artifacts: ${teamDir}`);
+      return;
+    }
+
+    console.log(renderTeamDebateSummary(debate.run));
+    console.log(`- checkpoint: ${debate.questionRecord.id}`);
+    return;
+  }
+
   await mkdir(teamDir, { recursive: true });
   await writeFile(join(teamDir, "prompt.txt"), prompt, "utf8");
   await writeFile(join(teamDir, "plan.json"), JSON.stringify(fallback.plan, null, 2), "utf8");

@@ -145,6 +145,7 @@ is available, it can make choices and open tensions more visible:
 longtable hud --watch
 longtable hud --tmux
 longtable team --tmux --prompt "Review this measurement plan before I commit it."
+longtable team --debate --prompt "Review this measurement plan before I commit it."
 ```
 
 Install tmux:
@@ -160,6 +161,12 @@ sudo apt install tmux
 Team mode is panel discussion, not just parallel execution. LongTable opens
 role-specific panes and writes logs under `.longtable/team/<id>/` so the
 researcher can inspect disagreement before deciding what to do next.
+
+Use `longtable team --debate` when the disagreement itself should become a
+durable research artifact. Debate runs use a fixed five-round protocol:
+independent review, cross-review, rebuttal, convergence, and coordinator
+synthesis/checkpoint. The canonical record is written under
+`.longtable/team/<id>/`; tmux is optional.
 
 ## Provider Surfaces
 
@@ -232,7 +239,7 @@ Default config targets:
 The server can also be run directly:
 
 ```bash
-npx -y @longtable/mcp@0.1.16
+npx -y @longtable/mcp@0.1.18
 longtable-state --self-test
 ```
 
@@ -396,6 +403,7 @@ Explicit CLI panel calls:
 ```bash
 longtable panel --prompt "Review this methods section." --json
 longtable review --role methods_critic,measurement_auditor --panel --prompt "Review this design." --json
+longtable team --debate --prompt "Review this measurement plan." --role editor,measurement_auditor --json
 ```
 
 Panel review creates a provider-neutral `PanelPlan` and a planned `PanelResult`.
@@ -417,6 +425,11 @@ longtable decide --answer evidence --rationale "Need citation support before con
 
 This panel follow-up is also a Researcher Checkpoint. It is how LongTable avoids
 turning a multi-role review into an invisible AI decision.
+
+For deeper agent-to-agent disagreement, `longtable team --debate` records a
+five-round debate and creates a debate follow-up checkpoint. It is still a
+researcher-centered harness: the debate can surface conflict, but the researcher
+answers the final decision.
 
 ## Evidence
 

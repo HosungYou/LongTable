@@ -104,9 +104,10 @@ Open a tmux session with:
 - optional role panes for panel/team discussion
 - coordinator pane that tells the researcher how to synthesize or continue
 
-The first implementation may launch role-specific Codex wrapper runs in tmux
-panes and write logs under `.longtable/team/<id>/`. Later versions can add a
-second-stage automatic synthesis step over those logs.
+The first implementation launches role-specific panes and writes logs under
+`.longtable/team/<id>/`. The debate implementation adds a file-backed five-round
+protocol so synthesis and Researcher Checkpoints are durable even when tmux is
+not available.
 
 ## Non-Goals
 
@@ -127,5 +128,6 @@ For the next patch release:
 3. Add `longtable hud --watch` and `longtable hud --tmux`.
 4. Add `longtable team --tmux --prompt ...` to open role-specific research
    discussion panes.
-5. Update README and release notes to clarify that npm install does not alter
+5. Add `longtable team --debate --prompt ...` for file-backed five-round debate.
+6. Update README and release notes to clarify that npm install does not alter
    provider runtime state.

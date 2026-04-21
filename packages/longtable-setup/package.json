@@ -1,6 +1,6 @@
 {
   "name": "@longtable/setup",
-  "version": "0.1.16",
+  "version": "0.1.18",
   "private": false,
   "description": "Researcher onboarding and setup flows for LongTable",
   "type": "module",
@@ -23,8 +23,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@longtable/core": "0.1.16",
-    "@longtable/memory": "0.1.16"
+    "@longtable/core": "0.1.18",
+    "@longtable/memory": "0.1.18"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
