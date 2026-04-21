@@ -161,6 +161,7 @@ the system is about to treat uncertainty as settled, for example:
 - committing to a method or measurement design
 - interpreting tacit researcher context
 - deciding whether a panel result needs evidence, revision, or closure
+- naming or changing a LongTable platform concept
 - preparing external submission, preregistration, or public sharing
 
 The ideal shape is:
@@ -169,7 +170,7 @@ The ideal shape is:
 Researcher Checkpoint
 Why now: this choice changes the downstream study design.
 Question: What should LongTable treat as the next human decision?
-Options: revise / gather evidence / proceed / defer
+Options: revise / gather evidence / proceed / defer / other
 Record: QuestionRecord -> DecisionRecord
 ```
 
@@ -182,6 +183,10 @@ Provider behavior differs:
 This is the main difference from a plain AskUserQuestion tool. The UI is only the
 transport; the LongTable product contract is proactive, research-aware
 checkpointing with durable decision records.
+
+If a checkpoint allows `other`, that option must be visible to the researcher.
+Hidden `allowOther` support is not enough because it still pressures the
+researcher into the system's categories.
 
 ## Health Check
 

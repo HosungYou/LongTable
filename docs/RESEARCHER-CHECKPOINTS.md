@@ -90,9 +90,42 @@ Ask proactively when one of these conditions is true:
 - a panel result would otherwise be collapsed into a single recommendation
 - evidence is missing but the system is about to proceed
 - the work is moving toward external submission, preregistration, or public sharing
+- a product concept, platform term, README positioning, or checkpoint policy is being renamed or made authoritative
 
 Do not ask just because asking is possible. Low-stakes drafting, private notes,
 or reversible formatting changes can be logged without interruption.
+
+## Meta-Decision Checkpoints
+
+A **Meta-Decision Checkpoint** is required when LongTable itself is making a
+platform decision that will shape future behavior.
+
+Examples:
+
+- naming or renaming a LongTable concept
+- changing the README's product positioning
+- changing question/checkpoint policy
+- changing provider behavior for Codex or Claude Code
+- deciding whether a transport primitive should become product language
+
+This exists because platform language can quietly become product architecture.
+For example, deciding to call the question layer `Researcher Checkpoint` should
+not be committed without an explicit researcher decision.
+
+## Other Option
+
+Every Researcher Checkpoint that could be incomplete should expose an `other`
+path.
+
+LongTable supports this in state with:
+
+- `allowOther: true`
+- `otherLabel`
+- a free-text answer normalized as `selectedValues: ["other"]`
+
+The UI or fallback rendering must make this visible. It is not enough for
+`allowOther` to exist internally if the researcher cannot see that they can
+reject the offered categories.
 
 ## Question Quality
 
@@ -102,6 +135,7 @@ A good Researcher Checkpoint has:
 - a concrete reason for appearing now
 - one focused question
 - two to four meaningful options
+- an `other` option when the offered categories may not cover the researcher's judgment
 - an optional rationale field
 - a clear record target
 
@@ -129,8 +163,8 @@ are true:
 
 - the checkpoint appears before closure, not after
 - the options are meaningful and non-manipulative
+- `other` is visible when `allowOther` is true
 - the reason for asking is visible
 - pending questions survive session restart
 - the answer becomes a decision record
 - panel/evidence outputs can link back to the decision
-

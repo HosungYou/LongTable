@@ -263,7 +263,7 @@ function buildCurrentGuide(
             "",
             "## 대기 중인 결정 질문",
             ...pendingQuestions.map((record) => {
-              const options = record.prompt.options.map((option) => option.value).join("/");
+              const options = formatQuestionOptionValues(record).join("/");
               return `- ${record.id}: ${record.prompt.question} (${options})`;
             }),
             "- 답변 기록: `longtable decide --question <id> --answer <value>`"
@@ -313,7 +313,7 @@ function buildCurrentGuide(
           "",
           "## Pending Decision Questions",
           ...pendingQuestions.map((record) => {
-            const options = record.prompt.options.map((option) => option.value).join("/");
+            const options = formatQuestionOptionValues(record).join("/");
             return `- ${record.id}: ${record.prompt.question} (${options})`;
           }),
           "- Record an answer: `longtable decide --question <id> --answer <value>`"
@@ -361,6 +361,14 @@ function recentPendingQuestions(state: ResearchState, limit = 3): QuestionRecord
     .filter((record) => record.status === "pending")
     .slice(-limit)
     .reverse();
+}
+
+function formatQuestionOptionValues(record: QuestionRecord): string[] {
+  const values = record.prompt.options.map((option) => option.value);
+  if (record.prompt.allowOther) {
+    values.push(record.prompt.otherLabel ? `other:${record.prompt.otherLabel}` : "other");
+  }
+  return values;
 }
 
 function summarizeWorkspaceInspection(
@@ -414,7 +422,7 @@ function summarizeWorkspaceInspection(
       id: record.id,
       title: record.prompt.title,
       question: record.prompt.question,
-      options: record.prompt.options.map((option) => option.value),
+      options: formatQuestionOptionValues(record),
       required: record.prompt.required
     })),
     recentDecisions: (state.decisionLog ?? []).slice(-5).reverse().map((record) => ({

@@ -69,6 +69,8 @@ function baseSkillSpecs(): ClaudeSkillSpec[] {
         "- Treat `.longtable/` state as the project source of truth when present.",
         "- Prefer natural language over asking the researcher to run shell role commands.",
         "- If a Researcher Checkpoint is needed, ask a short structured question with meaningful options and wait for the researcher.",
+        "- If changing LongTable product language, README positioning, or checkpoint policy, ask a Meta-Decision Checkpoint first.",
+        "- If a checkpoint allows `other`, make `other` visible instead of hiding it in state.",
         "- Treat Claude's structured question surface as transport; LongTable state records are the source of truth.",
         "- Preserve open tensions and authorship instead of forcing closure.",
         "- Disclose consulted roles with `LongTable consulted: ...` when a role is foregrounded.",

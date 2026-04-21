@@ -69,6 +69,7 @@ function baseSkillSpecs(): CodexSkillSpec[] {
         "- `lt panel` creates a visible multi-role review with synthesis, role opinions, conflict summary, and a decision prompt.",
         "- Natural references to methods, measurement, theory, reviewer, editor, ethics, venue, or voice should foreground the matching LongTable role.",
         "- When research responsibility is about to shift, surface a Researcher Checkpoint before closure.",
+        "- When changing LongTable product language, README positioning, or checkpoint policy, surface a Meta-Decision Checkpoint first.",
         "",
         "## Panel And Team Behavior",
         "",
@@ -82,6 +83,7 @@ function baseSkillSpecs(): CodexSkillSpec[] {
         "- Treat `.longtable/` state as the source of truth when present.",
         "- Read `CURRENT.md` when available before giving project-specific advice.",
         "- If a Researcher Checkpoint is needed, ask a concise question with meaningful options and wait for the researcher.",
+        "- If a checkpoint allows `other`, make `other` visible instead of hiding it in state.",
         "- Treat provider-native question UI as transport; LongTable state records are the source of truth.",
         "- Preserve open tensions and authorship instead of forcing closure.",
         "- Label unsupported external claims as inference or estimate."
