@@ -3,6 +3,7 @@ node_modules/
 dist/
 build/
 .omx/
+.longtable/team/
 .codex/
 .claude/
 .env

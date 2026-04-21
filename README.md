@@ -41,9 +41,24 @@ work inspectable across Codex and Claude Code.
 npm install -g @longtable/cli
 ```
 
+The npm install only installs the `longtable` command. It does not write Codex
+skills, MCP config, hooks, tmux state, or provider runtime files. Those require
+explicit setup approval because they change files outside the npm package.
+
 ## Start
 
-Seed your researcher profile once:
+Recommended Codex setup:
+
+```bash
+longtable setup --provider codex
+```
+
+This permission-first setup asks which runtime surfaces LongTable may install:
+CLI only, skills, skills + MCP, or skills + MCP + advisory sentinel. Each option
+shows why it matters and what tradeoff it introduces.
+
+The older researcher-profile setup remains available when you want a more
+personalized profile interview:
 
 ```bash
 longtable init --flow interview --provider codex
@@ -110,7 +125,41 @@ debuggable route:
 ```bash
 longtable ask --prompt "I need to narrow this project into a defensible study."
 longtable clarify --prompt "Update the rubric using the selected exemplars."
+longtable sentinel --prompt "Should I define a new measurement construct?"
 ```
+
+## Runtime Surfaces
+
+LongTable has three runtime levels:
+
+| Surface | Use it for | Requires |
+| --- | --- | --- |
+| Standard chat | Portable LongTable skills, checkpoints, and CLI commands | Codex or Claude |
+| Research HUD | Persistent view of goals, blockers, pending checkpoints, and decisions | tmux |
+| Research console | Role panes for tmux-backed team discussion plus HUD | tmux |
+
+Tmux is optional. LongTable's research contract must work without it. When tmux
+is available, it can make choices and open tensions more visible:
+
+```bash
+longtable hud --watch
+longtable hud --tmux
+longtable team --tmux --prompt "Review this measurement plan before I commit it."
+```
+
+Install tmux:
+
+```bash
+# macOS
+brew install tmux
+
+# Ubuntu/Debian
+sudo apt install tmux
+```
+
+Team mode is panel discussion, not just parallel execution. LongTable opens
+role-specific panes and writes logs under `.longtable/team/<id>/` so the
+researcher can inspect disagreement before deciding what to do next.
 
 ## Provider Surfaces
 
@@ -183,7 +232,7 @@ Default config targets:
 The server can also be run directly:
 
 ```bash
-npx -y @longtable/mcp@0.1.14
+npx -y @longtable/mcp@0.1.15
 longtable-state --self-test
 ```
 

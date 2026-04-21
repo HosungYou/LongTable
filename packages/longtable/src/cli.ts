@@ -2,14 +2,15 @@
 
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { emitKeypressEvents } from "node:readline";
 import { createInterface } from "node:readline/promises";
 import type { Interface as ReadlineInterface } from "node:readline/promises";
 import { stdin as input, stdout as output, cwd, exit } from "node:process";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import type { InteractionMode, PanelVisibility, ProviderKind, QuestionRecord, ResearchStage } from "@longtable/core";
+import { classifyCheckpointTrigger } from "@longtable/checkpoints";
 import {
   buildProviderChoices,
   buildQuickSetupFlow,
@@ -63,6 +64,7 @@ import {
   createWorkspaceQuestion,
   createOrUpdateProjectWorkspace,
   inspectProjectWorkspace,
+  loadWorkspaceState,
   loadProjectContextFromDirectory,
   renderProjectWorkspaceSummary,
   syncCurrentWorkspaceView,
@@ -225,6 +227,7 @@ function usage(): string {
     "  After `longtable start`, move into the created project directory and open `codex` there.",
     "",
     "  longtable init [--flow quickstart|interview] [--provider codex|claude] [--field <field>] [--career-stage <stage>] [--experience novice|intermediate|advanced] [--checkpoint low|balanced|high] [--authorship-signal <text>] [--entry-mode explore|review|critique|draft|commit] [--weakest-domain theory|methodology|measurement|analysis|writing] [--panel-preference synthesis_only|show_on_conflict|always_visible] [--json] [--no-install] [--install-skills] [--install-prompts]",
+    "  longtable setup [--provider codex|claude] [--json] [--dir <path>] [--skills-dir <path>] [--runtime-path <file>] [--setup-path <file>]",
     "  longtable start [--path <dir>] [--name <project>] [--goal <text>] [--blocker <text>] [--perspectives <role[,role]>] [--disagreement synthesis_only|show_on_conflict|always_visible] [--setup <path>] [--json]",
     "  longtable resume [--cwd <path>] [--json]",
     "  longtable doctor [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
@@ -233,6 +236,9 @@ function usage(): string {
     "  longtable show [--json] [--path <file>]",
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
     "  longtable mcp install [--provider codex|claude|all] [--write] [--json] [--codex-config <path>] [--claude-settings <path>] [--package <spec>]",
+    "  longtable hud [--watch] [--tmux] [--preset minimal|full] [--cwd <path>] [--json]",
+    "  longtable sentinel --prompt <text> [--cwd <path>] [--json] [--record]",
+    "  longtable team --prompt <text> [--role <role[,role]>] [--tmux] [--cwd <path>] [--json]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable clarify --prompt <task-context> [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json] [--force]",
     "  longtable question --prompt <decision-context> [--title <text>] [--text <question>] [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json]",
@@ -271,7 +277,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "start", "resume", "doctor", "status", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "panel", "decide"].includes(command);
+    command && ["init", "setup", "start", "resume", "doctor", "status", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "panel", "decide", "hud", "sentinel", "team"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -789,6 +795,208 @@ async function collectInteractiveAnswers(initialFlow?: SetupFlow): Promise<{
       provider,
       answers: answers as SetupAnswers
     };
+  } finally {
+    rl.close();
+  }
+}
+
+type SetupSurfaceChoice = "cli_only" | "skills" | "skills_mcp" | "skills_mcp_sentinel";
+type SetupInterventionChoice = "advisory" | "balanced" | "strong";
+type SetupTmuxChoice = "standard" | "hud" | "console";
+type SetupTeamChoice = "off" | "panel" | "tmux_team";
+
+function buildPermissionSetupChoices(): {
+  surfaces: SetupChoice[];
+  intervention: SetupChoice[];
+  tmux: SetupChoice[];
+  team: SetupChoice[];
+} {
+  return {
+    surfaces: [
+      {
+        id: "cli_only",
+        label: "CLI only",
+        description: "Why: least invasive. Tradeoff: no natural in-provider LongTable entrypoints."
+      },
+      {
+        id: "skills",
+        label: "Skills",
+        description: "Why: enables natural LongTable skill routing. Tradeoff: writes provider skill files."
+      },
+      {
+        id: "skills_mcp",
+        label: "Skills + MCP",
+        description: "Why: adds structured state access. Tradeoff: writes provider config for MCP transport."
+      },
+      {
+        id: "skills_mcp_sentinel",
+        label: "Skills + MCP + Sentinel",
+        description: "Why: prepares advisory gap/tacit monitoring. Tradeoff: LongTable may nudge research turns."
+      }
+    ],
+    intervention: [
+      {
+        id: "advisory",
+        label: "Advisory",
+        description: "Why: notices gaps without blocking. Tradeoff: you may still miss hard commitments."
+      },
+      {
+        id: "balanced",
+        label: "Balanced",
+        description: "Why: blocks clear theory, measurement, method, or evidence commitments. Tradeoff: occasional stops."
+      },
+      {
+        id: "strong",
+        label: "Strong",
+        description: "Why: maximizes judgment protection. Tradeoff: more interruption before closure."
+      }
+    ],
+    tmux: [
+      {
+        id: "standard",
+        label: "Standard chat",
+        description: "Why: portable default. Tradeoff: checkpoints and gaps are less persistently visible."
+      },
+      {
+        id: "hud",
+        label: "Research HUD",
+        description: "Why: keeps goals, blockers, and pending checkpoints visible. Requires tmux."
+      },
+      {
+        id: "console",
+        label: "Research console",
+        description: "Why: enables a richer tmux layout for HUD and team discussion. Requires tmux."
+      }
+    ],
+    team: [
+      {
+        id: "off",
+        label: "Off",
+        description: "Why: simplest. Tradeoff: panel disagreement stays inside one LongTable response."
+      },
+      {
+        id: "panel",
+        label: "Structured panel",
+        description: "Why: role disagreement is visible without tmux. Tradeoff: not parallel."
+      },
+      {
+        id: "tmux_team",
+        label: "Tmux team discussion",
+        description: "Why: opens role panes for parallel debate. Tradeoff: terminal complexity and cleanup."
+      }
+    ]
+  };
+}
+
+function checkpointIntensityFromIntervention(choice: SetupInterventionChoice): SetupAnswers["preferredCheckpointIntensity"] {
+  if (choice === "strong") return "high";
+  if (choice === "advisory") return "low";
+  return "balanced";
+}
+
+async function runSetup(args: Record<string, string | boolean>): Promise<void> {
+  const json = args.json === true;
+  const rl = createInterface({ input, output });
+  try {
+    const provider = (typeof args.provider === "string"
+      ? (args.provider === "claude" ? "claude" : "codex")
+      : await promptChoice(rl, "Which provider should LongTable configure?", buildProviderChoices())) as "codex" | "claude";
+    const choices = buildPermissionSetupChoices();
+    const surfaces = await promptChoice(
+      rl,
+      [
+        "Which LongTable runtime surfaces should be enabled?",
+        "This is a permission choice because skills, MCP, and sentinel support write provider-facing runtime files."
+      ].join("\n"),
+      choices.surfaces
+    ) as SetupSurfaceChoice;
+    const intervention = await promptChoice(
+      rl,
+      "How strongly may LongTable interrupt research decisions?",
+      choices.intervention
+    ) as SetupInterventionChoice;
+    const tmuxMode = await promptChoice(
+      rl,
+      "Should LongTable recommend a tmux-based research interface?",
+      choices.tmux
+    ) as SetupTmuxChoice;
+    const teamMode = await promptChoice(
+      rl,
+      "Should LongTable enable agent/team discussion mode?",
+      choices.team
+    ) as SetupTeamChoice;
+
+    const outputValue = createPersistedSetupOutput(
+      {
+        field: "unspecified",
+        careerStage: "unspecified",
+        experienceLevel: "advanced",
+        preferredCheckpointIntensity: checkpointIntensityFromIntervention(intervention),
+        preferredEntryMode: "explore",
+        panelPreference: teamMode === "off" ? "show_on_conflict" : "always_visible"
+      },
+      provider,
+      "quickstart"
+    );
+    outputValue.initialState.explicitState = {
+      ...outputValue.initialState.explicitState,
+      runtimeSurfaces: surfaces,
+      interventionPosture: intervention,
+      tmuxMode,
+      teamMode
+    };
+    if (surfaces === "skills_mcp_sentinel") {
+      outputValue.initialState.inferredHypotheses.push({
+        hypothesis: "Researcher approved advisory Gap/Tacit Sentinel setup.",
+        confidence: 0.95,
+        evidence: ["Selected Skills + MCP + Sentinel during permission-first setup."],
+        status: "confirmed"
+      });
+    }
+
+    const result = await saveSetupAndRuntimeConfig(outputValue, {
+      setupPath: typeof args["setup-path"] === "string" ? args["setup-path"] : undefined,
+      runtimePath: typeof args["runtime-path"] === "string" ? args["runtime-path"] : undefined
+    });
+
+    const installedSkills = surfaces === "cli_only"
+      ? []
+      : provider === "codex"
+        ? await installCodexSkills(listRoleDefinitions(), typeof args["skills-dir"] === "string" ? args["skills-dir"] : typeof args.dir === "string" ? args.dir : undefined)
+        : await installClaudeSkills(listRoleDefinitions(), typeof args["skills-dir"] === "string" ? args["skills-dir"] : typeof args.dir === "string" ? args.dir : undefined);
+
+    const mcpRequested = surfaces === "skills_mcp" || surfaces === "skills_mcp_sentinel";
+    if (mcpRequested && !json) {
+      console.log("");
+      console.log("MCP setup is approved. To write provider config now, run:");
+      console.log(`- longtable mcp install --provider ${provider} --write`);
+    }
+
+    if (json) {
+      console.log(JSON.stringify({
+        setup: outputValue,
+        runtime: result,
+        installedSkills: installedSkills.map((skill) => skill.name),
+        mcpRequested,
+        tmuxMode,
+        teamMode
+      }, null, 2));
+      return;
+    }
+
+    console.log("");
+    console.log(renderSetupSummary(outputValue));
+    console.log("");
+    console.log(renderInstallSummary(result));
+    console.log(`Installed skills: ${installedSkills.length}`);
+    if (tmuxMode !== "standard") {
+      console.log("");
+      console.log("Tmux recommendation:");
+      console.log("- macOS: brew install tmux");
+      console.log("- Ubuntu/Debian: sudo apt install tmux");
+      console.log("- Start HUD in an existing tmux session: longtable hud --tmux");
+      console.log("- Start a discussion team: longtable team --tmux --prompt \"...\"");
+    }
   } finally {
     rl.close();
   }
@@ -2311,6 +2519,219 @@ async function runAsk(args: Record<string, string | boolean>): Promise<void> {
   await runModeCommand(mode, delegatedArgs);
 }
 
+function localId(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function shellEscape(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function sentinelSummary(prompt: string, workingDirectory: string) {
+  const trigger = classifyCheckpointTrigger(prompt, {
+    fallbackMode: "explore",
+    unresolvedTensions: []
+  });
+  const normalized = prompt.toLowerCase();
+  const signals: string[] = [];
+  if (/measure|measurement|scale|validity|reliability|측정|척도|타당도|신뢰도/.test(normalized)) {
+    signals.push("measurement gap or commitment");
+  }
+  if (/theory|theoretical|framework|construct|이론|프레임워크|개념/.test(normalized)) {
+    signals.push("theory or construct commitment");
+  }
+  if (/method|design|sample|participant|방법|설계|표본|참여자/.test(normalized)) {
+    signals.push("method/design gap");
+  }
+  if (/citation|reference|source|evidence|doi|문헌|인용|근거|출처/.test(normalized)) {
+    signals.push("evidence gap");
+  }
+  if (/voice|authorship|narrative|저자성|서사|문체|목소리/.test(normalized)) {
+    signals.push("authorship or narrative-trace risk");
+  }
+  if (/assumption|implicit|tacit|암묵|전제|가정/.test(normalized)) {
+    signals.push("tacit assumption risk");
+  }
+
+  return {
+    cwd: workingDirectory,
+    checkpoint: trigger.signal.checkpointKey,
+    family: trigger.family,
+    confidence: trigger.confidence,
+    requiresQuestionBeforeClosure: trigger.requiresQuestionBeforeClosure,
+    signals: signals.length > 0 ? signals : ["no specific gap/tacit signal beyond checkpoint classifier"],
+    rationale: trigger.rationale
+  };
+}
+
+async function runSentinel(args: Record<string, string | boolean>): Promise<void> {
+  const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+  const prompt = await resolvePrompt(typeof args.prompt === "string" ? args.prompt : undefined);
+  if (!prompt) {
+    throw new Error("A prompt is required.");
+  }
+  const summary = sentinelSummary(prompt, workingDirectory);
+  const context = await loadProjectContextFromDirectory(workingDirectory);
+
+  if (args.record === true && context) {
+    const state = await loadWorkspaceState(context);
+    state.inferredHypotheses.push({
+      hypothesis: `Sentinel detected: ${summary.signals.join(", ")}.`,
+      confidence: summary.confidence === "high" ? 0.85 : summary.confidence === "medium" ? 0.65 : 0.4,
+      evidence: [`Prompt: ${prompt}`],
+      status: "unconfirmed"
+    });
+    if (summary.requiresQuestionBeforeClosure) {
+      state.openTensions.push(`Pending sentinel risk: ${summary.checkpoint}`);
+    }
+    await writeFile(context.stateFilePath, JSON.stringify(state, null, 2), "utf8");
+    await syncCurrentWorkspaceView(context);
+  }
+
+  if (args.json === true) {
+    console.log(JSON.stringify(summary, null, 2));
+    return;
+  }
+
+  console.log("LongTable Sentinel");
+  console.log(`- checkpoint: ${summary.checkpoint}`);
+  console.log(`- family: ${summary.family}`);
+  console.log(`- confidence: ${summary.confidence}`);
+  console.log(`- question before closure: ${summary.requiresQuestionBeforeClosure ? "yes" : "no"}`);
+  console.log("- detected signals:");
+  for (const signal of summary.signals) {
+    console.log(`  - ${signal}`);
+  }
+  if (args.record === true) {
+    console.log(context ? `- recorded in: ${context.stateFilePath}` : "- record skipped: no LongTable workspace found");
+  }
+}
+
+function renderHudText(inspection: LongTableWorkspaceInspection, preset: string): string {
+  if (!inspection.found) {
+    return [
+      "LongTable HUD",
+      "- workspace: not found",
+      "- run `longtable start` for durable research state"
+    ].join("\n");
+  }
+  const lines = [
+    "LongTable HUD",
+    `- project: ${inspection.project?.name}`,
+    `- goal: ${inspection.session?.currentGoal}`,
+    ...(inspection.session?.currentBlocker ? [`- blocker: ${inspection.session.currentBlocker}`] : []),
+    `- questions: ${inspection.counts?.pendingQuestions ?? 0} pending / ${inspection.counts?.questions ?? 0} total`,
+    `- decisions: ${inspection.counts?.decisions ?? 0}`,
+    `- invocations: ${inspection.counts?.invocations ?? 0}`
+  ];
+  if (preset !== "minimal") {
+    lines.push("- pending checkpoints:");
+    for (const question of inspection.pendingQuestions ?? []) {
+      lines.push(`  - ${question.required ? "required" : "advisory"}: ${question.question}`);
+    }
+    lines.push("- recent decisions:");
+    for (const decision of inspection.recentDecisions ?? []) {
+      lines.push(`  - ${decision.summary}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+async function runHud(args: Record<string, string | boolean>): Promise<void> {
+  const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+  const preset = typeof args.preset === "string" ? args.preset : "full";
+  if (args.tmux === true) {
+    if (!process.env.TMUX) {
+      throw new Error("`longtable hud --tmux` must be run inside an existing tmux session.");
+    }
+    const launcher = process.argv[1] ?? "longtable";
+    const command = `node ${shellEscape(launcher)} hud --watch --preset ${shellEscape(preset)} --cwd ${shellEscape(workingDirectory)}`;
+    execFileSync("tmux", ["split-window", "-v", "-l", "10", command], { stdio: "inherit" });
+    return;
+  }
+
+  while (true) {
+    const inspection = await inspectProjectWorkspace(workingDirectory);
+    if (args.json === true) {
+      console.log(JSON.stringify(inspection, null, 2));
+      return;
+    }
+    if (args.watch === true) {
+      process.stdout.write("\u001Bc");
+    }
+    console.log(renderHudText(inspection, preset));
+    if (args.watch !== true) {
+      return;
+    }
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 1500));
+  }
+}
+
+async function runTeam(args: Record<string, string | boolean>): Promise<void> {
+  const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+  const prompt = await resolvePrompt(typeof args.prompt === "string" ? args.prompt : undefined);
+  if (!prompt) {
+    throw new Error("A prompt is required.");
+  }
+  const fallback = buildPanelFallback({
+    prompt,
+    mode: "review",
+    roleFlag: typeof args.role === "string" ? args.role : undefined,
+    provider: "codex",
+    visibility: "always_visible"
+  });
+  const teamId = localId("team");
+  const teamDir = join(workingDirectory, ".longtable", "team", teamId);
+  await mkdir(teamDir, { recursive: true });
+  await writeFile(join(teamDir, "prompt.txt"), prompt, "utf8");
+  await writeFile(join(teamDir, "plan.json"), JSON.stringify(fallback.plan, null, 2), "utf8");
+
+  if (args.json === true) {
+    console.log(JSON.stringify({ teamId, teamDir, plan: fallback.plan }, null, 2));
+    return;
+  }
+
+  if (args.tmux !== true) {
+    console.log(renderPanelSummary(fallback.plan));
+    console.log("");
+    console.log("Run with `--tmux` to launch role panes for parallel discussion.");
+    return;
+  }
+
+  const sessionName = `longtable-${teamId.replaceAll("_", "-")}`;
+  const shell = process.env.SHELL || "/bin/sh";
+  const launcher = process.argv[1] ?? "longtable";
+  const leaderCommand = [
+    `echo ${shellEscape(`LongTable team ${teamId}`)}`,
+    `echo ${shellEscape(`Logs: ${teamDir}`)}`,
+    "echo 'Role panes are running. Review logs, then run:'",
+    `echo ${shellEscape(`longtable panel --role ${fallback.plan.members.map((member) => member.role).join(",")} --prompt ${JSON.stringify(prompt)}`)}`,
+    `exec ${shellEscape(shell)}`
+  ].join("; ");
+  execFileSync("tmux", ["new-session", "-d", "-s", sessionName, "-c", workingDirectory, leaderCommand], { stdio: "inherit" });
+
+  for (const member of fallback.plan.members) {
+    const rolePrompt = [
+      `LongTable team discussion role: ${member.label} (${member.role}).`,
+      "Give claims, objections, open questions, and evidence needs. Address likely disagreement with other roles.",
+      "",
+      prompt
+    ].join("\n");
+    const logPath = join(teamDir, `${member.role}.log`);
+    const command = [
+      `node ${shellEscape(launcher)} review --role ${shellEscape(member.role)} --prompt ${shellEscape(rolePrompt)} --cwd ${shellEscape(workingDirectory)} 2>&1 | tee ${shellEscape(logPath)}`,
+      `echo ${shellEscape(`Role log written to ${logPath}`)}`,
+      `exec ${shellEscape(shell)}`
+    ].join("; ");
+    execFileSync("tmux", ["split-window", "-t", sessionName, "-c", workingDirectory, command], { stdio: "inherit" });
+    execFileSync("tmux", ["select-layout", "-t", sessionName, "tiled"], { stdio: "ignore" });
+  }
+
+  console.log(`LongTable tmux team launched: ${sessionName}`);
+  console.log(`Attach with: tmux attach -t ${sessionName}`);
+  console.log(`Logs: ${teamDir}`);
+}
+
 async function runDecide(args: Record<string, string | boolean>): Promise<void> {
   const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
   const answer = typeof args.answer === "string" ? args.answer.trim() : "";
@@ -2657,6 +3078,11 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "setup") {
+    await runSetup(values);
+    return;
+  }
+
   if (command === "start") {
     await runStart(values);
     return;
@@ -2709,6 +3135,21 @@ async function main(): Promise<void> {
 
   if (command === "panel") {
     await runPanelCommand(values);
+    return;
+  }
+
+  if (command === "hud") {
+    await runHud(values);
+    return;
+  }
+
+  if (command === "sentinel") {
+    await runSentinel(values);
+    return;
+  }
+
+  if (command === "team") {
+    await runTeam(values);
     return;
   }
 

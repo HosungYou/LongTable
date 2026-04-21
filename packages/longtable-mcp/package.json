@@ -1,6 +1,6 @@
 {
   "name": "@longtable/mcp",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "private": false,
   "description": "LongTable MCP transport for workspace state and Researcher Checkpoints",
   "type": "module",
@@ -26,11 +26,11 @@
     "self-test": "node ./dist/server.js --self-test"
   },
   "dependencies": {
-    "@longtable/checkpoints": "0.1.14",
-    "@longtable/cli": "0.1.14",
-    "@longtable/core": "0.1.14",
-    "@longtable/provider-claude": "0.1.14",
-    "@longtable/provider-codex": "0.1.14",
+    "@longtable/checkpoints": "0.1.15",
+    "@longtable/cli": "0.1.15",
+    "@longtable/core": "0.1.15",
+    "@longtable/provider-claude": "0.1.15",
+    "@longtable/provider-codex": "0.1.15",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.0.0"
   },

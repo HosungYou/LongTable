@@ -19,14 +19,24 @@ The basic contract is:
 npm install -g @longtable/cli
 ```
 
+The npm install only installs the CLI. It does not write Codex skills, MCP
+config, hooks, tmux state, or provider runtime files without explicit setup
+approval.
+
 ## Primary Flow
 
 ```bash
+longtable setup --provider codex
 longtable init --flow interview
 longtable start
 cd "<project-path>"
 codex
 ```
+
+`longtable setup --provider codex` is the permission-first setup route. It asks
+which runtime surfaces LongTable may enable and explains why each choice matters:
+CLI only, skills, skills + MCP, skills + MCP + sentinel, intervention posture,
+tmux HUD/console, and team discussion mode.
 
 Return later:
 
@@ -81,6 +91,9 @@ longtable resume --cwd "<project-path>"
 longtable roles
 longtable ask --cwd "<project-path>" --prompt "..."
 longtable panel --prompt "..."
+longtable sentinel --prompt "Should I define a new measurement construct?"
+longtable hud --watch
+longtable team --tmux --prompt "Review this measurement plan."
 longtable codex install-skills
 longtable claude install-skills
 ```
@@ -150,6 +163,22 @@ Default panel roles include:
 - `theory_critic`
 
 Use `--role` to constrain the panel when the research problem is already clear.
+
+## Sentinel, HUD, And Tmux Team
+
+`longtable sentinel` is an explicit gap/tacit check for prompts that may contain
+measurement, theory, method, evidence, authorship, or tacit-assumption risks.
+Use `--record` inside a LongTable workspace to store the finding as an
+unconfirmed inferred hypothesis.
+
+`longtable hud --watch` renders a compact view of the current project goal,
+blocker, pending checkpoints, recent decisions, and invocation counts.
+`longtable hud --tmux` opens that view in a tmux pane.
+
+`longtable team --tmux` opens role-specific panes for research discussion and
+writes logs under `.longtable/team/<id>/`. This is panel discussion, not merely
+parallel execution: role panes are prompted to state claims, objections, open
+questions, and likely disagreement.
 
 ## Evidence And Search Direction
 
