@@ -28,8 +28,8 @@ export function createCodexConfigFragment(
     defaultInteractionMode: bridge.defaultInteractionMode,
     profileSummary: {
       field: bridge.profile.field ?? "unspecified",
-      careerStage: bridge.profile.careerStage,
-      experienceLevel: bridge.profile.experienceLevel,
+      careerStage: bridge.profile.careerStage ?? "unspecified",
+      experienceLevel: bridge.profile.experienceLevel ?? "advanced",
       currentProjectType: bridge.profile.currentProjectType
     },
     runtimeGuidance: bridge.runtimeDefaults

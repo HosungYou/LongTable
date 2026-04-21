@@ -26,10 +26,10 @@ export type SetupFlow = "quickstart" | "interview";
 
 export interface SetupAnswers {
   field?: string;
-  careerStage: string;
-  experienceLevel: ExperienceLevel;
+  careerStage?: string;
+  experienceLevel?: ExperienceLevel;
   currentProjectType?: string;
-  preferredCheckpointIntensity: CheckpointIntensity;
+  preferredCheckpointIntensity?: CheckpointIntensity;
   humanAuthorshipSignal?: string;
   preferredEntryMode?: Exclude<InteractionMode, "submit">;
   weakestDomain?: Extract<keyof ResearcherConfidenceByDomain, string>;

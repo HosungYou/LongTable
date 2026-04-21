@@ -21,6 +21,7 @@ import {
   renderSetupSummary,
   resolveDefaultRuntimeConfigPath,
   resolveDefaultSetupPath,
+  saveSetupOutput,
   saveSetupAndRuntimeConfig,
   serializeSetupOutput,
   writeRuntimeConfig,
@@ -102,6 +103,9 @@ interface ProjectInterviewAnswers {
   projectPath: string;
   currentGoal: string;
   currentBlocker?: string;
+  researchObject: string;
+  gapRisk: string;
+  protectedDecision: string;
   requestedPerspectives: string[];
   disagreementPreference: ProjectDisagreementPreference;
 }
@@ -190,7 +194,7 @@ const ANSI = {
 };
 
 const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
-const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.19";
+const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.21";
 const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
 const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 
@@ -231,9 +235,9 @@ function usage(): string {
     "  Run `longtable ...` in your terminal, not inside the Codex chat box.",
     "  After `longtable start`, move into the created project directory and open `codex` there.",
     "",
-    "  longtable init [--flow quickstart|interview] [--provider codex|claude] [--career-stage <stage>] [--experience novice|intermediate|advanced] [--checkpoint low|balanced|high] [--field <field>] [--authorship-signal <text>] [--entry-mode explore|review|critique|draft|commit] [--weakest-domain theory|methodology|measurement|analysis|writing] [--panel-preference synthesis_only|show_on_conflict|always_visible] [--json] [--no-install] [--install-skills] [--install-prompts]",
-    "  longtable setup [--provider codex|claude] [--json] [--dir <path>] [--skills-dir <path>] [--runtime-path <file>] [--setup-path <file>]",
-    "  longtable start [--path <dir>] [--name <project>] [--goal <text>] [--blocker <text>] [--perspectives <role[,role]>] [--disagreement synthesis_only|show_on_conflict|always_visible] [--setup <path>] [--json]",
+    "  longtable setup [--provider codex|claude] [--install-scope user|project|none] [--surfaces cli_only|skills|skills_mcp|skills_mcp_sentinel] [--intervention advisory|balanced|strong] [--workspace create|later] [--project-dir <path>] [--json] [--dir <path>] [--skills-dir <path>] [--runtime-path <file>] [--setup-path <file>]",
+    "  longtable init [deprecated alias for setup; full legacy flags still supported for automation]",
+    "  longtable start [--path <dir>] [--name <project>] [--goal <text>] [--blocker <text>] [--research-object research_question|theory_framework|measurement_instrument|study_design|analysis_plan|manuscript] [--gap-risk known_gap|suspected_tacit_assumptions|diagnose] [--protected-decision theory|measurement|method|evidence_citation|authorship_voice|submission_public_sharing] [--perspectives <role[,role]>] [--disagreement synthesis_only|show_on_conflict|always_visible] [--setup <path>] [--json]",
     "  longtable resume [--cwd <path>] [--json]",
     "  longtable doctor [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
     "  longtable status [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
@@ -262,7 +266,7 @@ function usage(): string {
     "  longtable mcp install --provider all",
     "",
     "Examples:",
-    "  longtable init --flow interview --provider codex --install-skills",
+    "  longtable setup --provider codex",
     "  longtable start",
     "  longtable start --path ~/Research/My-Project --name \"AI Adoption Meta-Analysis\" --goal \"Narrow the review question\"",
     "  cd \"<project-path>\" && codex",
@@ -807,89 +811,84 @@ async function collectInteractiveAnswers(initialFlow?: SetupFlow): Promise<{
   }
 }
 
+type SetupInstallScopeChoice = "user" | "project" | "none";
 type SetupSurfaceChoice = "cli_only" | "skills" | "skills_mcp" | "skills_mcp_sentinel";
 type SetupInterventionChoice = "advisory" | "balanced" | "strong";
-type SetupTmuxChoice = "standard" | "hud" | "console";
-type SetupTeamChoice = "off" | "panel" | "tmux_team";
+type SetupWorkspaceChoice = "create" | "later";
 
 function buildPermissionSetupChoices(): {
+  installScope: SetupChoice[];
   surfaces: SetupChoice[];
   intervention: SetupChoice[];
-  tmux: SetupChoice[];
-  team: SetupChoice[];
+  workspace: SetupChoice[];
 } {
   return {
+    installScope: [
+      {
+        id: "user",
+        label: "User-level provider config",
+        description: "Why: available across projects. What you get: writes to ~/.codex or ~/.claude. Tradeoff: broader machine-level change."
+      },
+      {
+        id: "project",
+        label: "Current project only",
+        description: "Why: keeps LongTable local to this repository. What you get: project-scoped runtime files when supported. Tradeoff: not available elsewhere."
+      },
+      {
+        id: "none",
+        label: "Do not install provider files",
+        description: "Why: safest permission boundary. What you get: CLI setup record only. Tradeoff: no provider-native skills or MCP config."
+      }
+    ],
     surfaces: [
       {
         id: "cli_only",
         label: "CLI only",
-        description: "Why: least invasive. Tradeoff: no natural in-provider LongTable entrypoints."
+        description: "Why: least invasive. What you get: setup record and CLI commands. Tradeoff: no natural in-provider LongTable entrypoints."
       },
       {
         id: "skills",
         label: "Skills",
-        description: "Why: enables natural LongTable skill routing. Tradeoff: writes provider skill files."
+        description: "Why: enables natural LongTable skill routing. What you get: provider skills. Tradeoff: writes provider skill files."
       },
       {
         id: "skills_mcp",
         label: "Skills + MCP",
-        description: "Why: adds structured state access. Tradeoff: writes provider config for MCP transport."
+        description: "Why: adds structured state access. What you get: skills and MCP config. Tradeoff: writes provider config for MCP transport."
       },
       {
         id: "skills_mcp_sentinel",
         label: "Skills + MCP + Sentinel",
-        description: "Why: prepares advisory gap/tacit monitoring. Tradeoff: LongTable may nudge research turns."
+        description: "Why: prepares advisory gap/tacit monitoring. What you get: skills, MCP, and sentinel approval. Tradeoff: LongTable may nudge research turns."
       }
     ],
     intervention: [
       {
         id: "advisory",
         label: "Advisory",
-        description: "Why: notices gaps without blocking. Tradeoff: you may still miss hard commitments."
+        description: "Why: notices gaps without blocking. What you get: light nudges. Tradeoff: you may still miss hard commitments."
       },
       {
         id: "balanced",
         label: "Balanced",
-        description: "Why: blocks clear theory, measurement, method, or evidence commitments. Tradeoff: occasional stops."
+        description: "Why: blocks clear theory, measurement, method, or evidence commitments. What you get: recommended checkpoints. Tradeoff: occasional stops."
       },
       {
         id: "strong",
         label: "Strong",
-        description: "Why: maximizes judgment protection. Tradeoff: more interruption before closure."
+        description: "Why: maximizes judgment protection. What you get: stricter checkpoints. Tradeoff: more interruption before closure."
       }
     ],
-    tmux: [
+    workspace: [
       {
-        id: "standard",
-        label: "Standard chat",
-        description: "Why: portable default. Tradeoff: checkpoints and gaps are less persistently visible."
+        id: "create",
+        label: "Yes, create one now",
+        description: "Why: durable state needs .longtable/. What you get: decision log and CURRENT.md. Tradeoff: asks project-specific questions now."
       },
       {
-        id: "hud",
-        label: "Research HUD",
-        description: "Why: keeps goals, blockers, and pending checkpoints visible. Requires tmux."
-      },
-      {
-        id: "console",
-        label: "Research console",
-        description: "Why: enables a richer tmux layout for HUD and team discussion. Requires tmux."
-      }
-    ],
-    team: [
-      {
-        id: "off",
-        label: "Off",
-        description: "Why: simplest. Tradeoff: panel disagreement stays inside one LongTable response."
-      },
-      {
-        id: "panel",
-        label: "Structured panel",
-        description: "Why: role disagreement is visible without tmux. Tradeoff: not parallel."
-      },
-      {
-        id: "tmux_team",
-        label: "Tmux team discussion",
-        description: "Why: opens role panes for parallel debate. Tradeoff: terminal complexity and cleanup."
+        id: "later",
+        label: "No, prepare runtime only",
+        description: "Why: keeps setup short. What you get: runtime support without project state. Tradeoff: no durable research memory until `longtable start`."
       }
     ]
   };
@@ -901,6 +900,92 @@ function checkpointIntensityFromIntervention(choice: SetupInterventionChoice): S
   return "balanced";
 }
 
+function shouldInstallSkills(scope: SetupInstallScopeChoice, surfaces: SetupSurfaceChoice): boolean {
+  return scope !== "none" && surfaces !== "cli_only";
+}
+
+function shouldInstallMcp(scope: SetupInstallScopeChoice, surfaces: SetupSurfaceChoice): boolean {
+  return scope !== "none" && (surfaces === "skills_mcp" || surfaces === "skills_mcp_sentinel");
+}
+
+function setupProjectRoot(args: Record<string, string | boolean>): string {
+  return resolve(
+    normalizeUserPath(
+      typeof args["project-dir"] === "string" && args["project-dir"].trim()
+        ? args["project-dir"].trim()
+        : cwd()
+    )
+  );
+}
+
+function setupInstallDir(
+  provider: ProviderKind,
+  scope: SetupInstallScopeChoice,
+  customDir: string | undefined,
+  projectRoot: string
+): string | undefined {
+  if (customDir) return customDir;
+  if (scope === "project") return join(projectRoot, provider === "codex" ? ".codex" : ".claude", "skills");
+  return undefined;
+}
+
+function setupPathForScope(
+  scope: SetupInstallScopeChoice,
+  args: Record<string, string | boolean>,
+  projectRoot: string
+): string | undefined {
+  if (typeof args["setup-path"] === "string") return args["setup-path"];
+  if (scope === "project") return join(projectRoot, ".longtable", "setup.json");
+  return undefined;
+}
+
+function runtimePathForScope(
+  provider: ProviderKind,
+  scope: SetupInstallScopeChoice,
+  args: Record<string, string | boolean>,
+  projectRoot: string
+): string | undefined {
+  if (typeof args["runtime-path"] === "string") return args["runtime-path"];
+  if (scope !== "project") return undefined;
+  return join(projectRoot, ".longtable", provider === "codex" ? "codex-runtime.toml" : "claude-runtime.json");
+}
+
+function mcpArgsForScope(
+  provider: McpProviderTarget,
+  scope: SetupInstallScopeChoice,
+  args: Record<string, string | boolean>,
+  projectRoot: string
+): Record<string, string | boolean> {
+  if (scope !== "project") return args;
+  return {
+    ...args,
+    ...(provider === "codex" && typeof args["codex-config"] !== "string"
+      ? { "codex-config": join(projectRoot, ".codex", "config.toml") }
+      : {}),
+    ...(provider === "claude" && typeof args["claude-settings"] !== "string"
+      ? { "claude-settings": join(projectRoot, ".claude", "settings.json") }
+      : {})
+  };
+}
+
+function parseSetupInstallScope(value: string | boolean | undefined): SetupInstallScopeChoice | undefined {
+  return value === "user" || value === "project" || value === "none" ? value : undefined;
+}
+
+function parseSetupSurface(value: string | boolean | undefined): SetupSurfaceChoice | undefined {
+  return value === "cli_only" || value === "skills" || value === "skills_mcp" || value === "skills_mcp_sentinel"
+    ? value
+    : undefined;
+}
+
+function parseSetupIntervention(value: string | boolean | undefined): SetupInterventionChoice | undefined {
+  return value === "advisory" || value === "balanced" || value === "strong" ? value : undefined;
+}
+
+function parseSetupWorkspace(value: string | boolean | undefined): SetupWorkspaceChoice | undefined {
+  return value === "create" || value === "later" ? value : undefined;
+}
+
 async function runSetup(args: Record<string, string | boolean>): Promise<void> {
   const json = args.json === true;
   const rl = createInterface({ input, output });
@@ -909,7 +994,12 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
       ? (args.provider === "claude" ? "claude" : "codex")
       : await promptChoice(rl, "Which provider should LongTable configure?", buildProviderChoices())) as "codex" | "claude";
     const choices = buildPermissionSetupChoices();
-    const surfaces = await promptChoice(
+    const installScope = parseSetupInstallScope(args["install-scope"]) ?? await promptChoice(
+      rl,
+      "Where may LongTable install runtime support?",
+      choices.installScope
+    ) as SetupInstallScopeChoice;
+    const surfaces = parseSetupSurface(args.surfaces) ?? await promptChoice(
       rl,
       [
         "Which LongTable runtime surfaces should be enabled?",
@@ -917,21 +1007,17 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
       ].join("\n"),
       choices.surfaces
     ) as SetupSurfaceChoice;
-    const intervention = await promptChoice(
+    const intervention = parseSetupIntervention(args.intervention) ?? await promptChoice(
       rl,
       "How strongly may LongTable interrupt research decisions?",
       choices.intervention
     ) as SetupInterventionChoice;
-    const tmuxMode = await promptChoice(
+    const workspacePreference = parseSetupWorkspace(args.workspace) ?? await promptChoice(
       rl,
-      "Should LongTable recommend a tmux-based research interface?",
-      choices.tmux
-    ) as SetupTmuxChoice;
-    const teamMode = await promptChoice(
-      rl,
-      "Should LongTable enable agent/team discussion mode?",
-      choices.team
-    ) as SetupTeamChoice;
+      "Should LongTable create a project workspace now?",
+      choices.workspace
+    ) as SetupWorkspaceChoice;
+    const projectRoot = setupProjectRoot(args);
 
     const outputValue = createPersistedSetupOutput(
       {
@@ -940,17 +1026,19 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
         experienceLevel: "advanced",
         preferredCheckpointIntensity: checkpointIntensityFromIntervention(intervention),
         preferredEntryMode: "explore",
-        panelPreference: teamMode === "off" ? "show_on_conflict" : "always_visible"
+        panelPreference: "show_on_conflict"
       },
       provider,
       "quickstart"
     );
     outputValue.initialState.explicitState = {
       ...outputValue.initialState.explicitState,
+      installScope,
       runtimeSurfaces: surfaces,
       interventionPosture: intervention,
-      tmuxMode,
-      teamMode
+      workspaceCreationPreference: workspacePreference,
+      tmuxMode: "standard",
+      teamMode: "panel"
     };
     if (surfaces === "skills_mcp_sentinel") {
       outputValue.initialState.inferredHypotheses.push({
@@ -961,22 +1049,33 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
       });
     }
 
-    const result = await saveSetupAndRuntimeConfig(outputValue, {
-      setupPath: typeof args["setup-path"] === "string" ? args["setup-path"] : undefined,
-      runtimePath: typeof args["runtime-path"] === "string" ? args["runtime-path"] : undefined
-    });
+    const setupPath = setupPathForScope(installScope, args, projectRoot);
+    const runtimePath = runtimePathForScope(provider, installScope, args, projectRoot);
+    const result = installScope === "none"
+      ? {
+          provider,
+          setupTarget: await saveSetupOutput(outputValue, setupPath)
+        }
+      : await saveSetupAndRuntimeConfig(outputValue, {
+          setupPath,
+          runtimePath
+        });
 
-    const installedSkills = surfaces === "cli_only"
+    const scopedInstallDir = setupInstallDir(
+      provider,
+      installScope,
+      typeof args["skills-dir"] === "string" ? args["skills-dir"] : typeof args.dir === "string" ? args.dir : undefined,
+      projectRoot
+    );
+    const installedSkills = !shouldInstallSkills(installScope, surfaces)
       ? []
       : provider === "codex"
-        ? await installCodexSkills(listRoleDefinitions(), typeof args["skills-dir"] === "string" ? args["skills-dir"] : typeof args.dir === "string" ? args.dir : undefined)
-        : await installClaudeSkills(listRoleDefinitions(), typeof args["skills-dir"] === "string" ? args["skills-dir"] : typeof args.dir === "string" ? args.dir : undefined);
+        ? await installCodexSkills(listRoleDefinitions(), scopedInstallDir)
+        : await installClaudeSkills(listRoleDefinitions(), scopedInstallDir);
 
-    const mcpRequested = surfaces === "skills_mcp" || surfaces === "skills_mcp_sentinel";
-    if (mcpRequested && !json) {
-      console.log("");
-      console.log("MCP setup is approved. To write provider config now, run:");
-      console.log(`- longtable mcp install --provider ${provider} --write`);
+    let mcpInstall: McpInstallResult | undefined;
+    if (shouldInstallMcp(installScope, surfaces)) {
+      mcpInstall = await installMcpForSetup(provider, mcpArgsForScope(provider, installScope, args, projectRoot));
     }
 
     if (json) {
@@ -984,9 +1083,8 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
         setup: outputValue,
         runtime: result,
         installedSkills: installedSkills.map((skill) => skill.name),
-        mcpRequested,
-        tmuxMode,
-        teamMode
+        mcpInstall,
+        workspacePreference
       }, null, 2));
       return;
     }
@@ -994,15 +1092,29 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
     console.log("");
     console.log(renderSetupSummary(outputValue));
     console.log("");
-    console.log(renderInstallSummary(result));
+    if ("runtimeTarget" in result) {
+      console.log(renderInstallSummary(result));
+    } else {
+      console.log("LongTable setup summary");
+      console.log(`setup path: ${result.setupTarget.path}`);
+      console.log("provider files: not installed by researcher choice");
+    }
     console.log(`Installed skills: ${installedSkills.length}`);
-    if (tmuxMode !== "standard") {
+    if (mcpInstall) {
       console.log("");
-      console.log("Tmux recommendation:");
-      console.log("- macOS: brew install tmux");
-      console.log("- Ubuntu/Debian: sudo apt install tmux");
-      console.log("- Start HUD in an existing tmux session: longtable hud --tmux");
-      console.log("- Start a discussion team: longtable team --tmux --prompt \"...\"");
+      console.log(renderMcpInstallSummary(mcpInstall));
+    }
+    if (surfaces === "skills_mcp_sentinel") {
+      console.log("");
+      console.log("Background sentinel approval recorded.");
+      console.log("Hook installation remains opt-in; LongTable will not install hooks without an explicit hook command.");
+    }
+    if (workspacePreference === "create") {
+      console.log("");
+      console.log("Project workspace requested. LongTable will now run `longtable start` with research-object and gap-risk prompts.");
+      await runStart({
+        setup: result.setupTarget.path
+      });
     }
   } finally {
     rl.close();
@@ -1015,6 +1127,36 @@ function perspectiveChoices(): SetupChoice[] {
     label: persona.label,
     description: persona.shortDescription
   }));
+}
+
+function researchObjectChoices(): SetupChoice[] {
+  return [
+    { id: "research_question", label: "Research question", description: "The main question, problem, or contribution boundary." },
+    { id: "theory_framework", label: "Theory framework", description: "Constructs, theory choice, or conceptual model." },
+    { id: "measurement_instrument", label: "Measurement/instrument", description: "Variables, scales, instruments, or operationalization." },
+    { id: "study_design", label: "Study design", description: "Methods, sample, intervention, or data collection design." },
+    { id: "analysis_plan", label: "Analysis plan", description: "Analytic strategy, models, coding, or interpretation plan." },
+    { id: "manuscript", label: "Manuscript", description: "Drafting, revision, voice, evidence, or submission writing." }
+  ];
+}
+
+function gapRiskChoices(): SetupChoice[] {
+  return [
+    { id: "known_gap", label: "I know the gap", description: "The blocker is explicit and can be tracked directly." },
+    { id: "suspected_tacit_assumptions", label: "I suspect tacit assumptions", description: "There may be hidden commitments or unstated premises." },
+    { id: "diagnose", label: "Ask LongTable to diagnose it", description: "Let LongTable classify likely gaps during the session." }
+  ];
+}
+
+function protectedDecisionChoices(): SetupChoice[] {
+  return [
+    { id: "theory", label: "Theory", description: "Do not let theory or construct choices settle quietly." },
+    { id: "measurement", label: "Measurement", description: "Do not let variables, scales, or instruments settle quietly." },
+    { id: "method", label: "Method", description: "Do not let design, sampling, or procedure choices settle quietly." },
+    { id: "evidence_citation", label: "Evidence/citation", description: "Do not let unsupported source or citation choices settle quietly." },
+    { id: "authorship_voice", label: "Authorship/voice", description: "Do not let writing voice or authorial judgment disappear quietly." },
+    { id: "submission_public_sharing", label: "Submission/public sharing", description: "Do not let public-facing commitments settle quietly." }
+  ];
 }
 
 function normalizePerspectiveList(value?: string): string[] {
@@ -1036,6 +1178,9 @@ async function collectProjectInterview(
     !(typeof args.path === "string" && args.path.trim()) ||
     !(typeof args.goal === "string" && args.goal.trim()) ||
     typeof args.blocker !== "string" ||
+    !(typeof args["research-object"] === "string" && args["research-object"].trim()) ||
+    !(typeof args["gap-risk"] === "string" && args["gap-risk"].trim()) ||
+    !(typeof args["protected-decision"] === "string" && args["protected-decision"].trim()) ||
     normalizePerspectiveList(typeof args.perspectives === "string" ? args.perspectives : undefined).length === 0 ||
     !(typeof args.disagreement === "string" && args.disagreement.trim());
   const rl = createInterface({ input, output });
@@ -1055,7 +1200,7 @@ async function collectProjectInterview(
       (typeof args.name === "string" && args.name.trim()) ||
       (await promptText(
         rl,
-        renderQuestionHeader(1, 6, "Project interview", "What should this project be called?"),
+        renderQuestionHeader(1, 9, "Project interview", "What should this project be called?"),
         true
       ))!;
 
@@ -1074,7 +1219,7 @@ async function collectProjectInterview(
                 rl,
                 renderQuestionHeader(
                   2,
-                  6,
+                  9,
                   "Project interview",
                   `Which parent directory should contain this project?\nLongTable will create this folder:\n${suggestedPath}`
                 ),
@@ -1089,7 +1234,7 @@ async function collectProjectInterview(
       (
         await promptText(
           rl,
-          renderQuestionHeader(3, 6, "Current session", "What are you trying to accomplish in this session?"),
+          renderQuestionHeader(3, 9, "Current session", "What are you trying to accomplish in this session?"),
           true
         )
       )!;
@@ -1099,9 +1244,33 @@ async function collectProjectInterview(
       (
         await promptText(
           rl,
-          renderQuestionHeader(4, 6, "Current session", "What is the main blocker or uncertainty right now?"),
+          renderQuestionHeader(4, 9, "Current session", "What is the main blocker or uncertainty right now?"),
           false
         )
+      );
+
+    const researchObject =
+      (typeof args["research-object"] === "string" && args["research-object"].trim()) ||
+      await promptChoice(
+        rl,
+        renderQuestionHeader(5, 9, "Research object", "What kind of research object are we protecting right now?"),
+        researchObjectChoices()
+      );
+
+    const gapRisk =
+      (typeof args["gap-risk"] === "string" && args["gap-risk"].trim()) ||
+      await promptChoice(
+        rl,
+        renderQuestionHeader(6, 9, "Gap/tacit risk", "What is the most likely gap risk at the start of this workspace?"),
+        gapRiskChoices()
+      );
+
+    const protectedDecision =
+      (typeof args["protected-decision"] === "string" && args["protected-decision"].trim()) ||
+      await promptChoice(
+        rl,
+        renderQuestionHeader(7, 9, "Protected decision", "Which decision should LongTable not let you settle quietly?"),
+        protectedDecisionChoices()
       );
 
     const requestedPerspectives =
@@ -1110,8 +1279,8 @@ async function collectProjectInterview(
         : await promptMultiChoice(
             rl,
             renderQuestionHeader(
-              5,
-              6,
+              8,
+              9,
               "Perspectives",
               "Which perspectives do you already know you want at the table? Leave everything unchecked for auto."
             ),
@@ -1123,8 +1292,8 @@ async function collectProjectInterview(
       (await promptChoice(
         rl,
         renderQuestionHeader(
-          6,
-          6,
+          9,
+          9,
           "Disagreement",
           "How visible should disagreement between perspectives be in this project by default?"
         ),
@@ -1152,6 +1321,9 @@ async function collectProjectInterview(
       projectPath: projectPath.trim(),
       currentGoal: currentGoal.trim(),
       ...(currentBlocker?.trim() ? { currentBlocker: currentBlocker.trim() } : {}),
+      researchObject: researchObject.trim(),
+      gapRisk: gapRisk.trim(),
+      protectedDecision: protectedDecision.trim(),
       requestedPerspectives,
       disagreementPreference: disagreementPreference as ProjectDisagreementPreference
     };
@@ -1223,6 +1395,12 @@ async function readPersistAnswers(args: Record<string, string | boolean>): Promi
 }
 
 async function runInit(args: Record<string, string | boolean>): Promise<void> {
+  if (!hasCompleteFlagInput(args)) {
+    console.error("`longtable init` is deprecated. Use `longtable setup` for permission-first runtime setup.");
+    await runSetup(args);
+    return;
+  }
+
   const json = args.json === true;
   const installRuntime = args["no-install"] !== true;
   const installPrompts = args["install-prompts"] === true;
@@ -1468,6 +1646,42 @@ function renderMcpInstallSummary(result: McpInstallResult): string {
   return lines.join("\n").trimEnd();
 }
 
+async function installMcpForSetup(
+  provider: McpProviderTarget,
+  args: Record<string, string | boolean>
+): Promise<McpInstallResult> {
+  const serverName =
+    typeof args.name === "string" && args.name.trim()
+      ? args.name.trim()
+      : LONGTABLE_MCP_SERVER_NAME;
+  const packageSpec = resolveMcpPackageSpec(args);
+  const command = typeof args.command === "string" && args.command.trim() ? args.command.trim() : "npx";
+  const mcpArgs = command === "npx" ? ["-y", packageSpec] : [packageSpec];
+  const targets: McpInstallTarget[] = [];
+
+  if (provider === "codex") {
+    const path = resolveCodexMcpConfigPath(args);
+    const block = renderCodexMcpBlock(serverName, command, mcpArgs);
+    const content = await writeCodexMcpConfig(path, block, serverName);
+    targets.push({ provider, path, format: "toml", content });
+  }
+
+  if (provider === "claude") {
+    const path = resolveClaudeMcpSettingsPath(args);
+    const content = await writeClaudeMcpSettings(path, serverName, command, mcpArgs);
+    targets.push({ provider, path, format: "json", content });
+  }
+
+  return {
+    serverName,
+    packageSpec,
+    command,
+    args: mcpArgs,
+    write: true,
+    targets
+  };
+}
+
 async function runMcpSubcommand(
   subcommand: string | undefined,
   args: Record<string, string | boolean>
@@ -1708,7 +1922,7 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
     nextActions.push("longtable doctor --fix");
   }
   if (!status.setupExists) {
-    nextActions.push("longtable init --flow interview --provider codex --install-skills");
+    nextActions.push("longtable setup --provider codex");
   }
   if (!status.workspace.found) {
     nextActions.push("longtable start");
@@ -1810,7 +2024,7 @@ async function repairDoctorStatus(
   }
 
   if (!status.setupExists) {
-    repair.skipped.push("runtime configs require a researcher setup; run `longtable init --flow interview --provider codex` first");
+    repair.skipped.push("runtime configs require setup approval; run `longtable setup --provider codex` first");
     return repair;
   }
 
@@ -2937,7 +3151,7 @@ async function runStart(args: Record<string, string | boolean>): Promise<void> {
   const existingSetup = await loadOptionalSetup(setupPath);
 
   if (!existingSetup) {
-    throw new Error("LongTable global setup is missing. Run `longtable init --flow interview` first.");
+    throw new Error("LongTable setup is missing. Run `longtable setup --provider codex` first.");
   }
 
   const interview = await collectProjectInterview(existingSetup, args);
@@ -2947,6 +3161,9 @@ async function runStart(args: Record<string, string | boolean>): Promise<void> {
     projectPath: interview.projectPath,
     currentGoal: interview.currentGoal,
     currentBlocker: interview.currentBlocker,
+    researchObject: interview.researchObject,
+    gapRisk: interview.gapRisk,
+    protectedDecision: interview.protectedDecision,
     requestedPerspectives: interview.requestedPerspectives,
     disagreementPreference: interview.disagreementPreference,
     setup: existingSetup

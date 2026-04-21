@@ -27,16 +27,15 @@ approval.
 
 ```bash
 longtable setup --provider codex
-longtable init --flow interview
 longtable start
 cd "<project-path>"
 codex
 ```
 
 `longtable setup --provider codex` is the permission-first setup route. It asks
-which runtime surfaces LongTable may enable and explains why each choice matters:
-CLI only, skills, skills + MCP, skills + MCP + sentinel, intervention posture,
-tmux HUD/console, and team discussion mode.
+where LongTable may install support, which runtime surfaces it may enable, how
+strongly it may interrupt research decisions, and whether to create a project
+workspace now. `longtable init` remains only as a deprecated compatibility alias.
 
 Return later:
 
@@ -85,7 +84,7 @@ This is how LongTable avoids turning tacit knowledge into fake certainty.
 ## Commands
 
 ```bash
-longtable init
+longtable setup
 longtable start
 longtable resume --cwd "<project-path>"
 longtable roles

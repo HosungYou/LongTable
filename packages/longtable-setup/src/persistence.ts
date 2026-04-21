@@ -43,10 +43,10 @@ export function renderSetupSummary(output: SetupPersistedOutput): string {
     `provider: ${output.providerSelection.provider}`,
     `checkpoint protocol: ${output.providerSelection.checkpointProtocol}`,
     `default mode: ${output.defaultInteractionMode}`,
-    `field: ${output.profileSeed.field}`,
-    `career stage: ${output.profileSeed.careerStage}`,
-    `experience: ${output.profileSeed.experienceLevel}`,
-    `checkpoint intensity: ${output.profileSeed.preferredCheckpointIntensity}`
+    `field: ${output.profileSeed.field ?? "unspecified"}`,
+    `career stage: ${output.profileSeed.careerStage ?? "unspecified"}`,
+    `experience: ${output.profileSeed.experienceLevel ?? "advanced"}`,
+    `checkpoint intensity: ${output.profileSeed.preferredCheckpointIntensity ?? "balanced"}`
   ];
 
   if (output.profileSeed.weakestDomain) {
@@ -143,9 +143,9 @@ function renderCodexRuntimeConfig(
     `setup_flow = "${output.setupFlow}"`,
     "",
     "[longtable.profile]",
-    `field = "${output.profileSeed.field}"`,
-    `career_stage = "${output.profileSeed.careerStage}"`,
-    `experience_level = "${output.profileSeed.experienceLevel}"`,
+    `field = "${output.profileSeed.field ?? "unspecified"}"`,
+    `career_stage = "${output.profileSeed.careerStage ?? "unspecified"}"`,
+    `experience_level = "${output.profileSeed.experienceLevel ?? "advanced"}"`,
     ...(output.profileSeed.currentProjectType && output.profileSeed.currentProjectType !== "unspecified research task"
       ? [`current_project_type = "${output.profileSeed.currentProjectType}"`]
       : []),
@@ -178,9 +178,9 @@ function renderClaudeRuntimeConfig(
       defaultInteractionMode: output.defaultInteractionMode,
       setupFlow: output.setupFlow,
       profileSummary: {
-        field: output.profileSeed.field,
-        careerStage: output.profileSeed.careerStage,
-        experienceLevel: output.profileSeed.experienceLevel,
+        field: output.profileSeed.field ?? "unspecified",
+        careerStage: output.profileSeed.careerStage ?? "unspecified",
+        experienceLevel: output.profileSeed.experienceLevel ?? "advanced",
         currentProjectType:
           output.profileSeed.currentProjectType && output.profileSeed.currentProjectType !== "unspecified research task"
             ? output.profileSeed.currentProjectType

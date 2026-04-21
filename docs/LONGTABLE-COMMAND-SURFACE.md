@@ -4,7 +4,7 @@
 
 The researcher-facing surface should center on two setup steps:
 
-- `longtable init`
+- `longtable setup`
 - `longtable start`
 
 After that, most work should continue in natural language from inside the
@@ -24,8 +24,8 @@ but they should not be the main mental model for researchers.
 
 LongTable's primary surface should answer three questions:
 
-1. Who is the researcher?
-   Use `longtable init`.
+1. What runtime permissions has the researcher approved?
+   Use `longtable setup`.
 2. What project is starting now?
    Use `longtable start`.
 3. Where does the work continue?
@@ -33,7 +33,7 @@ LongTable's primary surface should answer three questions:
 
 ## Current Primary Surface
 
-- `longtable init`
+- `longtable setup`
 - `longtable start`
 - `longtable resume`
 - natural in-session forms such as `lt explore: ...`, `lt review: ...`, and
@@ -51,20 +51,24 @@ Supporting surfaces:
 
 The important distinction is:
 
-- `init` and `start` are shell setup commands
+- `setup` and `start` are shell setup commands
 - Codex or Claude Code is opened inside the project directory
 - the actual research conversation should then proceed in natural language
 
 ## Surface Roles
 
-### `longtable init`
+### `longtable setup`
 
 Global setup:
 
-- researcher profile
-- checkpoint intensity
-- authorship or narrative-trace preference
-- default mode and panel preference
+- provider
+- install scope
+- runtime surfaces
+- intervention level
+- project workspace preference
+
+`longtable init` remains a deprecated compatibility alias and should not be
+documented as the primary researcher path.
 
 ### `longtable start`
 
@@ -74,6 +78,9 @@ Project start interview:
 - project path
 - current goal
 - current blocker
+- research object
+- gap/tacit risk
+- protected decision
 - requested perspectives
 - disagreement visibility
 

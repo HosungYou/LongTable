@@ -54,15 +54,10 @@ longtable setup --provider codex
 ```
 
 This permission-first setup asks which runtime surfaces LongTable may install:
-CLI only, skills, skills + MCP, or skills + MCP + advisory sentinel. Each option
-shows why it matters and what tradeoff it introduces.
-
-The older researcher-profile setup remains available when you want a more
-personalized profile interview:
-
-```bash
-longtable init --flow interview --provider codex
-```
+where support may be installed, which surfaces to enable, how strongly
+LongTable may interrupt research decisions, and whether to create a project
+workspace now. Each option shows why it matters, what you get, and the
+tradeoff. `longtable init` remains only as a deprecated compatibility alias.
 
 Create a project workspace:
 
@@ -76,7 +71,7 @@ For Claude Code, choose Claude during setup and open the project with Claude
 Code instead:
 
 ```bash
-longtable init --flow interview --provider claude
+longtable setup --provider claude
 longtable start
 cd "<project-path>"
 claude
@@ -177,7 +172,7 @@ state.
 Codex skills:
 
 ```bash
-longtable init --flow interview --provider codex --install-skills
+longtable setup --provider codex --install-scope user --surfaces skills --intervention balanced --workspace later
 longtable codex install-skills
 ```
 
@@ -195,7 +190,7 @@ Do not use `/prompts`; current Codex builds may reject it.
 Claude Code skills:
 
 ```bash
-longtable init --flow interview --provider claude --install-skills
+longtable setup --provider claude --install-scope user --surfaces skills --intervention balanced --workspace later
 longtable claude install-skills
 ```
 
@@ -239,7 +234,7 @@ Default config targets:
 The server can also be run directly:
 
 ```bash
-npx -y @longtable/mcp@0.1.19
+npx -y @longtable/mcp@0.1.21
 longtable-state --self-test
 ```
 
@@ -346,8 +341,8 @@ longtable doctor --json
 If something is missing, the output includes the next command to run.
 `--fix` repairs safe mechanical issues: missing Codex/Claude skill files, stale
 legacy Codex prompt files, and provider runtime artifacts when a setup profile
-already exists. It does not invent a researcher profile; run `longtable init`
-first if setup is missing.
+already exists. It does not invent setup approval; run `longtable setup` first
+if setup is missing.
 
 ## Agent Roles
 
