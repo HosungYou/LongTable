@@ -88,6 +88,27 @@ Record: QuestionRecord -> DecisionRecord
 - 왜 지금 묻는지 설명한다.
 - 하나의 판단만 묻는다.
 - 선택지는 2-4개로 제한한다.
+
+## Clarification Card
+
+When the prompt contains multiple tacit decisions, LongTable should not collapse
+them into one generic checkpoint. It should create a Clarification Card: a
+grouped set of focused choice questions for each knowledge gap LongTable would
+otherwise have to infer.
+
+Default policy:
+
+- trigger on every detected knowledge gap, not only high-stakes research
+  commitments
+- ask as many focused questions as the task requires
+- mark the recommended option visibly
+- prefer native structured UI when a provider reliably exposes it
+- prefer terminal selector UI in the CLI
+- fall back to numbered checkpoint text with strict parsing when no richer
+  renderer is available
+
+A Clarification Card is still provider-neutral. The card decides what must be
+asked; Claude, Codex, terminal, and future web renderers decide how it is shown.
 - 선택지가 실제로 의미 있는 trade-off를 가져야 한다.
 - 답변은 `QuestionRecord`를 answered 상태로 바꾸고 `DecisionRecord`를 만든다.
 - pending question은 `CURRENT.md`에 남아야 한다.

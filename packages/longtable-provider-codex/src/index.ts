@@ -142,7 +142,11 @@ export function questionRecordToNumberedCheckpointSpec(
   const options = [
     ...record.prompt.options.map((option) => ({
       value: option.value,
-      label: option.description ? `${option.label} — ${option.description}` : option.label
+      label: [
+        option.label,
+        option.recommended ? "(Recommended)" : "",
+        option.description ? `— ${option.description}` : ""
+      ].filter(Boolean).join(" ")
     })),
     ...(record.prompt.allowOther
       ? [{

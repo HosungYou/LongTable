@@ -102,6 +102,29 @@ language surface when installed.
 If the workspace has a required pending Researcher Checkpoint, `ask` is blocked
 until `longtable decide` records an answer.
 
+When a project prompt contains tacit choices, `ask` first runs the same
+Clarification Card path used by `longtable clarify`. In an interactive terminal,
+LongTable uses selector UI and records answers immediately. In non-interactive
+contexts, it records pending required questions and prints the card so the
+researcher can answer with `longtable decide`.
+
+### `longtable clarify`
+
+Creates a Clarification Card from task context:
+
+```bash
+longtable clarify --prompt "Update the rubrics using the selected best submissions."
+longtable clarify --provider codex --print --prompt "Check LongTable question UX."
+```
+
+The command detects knowledge gaps that LongTable should not infer silently,
+creates one `QuestionRecord` per gap, marks recommended options, and prefers the
+most convenient renderer available:
+
+- native structured question UI when the provider reliably exposes it
+- terminal selector UI in the CLI
+- numbered checkpoint fallback for non-interactive or plain-text surfaces
+
 ### `longtable question`
 
 Writes a pending Researcher Checkpoint from natural-language decision context:

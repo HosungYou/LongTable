@@ -9,7 +9,7 @@ import type { Interface as ReadlineInterface } from "node:readline/promises";
 import { stdin as input, stdout as output, cwd, exit } from "node:process";
 import { dirname, resolve } from "node:path";
 import { homedir } from "node:os";
-import type { InteractionMode, PanelVisibility, ProviderKind, ResearchStage } from "@longtable/core";
+import type { InteractionMode, PanelVisibility, ProviderKind, QuestionRecord, ResearchStage } from "@longtable/core";
 import {
   buildProviderChoices,
   buildQuickSetupFlow,
@@ -59,12 +59,14 @@ import {
   appendInvocationRecordToWorkspace,
   assertWorkspaceNotBlocked,
   answerWorkspaceQuestion,
+  createWorkspaceClarificationCard,
   createWorkspaceQuestion,
   createOrUpdateProjectWorkspace,
   inspectProjectWorkspace,
   loadProjectContextFromDirectory,
   renderProjectWorkspaceSummary,
   syncCurrentWorkspaceView,
+  type LongTableProjectContext,
   type LongTableWorkspaceInspection,
   type ProjectDisagreementPreference
 } from "./project-session.js";
@@ -232,6 +234,7 @@ function usage(): string {
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
     "  longtable mcp install [--provider codex|claude|all] [--write] [--json] [--codex-config <path>] [--claude-settings <path>] [--package <spec>]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
+    "  longtable clarify --prompt <task-context> [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json] [--force]",
     "  longtable question --prompt <decision-context> [--title <text>] [--text <question>] [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json]",
     "  longtable panel [--prompt <text>] [--role <role[,role]>] [--mode review|critique|draft|commit] [--visibility synthesis_only|show_on_conflict|always_visible] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable decide [--question <id>] --answer <value-or-text> [--rationale <text>] [--provider codex|claude] [--cwd <path>] [--json]",
@@ -268,7 +271,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "start", "resume", "doctor", "status", "roles", "show", "install", "mcp", "codex", "claude", "ask", "question", "panel", "decide"].includes(command);
+    command && ["init", "start", "resume", "doctor", "status", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "panel", "decide"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -2030,6 +2033,205 @@ async function runQuestion(args: Record<string, string | boolean>): Promise<void
   console.log(`- current: ${context.currentFilePath}`);
 }
 
+function isInteractiveTerminal(): boolean {
+  return Boolean(input.isTTY && output.isTTY);
+}
+
+function questionRecordToChoices(record: QuestionRecord): SetupChoice[] {
+  return [
+    ...record.prompt.options.map((option) => ({
+      id: option.value,
+      label: option.recommended ? `${option.label} (Recommended)` : option.label,
+      description: option.description ?? "Select this option."
+    })),
+    ...(record.prompt.allowOther
+      ? [{
+          id: "other",
+          label: record.prompt.otherLabel ?? "Other",
+          description: "Type a custom answer.",
+          fallbackToText: true
+        }]
+      : [])
+  ];
+}
+
+function renderClarificationCard(questions: QuestionRecord[]): string {
+  if (questions.length === 0) {
+    return "No new clarification questions are pending for this prompt.";
+  }
+
+  const width = 44;
+  const boxLine = (text = "") => `│ ${text.padEnd(width, " ")} │`;
+  const wrap = (text: string): string[] => {
+    const words = text.split(/\s+/).filter(Boolean);
+    const wrapped: string[] = [];
+    let line = "";
+    for (const word of words) {
+      if (!line) {
+        line = word;
+        continue;
+      }
+      if (`${line} ${word}`.length > width) {
+        wrapped.push(line);
+        line = word;
+        continue;
+      }
+      line = `${line} ${word}`;
+    }
+    if (line) {
+      wrapped.push(line);
+    }
+    return wrapped.length > 0 ? wrapped : [""];
+  };
+
+  const lines = [
+    "I want to make sure I handle this in the way you actually want, so here are the choices LongTable should not infer silently:",
+    "",
+    "┌──────────────────────────────────────────────┐"
+  ];
+
+  for (const question of questions) {
+    lines.push(boxLine(question.prompt.title));
+    for (const line of wrap(question.prompt.question)) {
+      lines.push(boxLine(line));
+    }
+    for (const option of question.prompt.options) {
+      const suffix = option.recommended ? " (Recommended)" : "";
+      for (const line of wrap(`- ${option.label}${suffix}`)) {
+        lines.push(boxLine(line));
+      }
+    }
+    if (question.prompt.allowOther) {
+      lines.push(boxLine(`- ${question.prompt.otherLabel ?? "Other"}`));
+    }
+    lines.push(boxLine());
+  }
+
+  lines.push("└──────────────────────────────────────────────┘");
+  lines.push("");
+  lines.push("Answer in a terminal with `longtable clarify --prompt ...`, or record choices with `longtable decide --question <id> --answer <value>`.");
+  return lines.join("\n");
+}
+
+async function answerClarificationCardInTerminal(
+  context: LongTableProjectContext,
+  questions: QuestionRecord[],
+  provider?: ProviderKind
+): Promise<void> {
+  if (questions.length === 0) {
+    return;
+  }
+
+  const rl = createInterface({ input, output });
+  try {
+    console.log(renderBrandBanner("LongTable", "Clarification Card"));
+    console.log("");
+    for (let index = 0; index < questions.length; index += 1) {
+      const question = questions[index];
+      const prompt = renderQuestionHeader(index + 1, questions.length, question.prompt.title, question.prompt.question);
+      const answer = await promptChoice(rl, prompt, questionRecordToChoices(question));
+      await answerWorkspaceQuestion({
+        context,
+        questionId: question.id,
+        answer,
+        provider,
+        surface: "terminal_selector"
+      });
+    }
+  } finally {
+    rl.close();
+  }
+}
+
+async function runClarify(args: Record<string, string | boolean>): Promise<void> {
+  const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+  const prompt = await resolvePrompt(typeof args.prompt === "string" ? args.prompt : undefined);
+  if (!prompt) {
+    throw new Error("A task context is required. Pass --prompt <text>.");
+  }
+
+  const context = await loadProjectContextFromDirectory(workingDirectory);
+  if (!context) {
+    throw new Error("No LongTable project workspace was found here. Run this inside a project or pass --cwd.");
+  }
+
+  const provider = args.provider === "claude" ? "claude" : args.provider === "codex" ? "codex" : undefined;
+  const required = args.required === true ? true : args.advisory === true ? false : undefined;
+  const result = await createWorkspaceClarificationCard({
+    context,
+    prompt,
+    provider,
+    required,
+    force: args.force === true
+  });
+
+  if (args.json === true) {
+    console.log(
+      JSON.stringify(
+        {
+          questions: result.questions,
+          created: result.created,
+          alreadyAnswered: result.alreadyAnswered,
+          files: {
+            state: context.stateFilePath,
+            current: context.currentFilePath
+          }
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
+
+  if (args.print === true || !isInteractiveTerminal()) {
+    console.log(renderClarificationCard(result.questions));
+    return;
+  }
+
+  await answerClarificationCardInTerminal(context, result.questions, provider);
+  console.log("");
+  console.log("LongTable clarification decisions recorded");
+  console.log(`- answered: ${result.questions.length}`);
+  console.log(`- state: ${context.stateFilePath}`);
+  console.log(`- current: ${context.currentFilePath}`);
+}
+
+async function runAutomaticClarificationIfNeeded(
+  prompt: string,
+  args: Record<string, string | boolean>
+): Promise<boolean> {
+  if (args["no-clarify"] === true || args.print === true || args.json === true) {
+    return false;
+  }
+
+  const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+  const context = await loadProjectContextFromDirectory(workingDirectory);
+  if (!context) {
+    return false;
+  }
+
+  const provider = args.provider === "claude" ? "claude" : args.provider === "codex" ? "codex" : undefined;
+  const result = await createWorkspaceClarificationCard({
+    context,
+    prompt,
+    provider,
+    required: true
+  });
+
+  if (result.questions.length === 0) {
+    return false;
+  }
+
+  if (!isInteractiveTerminal()) {
+    console.log(renderClarificationCard(result.questions));
+    return true;
+  }
+
+  await answerClarificationCardInTerminal(context, result.questions, provider);
+  return false;
+}
+
 async function runAsk(args: Record<string, string | boolean>): Promise<void> {
   const prompt = await resolvePrompt(typeof args.prompt === "string" ? args.prompt : undefined);
   if (!prompt) {
@@ -2045,6 +2247,9 @@ async function runAsk(args: Record<string, string | boolean>): Promise<void> {
   }
 
   const mode = inferred === "panel" ? "review" : inferred;
+  if (await runAutomaticClarificationIfNeeded(effectivePrompt, args)) {
+    return;
+  }
   const delegatedArgs: Record<string, string | boolean> = {
     ...args,
     prompt: effectivePrompt
@@ -2445,6 +2650,11 @@ async function main(): Promise<void> {
 
   if (command === "ask") {
     await runAsk(values);
+    return;
+  }
+
+  if (command === "clarify") {
+    await runClarify(values);
     return;
   }
 

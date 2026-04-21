@@ -98,11 +98,18 @@ When a request approaches a research commitment, LongTable should not silently
 continue. It should surface a **Researcher Checkpoint**: a concise question with
 clear options, a reason for asking, and a durable record in project state.
 
+When a request contains several smaller tacit choices, LongTable uses a
+**Clarification Card** instead of one broad checkpoint. The card groups focused
+questions, marks recommended options, and records each answer as a durable
+question/decision pair. CLI runs prefer terminal selector UI; plain-text and
+non-interactive runs fall back to numbered choices.
+
 You can also call LongTable directly from the shell when you want an explicit
 debuggable route:
 
 ```bash
 longtable ask --prompt "I need to narrow this project into a defensible study."
+longtable clarify --prompt "Update the rubric using the selected exemplars."
 ```
 
 ## Provider Surfaces

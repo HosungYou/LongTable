@@ -226,6 +226,7 @@ export interface QuestionOption {
   value: string;
   label: string;
   description?: string;
+  recommended?: boolean;
 }
 
 export type QuestionPromptType = "single_choice" | "multi_choice" | "free_text";

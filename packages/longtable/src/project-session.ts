@@ -15,6 +15,7 @@ import type {
   ProviderKind,
   QuestionOption,
   QuestionAnswer,
+  QuestionSurface,
   QuestionRecord,
   ResearchState
 } from "@longtable/core";
@@ -692,6 +693,203 @@ function optionsForCheckpointFamily(family: string): QuestionOption[] {
   ];
 }
 
+interface ClarificationQuestionSpec {
+  key: string;
+  title: string;
+  question: string;
+  whyNow: string;
+  options: QuestionOption[];
+}
+
+function includesAny(prompt: string, patterns: RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(prompt));
+}
+
+function clarificationOptions(
+  first: QuestionOption,
+  second: QuestionOption,
+  third: QuestionOption,
+  fourth?: QuestionOption
+): QuestionOption[] {
+  return [first, second, third, ...(fourth ? [fourth] : [])];
+}
+
+function buildClarificationQuestionSpecs(prompt: string): ClarificationQuestionSpec[] {
+  const normalized = prompt.toLowerCase();
+  const specs: ClarificationQuestionSpec[] = [];
+
+  function push(spec: ClarificationQuestionSpec): void {
+    if (!specs.some((candidate) => candidate.key === spec.key)) {
+      specs.push(spec);
+    }
+  }
+
+  if (includesAny(normalized, [/\brubrics?\b/, /루브릭|채점기준/])) {
+    push({
+      key: "rubric_update_basis",
+      title: "Rubric update basis",
+      question: "How should LongTable use the available materials to update the rubric?",
+      whyNow: "Rubric updates can silently change grading criteria if LongTable guesses the calibration basis.",
+      options: clarificationOptions(
+        { value: "calibrate_to_exemplars", label: "Calibrate criteria to exemplars", description: "Use strong submissions to refine what each criterion means.", recommended: true },
+        { value: "polish_existing", label: "Polish existing rubric only", description: "Keep criteria stable and improve wording or consistency." },
+        { value: "rewrite_structure", label: "Restructure the rubric", description: "Change categories or levels where the materials suggest a better structure." }
+      )
+    });
+  }
+
+  if (includesAny(normalized, [/\bexemplar\b/, /\bbest submission\b/, /\bselected submission\b/, /\bTA\b/i, /우수\s*답안|예시|선정|조교/])) {
+    push({
+      key: "exemplar_use",
+      title: "Exemplar use",
+      question: "How should LongTable use selected exemplars or TA guidance?",
+      whyNow: "Exemplars can either calibrate criteria privately or become visible evidence inside the output.",
+      options: clarificationOptions(
+        { value: "calibrate_only", label: "Use as private calibration", description: "Adjust criteria using exemplars without quoting them.", recommended: true },
+        { value: "include_deidentified_excerpts", label: "Include de-identified excerpts", description: "Add short anonymized examples where they clarify quality." },
+        { value: "separate_notes", label: "Keep examples in separate notes", description: "Use exemplars outside the main artifact." }
+      )
+    });
+  }
+
+  if (includesAny(normalized, [/\binstruction/, /\bguidance\b/, /\bsource\b/, /\bfile\b/, /\bdocx?\b/, /지침|가이드|문서|파일|자료/])) {
+    push({
+      key: "source_authority",
+      title: "Source authority",
+      question: "If sources conflict or leave gaps, which source should LongTable privilege?",
+      whyNow: "Without an authority rule, LongTable may resolve conflicts by convenience rather than researcher intent.",
+      options: clarificationOptions(
+        { value: "explicit_user_instruction", label: "Your explicit instruction", description: "Use the researcher's current instruction as the highest authority.", recommended: true },
+        { value: "project_files", label: "Project files", description: "Treat supplied files or existing artifacts as authoritative." },
+        { value: "external_guidance", label: "TA or external guidance", description: "Prioritize instructor, TA, venue, or policy guidance." }
+      )
+    });
+  }
+
+  if (includesAny(normalized, [/\bdeliver\b/, /\boutput\b/, /\btracked?[- ]?change/, /\bdocx?\b/, /\bmarkdown\b/, /\btable\b/, /전달|산출물|결과물|수정\s*표시|트랙|형식|포맷/])) {
+    push({
+      key: "delivery_format",
+      title: "Delivery format",
+      question: "How should LongTable deliver the clarified output?",
+      whyNow: "Format and change-tracking choices affect whether the result is usable for review or handoff.",
+      options: clarificationOptions(
+        { value: "tracked_changes", label: "Tracked-change artifact", description: "Produce a reviewable changed version where possible.", recommended: true },
+        { value: "clean_final", label: "Clean final artifact", description: "Deliver the final version without change markup." },
+        { value: "summary_plus_artifact", label: "Summary plus artifact", description: "Include a concise change summary with the output." }
+      )
+    });
+  }
+
+  if (includesAny(normalized, [/\bupdate\b/, /\bchange\b/, /\bedit\b/, /\bfix\b/, /\bimplement\b/, /\bbuild\b/, /\bcreate\b/, /업데이트|수정|변경|구현|만들|고쳐/])) {
+    push({
+      key: "autonomy_boundary",
+      title: "Autonomy boundary",
+      question: "How much should LongTable do before checking back with you?",
+      whyNow: "Execution requests can move from advice to authorship or artifact ownership unless the boundary is explicit.",
+      options: clarificationOptions(
+        { value: "ask_then_act", label: "Clarify first, then act", description: "Ask needed questions before changing the artifact.", recommended: true },
+        { value: "act_with_defaults", label: "Act with visible defaults", description: "Proceed using recommended defaults and record them." },
+        { value: "recommend_only", label: "Recommend only", description: "Describe changes but do not alter artifacts." }
+      )
+    });
+  }
+
+  if (includesAny(normalized, [/\bperformance\b/, /\btest\b/, /\bevaluate\b/, /\bcheck\b/, /\bbenchmark\b/, /성능|테스트|평가|체크|검증/])) {
+    push({
+      key: "evaluation_target",
+      title: "Evaluation target",
+      question: "What should LongTable treat as the main performance target?",
+      whyNow: "Performance checks can optimize for UX, correctness, trigger sensitivity, or delivery reliability.",
+      options: clarificationOptions(
+        { value: "question_sensitivity", label: "Question sensitivity", description: "Check whether LongTable asks at the right knowledge-gap moments.", recommended: true },
+        { value: "renderer_convenience", label: "Renderer convenience", description: "Check whether the most convenient question UI is used." },
+        { value: "state_reliability", label: "State reliability", description: "Check whether questions and answers persist correctly." }
+      )
+    });
+  }
+
+  if (specs.length === 0) {
+    push({
+      key: "general_missing_context",
+      title: "Missing context",
+      question: "What should LongTable clarify before proceeding?",
+      whyNow: "The request can be answered in multiple ways, and choosing silently would hide a researcher judgment.",
+      options: clarificationOptions(
+        { value: "scope", label: "Clarify scope first", description: "Ask what is included and excluded before acting.", recommended: true },
+        { value: "criteria", label: "Clarify success criteria", description: "Ask what would count as a good result." },
+        { value: "proceed", label: "Proceed with visible assumptions", description: "Continue, but make assumptions explicit." }
+      )
+    });
+  }
+
+  return specs;
+}
+
+const CLARIFICATION_PROMPT_PREFIX = "Clarification prompt:";
+
+function hasClarificationPrompt(record: QuestionRecord, prompt: string): boolean {
+  return record.prompt.rationale.includes(`${CLARIFICATION_PROMPT_PREFIX} ${prompt}`);
+}
+
+export async function createWorkspaceClarificationCard(options: {
+  context: LongTableProjectContext;
+  prompt: string;
+  provider?: ProviderKind;
+  required?: boolean;
+  force?: boolean;
+}): Promise<{
+  questions: QuestionRecord[];
+  state: ResearchState;
+  created: boolean;
+  alreadyAnswered: boolean;
+}> {
+  const state = await loadResearchState(options.context.stateFilePath);
+  if (!options.force) {
+    const existing = (state.questionLog ?? []).filter((record) => hasClarificationPrompt(record, options.prompt));
+    const pending = existing.filter((record) => record.status === "pending");
+    if (pending.length > 0) {
+      return { questions: pending, state, created: false, alreadyAnswered: false };
+    }
+    if (existing.some((record) => record.status === "answered")) {
+      return { questions: [], state, created: false, alreadyAnswered: true };
+    }
+  }
+
+  const createdAt = nowIso();
+  const preferredSurfaces = options.provider === "claude"
+    ? ["native_structured", "terminal_selector", "numbered"]
+    : ["terminal_selector", "numbered", "native_structured"];
+  const questions: QuestionRecord[] = buildClarificationQuestionSpecs(options.prompt).map((spec) => ({
+    id: createId("question_record"),
+    createdAt,
+    updatedAt: createdAt,
+    status: "pending",
+    prompt: {
+      id: createId("question_prompt"),
+      checkpointKey: `clarification_${spec.key}`,
+      title: spec.title,
+      question: spec.question,
+      type: "single_choice",
+      options: spec.options,
+      allowOther: true,
+      otherLabel: "Other",
+      required: options.required ?? true,
+      source: "runtime_guidance",
+      rationale: [
+        spec.whyNow,
+        `${CLARIFICATION_PROMPT_PREFIX} ${options.prompt}`
+      ],
+      preferredSurfaces: preferredSurfaces as QuestionSurface[]
+    }
+  }));
+
+  const updated = appendQuestionRecords(state, questions);
+  await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
+  await syncCurrentWorkspaceView(options.context);
+
+  return { questions, state: updated, created: true, alreadyAnswered: false };
+}
+
 export async function createWorkspaceQuestion(options: {
   context: LongTableProjectContext;
   prompt: string;
@@ -774,6 +972,7 @@ export async function answerWorkspaceQuestion(options: {
   answer: string;
   rationale?: string;
   provider?: "codex" | "claude";
+  surface?: QuestionSurface;
 }): Promise<{
   question: QuestionRecord;
   decision: DecisionRecord;
@@ -794,7 +993,7 @@ export async function answerWorkspaceQuestion(options: {
     ...(option || explicitOther ? {} : { otherText: options.answer }),
     ...(options.rationale ? { rationale: options.rationale } : {}),
     ...(options.provider ? { provider: options.provider } : {}),
-    surface: options.provider === "claude" ? "native_structured" : "numbered"
+    surface: options.surface ?? (options.provider === "claude" ? "native_structured" : "numbered")
   };
 
   const timestamp = nowIso();

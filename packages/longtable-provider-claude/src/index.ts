@@ -175,7 +175,11 @@ export function renderStructuredQuestionRecord(
   const choices = [
     ...record.prompt.options.map((option) => ({
       id: option.value,
-      label: option.description ? `${option.label} — ${option.description}` : option.label
+      label: [
+        option.label,
+        option.recommended ? "(Recommended)" : "",
+        option.description ? `— ${option.description}` : ""
+      ].filter(Boolean).join(" ")
     })),
     ...(record.prompt.allowOther
       ? [{
