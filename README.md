@@ -134,6 +134,7 @@ surfaces and that the current project state is alive:
 
 ```bash
 longtable doctor
+longtable doctor --fix
 longtable doctor --json
 ```
 
@@ -146,6 +147,10 @@ longtable doctor --json
   recorded decisions
 
 If something is missing, the output includes the next command to run.
+`--fix` repairs safe mechanical issues: missing Codex/Claude skill files, stale
+legacy Codex prompt files, and provider runtime artifacts when a setup profile
+already exists. It does not invent a researcher profile; run `longtable init`
+first if setup is missing.
 
 ## Agent Roles
 

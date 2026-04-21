@@ -16,10 +16,14 @@ checkpoint rules, and project state.
 ```bash
 longtable doctor
 longtable status
+longtable doctor --fix
 longtable doctor --json
 ```
 
 `doctor` and `status` are equivalent at the top level.
+Advanced tests and custom installs can pass separate paths with
+`--codex-dir`, `--claude-dir`, `--codex-prompts-dir`, `--codex-runtime-path`,
+and `--claude-runtime-path`.
 
 ## What It Checks
 
@@ -48,6 +52,25 @@ between Codex and Claude Code.
 - missing project state
 - pending researcher decisions
 - healthy state with no immediate action needed
+
+## Repair Mode
+
+`longtable doctor --fix` repairs issues that do not require researcher judgment:
+
+- install missing Codex skills
+- install missing Claude Code skills
+- remove stale legacy Codex prompt files
+- regenerate Codex and Claude runtime artifacts from an existing setup profile
+
+It does not create a setup profile. If setup is missing, run:
+
+```bash
+longtable init --flow interview --provider codex --install-skills
+```
+
+This is intentional. Setup contains field, career stage, checkpoint intensity,
+authorship preferences, and other researcher-specific values that should not be
+guessed by an automated repair command.
 
 ## Expected Healthy Shape
 
@@ -81,4 +104,3 @@ Workspace:
 If the current directory is not inside a LongTable workspace, that is not an
 error. It means `doctor` can only check global provider setup until you pass
 `--cwd <project>` or run it inside a project directory.
-
