@@ -1,0 +1,132 @@
+{
+  "explicitState": {
+    "field": "HCI",
+    "careerStage": "graduate researcher",
+    "experienceLevel": "intermediate",
+    "projectName": "LongTable",
+    "disagreementPreference": "show_on_conflict",
+    "requestedPerspectives": [
+      "reviewer",
+      "theory_critic",
+      "methods_critic",
+      "measurement_auditor",
+      "ethics_reviewer",
+      "voice_keeper"
+    ],
+    "humanAuthorshipSignal": "Keep the researcher's framing and decision authority visible."
+  },
+  "workingState": {
+    "currentGoal": "Review LongTable checkpoint behavior, version alignment, and workspace policy",
+    "currentBlocker": "Verify whether Researcher Checkpoints trigger correctly after the latest version update",
+    "nextAction": "Open with the blocker, then ask LongTable to surface the first high-leverage uncertainty around \"Verify whether Researcher Checkpoints trigger correctly after the latest version update\".",
+    "openQuestions": [
+      "What would reduce the uncertainty around \"Verify whether Researcher Checkpoints trigger correctly after the latest version update\" first?",
+      "What evidence would let you decide whether \"Verify whether Researcher Checkpoints trigger correctly after the latest version update\" is a knowledge gap, a coding rule gap, or a data gap?"
+    ],
+    "activeModes": [
+      "explore"
+    ],
+    "resumeHint": "I want to continue Review LongTable checkpoint behavior, version alignment, and workspace policy. The unresolved blocker is Verify whether Researcher Checkpoints trigger correctly after the latest version update."
+  },
+  "inferredHypotheses": [],
+  "openTensions": [
+    "Verify whether Researcher Checkpoints trigger correctly after the latest version update"
+  ],
+  "decisionLog": [
+    {
+      "id": "decision_mo8qszuk_q9te40",
+      "timestamp": "2026-04-21T14:52:18.428Z",
+      "checkpointKey": "meta_decision",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered Meta-decision checkpoint: Revise the platform decision",
+      "selectedOption": "revise"
+    }
+  ],
+  "invocationLog": [],
+  "questionLog": [
+    {
+      "id": "question_record_mo8qrq3b_ihmtso",
+      "createdAt": "2026-04-21T14:51:19.126Z",
+      "updatedAt": "2026-04-21T14:52:18.428Z",
+      "status": "answered",
+      "prompt": {
+        "id": "question_prompt_mo8qrq3b_532khg",
+        "checkpointKey": "meta_decision",
+        "title": "Meta-decision checkpoint",
+        "question": "What should LongTable do before treating this platform decision as settled?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "revise",
+            "label": "Revise the platform decision",
+            "description": "Change the term, policy, or README positioning before treating it as settled."
+          },
+          {
+            "value": "evidence",
+            "label": "Gather implementation evidence first",
+            "description": "Inspect behavior or docs before committing the platform decision."
+          },
+          {
+            "value": "proceed",
+            "label": "Proceed with current decision",
+            "description": "Accept the current platform framing and continue."
+          },
+          {
+            "value": "defer",
+            "label": "Keep the decision open",
+            "description": "Do not make this platform language authoritative yet."
+          }
+        ],
+        "allowOther": true,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "rationale": [
+          "Platform language and checkpoint policy shape future LongTable behavior.",
+          "Existing unresolved tensions increase the need to keep questions visible.",
+          "Trigger family: meta_decision.",
+          "Trigger confidence: high.",
+          "Original prompt: Assess whether the Researcher Checkpoint behavior after the latest LongTable version update is technically correct and philosophically aligned. This may affect checkpoint policy, product language, and whether Codex may treat the earlier checkpoint as valid closure."
+        ],
+        "preferredSurfaces": [
+          "numbered",
+          "native_structured"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_mo8qrq3b_532khg",
+        "selectedValues": [
+          "revise"
+        ],
+        "selectedLabels": [
+          "Revise the platform decision"
+        ],
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_mo8qszuk_q9te40"
+    }
+  ],
+  "artifactRecords": [],
+  "narrativeTraces": [
+    {
+      "id": "project-session-goal",
+      "timestamp": "2026-04-21T14:50:45.640Z",
+      "source": "longtable-start",
+      "traceType": "judgment",
+      "summary": "Current session goal: Review LongTable checkpoint behavior, version alignment, and workspace policy.",
+      "visibility": "explicit",
+      "importance": "high"
+    },
+    {
+      "id": "project-session-blocker",
+      "timestamp": "2026-04-21T14:50:45.640Z",
+      "source": "longtable-start",
+      "traceType": "tension",
+      "summary": "Current session blocker: Verify whether Researcher Checkpoints trigger correctly after the latest version update.",
+      "visibility": "explicit",
+      "importance": "high"
+    }
+  ]
+}

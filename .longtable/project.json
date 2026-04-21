@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "product": "LongTable",
+  "projectName": "LongTable",
+  "projectPath": "/Volumes/External SSD/Projects/LongTable",
+  "createdAt": "2026-04-21T14:50:45.638Z",
+  "contractVersion": "workspace-v2",
+  "locale": "en",
+  "globalSetupSummary": {
+    "field": "HCI",
+    "careerStage": "graduate researcher",
+    "experienceLevel": "intermediate",
+    "checkpointIntensity": "balanced",
+    "humanAuthorshipSignal": "Keep the researcher's framing and decision authority visible.",
+    "weakestDomain": "methodology",
+    "defaultPanelPreference": "show_on_conflict"
+  }
+}

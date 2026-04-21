@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "longtable-1776783045627",
+  "createdAt": "2026-04-21T14:50:45.638Z",
+  "lastUpdatedAt": "2026-04-21T14:50:45.638Z",
+  "projectName": "LongTable",
+  "projectPath": "/Volumes/External SSD/Projects/LongTable",
+  "currentGoal": "Review LongTable checkpoint behavior, version alignment, and workspace policy",
+  "currentBlocker": "Verify whether Researcher Checkpoints trigger correctly after the latest version update",
+  "nextAction": "Open with the blocker, then ask LongTable to surface the first high-leverage uncertainty around \"Verify whether Researcher Checkpoints trigger correctly after the latest version update\".",
+  "openQuestions": [
+    "What would reduce the uncertainty around \"Verify whether Researcher Checkpoints trigger correctly after the latest version update\" first?",
+    "What evidence would let you decide whether \"Verify whether Researcher Checkpoints trigger correctly after the latest version update\" is a knowledge gap, a coding rule gap, or a data gap?"
+  ],
+  "requestedPerspectives": [
+    "reviewer",
+    "theory_critic",
+    "methods_critic",
+    "measurement_auditor",
+    "ethics_reviewer",
+    "voice_keeper"
+  ],
+  "disagreementPreference": "show_on_conflict",
+  "activeModes": [
+    "explore"
+  ],
+  "resumeHint": "I want to continue Review LongTable checkpoint behavior, version alignment, and workspace policy. The unresolved blocker is Verify whether Researcher Checkpoints trigger correctly after the latest version update.",
+  "locale": "en"
+}
