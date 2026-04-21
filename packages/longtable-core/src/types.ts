@@ -42,13 +42,15 @@ export type ProviderKind = "claude" | "codex";
 
 export type RoleKey = string;
 
-export type InvocationKind = "single_role" | "panel" | "status";
+export type InvocationKind = "single_role" | "panel" | "team_debate" | "status";
 
 export type InvocationSurface =
   | "native_parallel"
   | "generated_skill"
   | "prompt_alias"
   | "sequential_fallback"
+  | "file_backed_debate"
+  | "tmux_console"
   | "mcp_transport";
 
 export type InvocationStatus = "planned" | "running" | "completed" | "blocked" | "degraded" | "error";
@@ -188,6 +190,66 @@ export interface PanelResult {
   linkedDecisionRecordIds: string[];
 }
 
+export type TeamDebateRoundKind =
+  | "independent_review"
+  | "cross_review"
+  | "rebuttal"
+  | "convergence"
+  | "synthesis";
+
+export interface TeamDebateContribution {
+  id: string;
+  roundId: string;
+  role: RoleKey;
+  label: string;
+  targetRole?: RoleKey;
+  summary: string;
+  claims: string[];
+  objections: string[];
+  openQuestions: string[];
+  evidenceNeeds: string[];
+  tacitAssumptions: string[];
+  checkpointTriggers: string[];
+  artifactPath: string;
+}
+
+export interface TeamDebateRound {
+  id: string;
+  index: number;
+  kind: TeamDebateRoundKind;
+  title: string;
+  status: InvocationStatus;
+  artifactDir: string;
+  contributions: TeamDebateContribution[];
+}
+
+export interface TeamDebateSynthesis {
+  summary: string;
+  consensus: string[];
+  disagreements: string[];
+  unresolvedGaps: string[];
+  researcherDecisionPoints: string[];
+  recommendedCheckpoint: string;
+  artifactPath: string;
+}
+
+export interface TeamDebateRun {
+  id: string;
+  teamId: string;
+  createdAt: string;
+  updatedAt: string;
+  prompt: string;
+  roles: PanelMember[];
+  status: InvocationStatus;
+  surface: InvocationSurface;
+  roundPolicy: "fixed";
+  roundCount: number;
+  artifactRoot: string;
+  rounds: TeamDebateRound[];
+  synthesis: TeamDebateSynthesis;
+  linkedQuestionRecordIds: string[];
+}
+
 export interface InvocationRecord {
   id: string;
   createdAt: string;
@@ -198,6 +260,7 @@ export interface InvocationRecord {
   surface: InvocationSurface;
   panelPlan?: PanelPlan;
   panelResult?: PanelResult;
+  teamDebateRun?: TeamDebateRun;
   degradationReason?: string;
   error?: string;
 }
