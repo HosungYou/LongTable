@@ -39,3 +39,9 @@ Before release:
 npm run test
 npm run pack:check
 ```
+
+## Operational Record
+
+Release execution notes, npm WebAuthn/security-key authentication behavior, and
+the lockfile integrity incident are documented in
+[`RELEASE-POSTMORTEM-0.1.16.md`](./RELEASE-POSTMORTEM-0.1.16.md).
