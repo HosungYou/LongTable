@@ -127,6 +127,26 @@ use the LongTable methods critic on this design
 This mirrors the OMX/OMC pattern: commands and skills are entrypoints, while the
 workflow logic stays in shared runtime state.
 
+## Health Check
+
+Use `doctor` when you want to confirm that LongTable is wired into both provider
+surfaces and that the current project state is alive:
+
+```bash
+longtable doctor
+longtable doctor --json
+```
+
+`longtable status` is the same top-level health check. It reports:
+
+- global setup and provider runtime artifacts
+- Codex skill installation and legacy prompt files
+- Claude Code skill installation
+- the current `.longtable/` workspace, recent invocations, pending questions, and
+  recorded decisions
+
+If something is missing, the output includes the next command to run.
+
 ## Agent Roles
 
 LongTable roles are research perspectives. They can be triggered naturally by
@@ -253,6 +273,7 @@ npm run build
 - [Architecture](docs/ARCHITECTURE.md)
 - [Question Runtime](docs/QUESTION-RUNTIME.md)
 - [Invocation Log](docs/INVOCATION-LOG.md)
+- [Doctor Status](docs/DOCTOR.md)
 - [Checkpointing](docs/CHECKPOINTING.md)
 - [Memory](docs/MEMORY.md)
 - [Evidence Policy](docs/EVIDENCE-POLICY.md)

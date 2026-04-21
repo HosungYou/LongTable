@@ -2,6 +2,7 @@
 
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
+import { execSync } from "node:child_process";
 import { emitKeypressEvents } from "node:readline";
 import { createInterface } from "node:readline/promises";
 import type { Interface as ReadlineInterface } from "node:readline/promises";
@@ -26,6 +27,7 @@ import {
   type SetupFlow
 } from "@longtable/setup";
 import {
+  buildCodexSkillSpecs,
   buildCodexThinWrappedPrompt,
   installCodexSkills,
   listInstalledCodexSkills,
@@ -34,6 +36,7 @@ import {
   runCodexThinWrapper
 } from "@longtable/provider-codex";
 import {
+  buildClaudeSkillSpecs,
   installClaudeSkills,
   listInstalledClaudeSkills,
   removeClaudeSkills,
@@ -52,9 +55,11 @@ import {
   appendInvocationRecordToWorkspace,
   answerWorkspaceQuestion,
   createOrUpdateProjectWorkspace,
+  inspectProjectWorkspace,
   loadProjectContextFromDirectory,
   renderProjectWorkspaceSummary,
   syncCurrentWorkspaceView,
+  type LongTableWorkspaceInspection,
   type ProjectDisagreementPreference
 } from "./project-session.js";
 
@@ -84,6 +89,32 @@ interface ProjectInterviewAnswers {
   currentBlocker?: string;
   requestedPerspectives: string[];
   disagreementPreference: ProjectDisagreementPreference;
+}
+
+interface ProviderSkillHealth {
+  command: string;
+  commandOnPath: boolean;
+  runtimePath: string;
+  runtimeExists: boolean;
+  skillsDir: string;
+  expectedSkills: string[];
+  installedSkills: string[];
+  missingSkills: string[];
+}
+
+interface CodexSkillHealth extends ProviderSkillHealth {
+  promptsDir: string;
+  legacyPromptFilesInstalled: string[];
+}
+
+interface LongTableDoctorStatus {
+  setupPath: string;
+  setupExists: boolean;
+  providers: {
+    codex: CodexSkillHealth;
+    claude: ProviderSkillHealth;
+  };
+  workspace: LongTableWorkspaceInspection;
 }
 
 const VALID_MODES = new Set<InteractionMode>([
@@ -153,6 +184,8 @@ function usage(): string {
     "  longtable init [--flow quickstart|interview] [--provider codex|claude] [--field <field>] [--career-stage <stage>] [--experience novice|intermediate|advanced] [--checkpoint low|balanced|high] [--authorship-signal <text>] [--entry-mode explore|review|critique|draft|commit] [--weakest-domain theory|methodology|measurement|analysis|writing] [--panel-preference synthesis_only|show_on_conflict|always_visible] [--json] [--no-install] [--install-skills] [--install-prompts]",
     "  longtable start [--path <dir>] [--name <project>] [--goal <text>] [--blocker <text>] [--perspectives <role[,role]>] [--disagreement synthesis_only|show_on_conflict|always_visible] [--setup <path>] [--json]",
     "  longtable resume [--cwd <path>] [--json]",
+    "  longtable doctor [--cwd <path>] [--json]",
+    "  longtable status [--cwd <path>] [--json]",
     "  longtable roles [--json]",
     "  longtable show [--json] [--path <file>]",
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
@@ -175,6 +208,7 @@ function usage(): string {
     "  longtable start",
     "  longtable start --path ~/Research/My-Project --name \"AI Adoption Meta-Analysis\" --goal \"Narrow the review question\"",
     "  cd \"<project-path>\" && codex",
+    "  longtable doctor",
     "  longtable roles",
     "  longtable ask --prompt \"연구를 시작하고 싶어. 지금 어디서부터 좁혀야 할지 모르겠어.\"",
     "  printf '{\"provider\":\"codex\",...}' | longtable codex persist-init --stdin --install-skills",
@@ -190,7 +224,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "start", "resume", "roles", "show", "install", "codex", "claude", "ask", "panel", "decide"].includes(command);
+    command && ["init", "start", "resume", "doctor", "status", "roles", "show", "install", "codex", "claude", "ask", "panel", "decide"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -1042,6 +1076,179 @@ async function runInstall(args: Record<string, string | boolean>): Promise<void>
   console.log(renderInstallSummary(result));
 }
 
+function commandOnPath(command: "codex" | "claude"): boolean {
+  try {
+    execSync(`command -v ${command}`, { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function missingNames(expected: string[], installed: string[]): string[] {
+  const installedSet = new Set(installed);
+  return expected.filter((name) => !installedSet.has(name));
+}
+
+async function collectDoctorStatus(args: Record<string, string | boolean>): Promise<LongTableDoctorStatus> {
+  const roles = listRoleDefinitions();
+  const setupOverride = typeof args.setup === "string"
+    ? args.setup
+    : typeof args.path === "string"
+      ? args.path
+      : undefined;
+  const setupPath = resolveDefaultSetupPath(setupOverride).path;
+  const codexDir = typeof args["codex-dir"] === "string"
+    ? args["codex-dir"]
+    : typeof args.dir === "string"
+      ? args.dir
+      : undefined;
+  const claudeDir = typeof args["claude-dir"] === "string"
+    ? args["claude-dir"]
+    : typeof args.dir === "string"
+      ? args.dir
+      : undefined;
+  const codexRuntimePath = resolveDefaultRuntimeConfigPath("codex").path;
+  const claudeRuntimePath = resolveDefaultRuntimeConfigPath("claude").path;
+  const expectedCodexSkills = buildCodexSkillSpecs(roles).map((skill) => skill.name);
+  const expectedClaudeSkills = buildClaudeSkillSpecs(roles).map((skill) => skill.name);
+  const [codexSkills, claudeSkills, codexAliases, workspace] = await Promise.all([
+    listInstalledCodexSkills(roles, codexDir),
+    listInstalledClaudeSkills(roles, claudeDir),
+    listInstalledCodexPromptAliases(codexDir),
+    inspectProjectWorkspace(typeof args.cwd === "string" ? args.cwd : cwd())
+  ]);
+  const installedCodexSkills = codexSkills.map((skill) => skill.name);
+  const installedClaudeSkills = claudeSkills.map((skill) => skill.name);
+
+  return {
+    setupPath,
+    setupExists: existsSync(setupPath),
+    providers: {
+      codex: {
+        command: "codex",
+        commandOnPath: commandOnPath("codex"),
+        runtimePath: codexRuntimePath,
+        runtimeExists: existsSync(codexRuntimePath),
+        skillsDir: resolveCodexSkillsDir(codexDir),
+        expectedSkills: expectedCodexSkills,
+        installedSkills: installedCodexSkills,
+        missingSkills: missingNames(expectedCodexSkills, installedCodexSkills),
+        promptsDir: resolveCodexPromptsDir(codexDir),
+        legacyPromptFilesInstalled: codexAliases.map((alias) => alias.name)
+      },
+      claude: {
+        command: "claude",
+        commandOnPath: commandOnPath("claude"),
+        runtimePath: claudeRuntimePath,
+        runtimeExists: existsSync(claudeRuntimePath),
+        skillsDir: resolveClaudeSkillsDir(claudeDir),
+        expectedSkills: expectedClaudeSkills,
+        installedSkills: installedClaudeSkills,
+        missingSkills: missingNames(expectedClaudeSkills, installedClaudeSkills)
+      }
+    },
+    workspace
+  };
+}
+
+function renderProviderDoctorBlock(label: string, provider: ProviderSkillHealth): string[] {
+  const expectedCount = provider.expectedSkills.length;
+  const installedCount = provider.installedSkills.length;
+  return [
+    `${label}:`,
+    `- command: ${provider.commandOnPath ? "present" : "missing"} (${provider.command})`,
+    `- runtime artifact: ${provider.runtimeExists ? "present" : "missing"} (${provider.runtimePath})`,
+    `- skills: ${installedCount}/${expectedCount} installed (${provider.skillsDir})`,
+    ...(provider.missingSkills.length > 0
+      ? [`- missing skills: ${provider.missingSkills.join(", ")}`]
+      : ["- missing skills: none"])
+  ];
+}
+
+function renderDoctorStatus(status: LongTableDoctorStatus): string {
+  const lines = [
+    "LongTable doctor",
+    `- setup: ${status.setupExists ? "present" : "missing"} (${status.setupPath})`,
+    "",
+    ...renderProviderDoctorBlock("Codex", status.providers.codex),
+    `- legacy prompt files: ${status.providers.codex.legacyPromptFilesInstalled.length}`,
+    ...(status.providers.codex.legacyPromptFilesInstalled.length > 0
+      ? [`- legacy prompt names: ${status.providers.codex.legacyPromptFilesInstalled.join(", ")}`]
+      : []),
+    "",
+    ...renderProviderDoctorBlock("Claude", status.providers.claude),
+    "",
+    "Workspace:"
+  ];
+
+  if (!status.workspace.found) {
+    lines.push("- project: not found from current directory");
+  } else {
+    const workspace = status.workspace;
+    lines.push(
+      `- project: ${workspace.project?.name ?? "unknown"}`,
+      `- root: ${workspace.rootPath ?? "unknown"}`,
+      `- goal: ${workspace.session?.currentGoal ?? "unknown"}`,
+      `- invocations: ${workspace.counts?.invocations ?? 0}`,
+      `- questions: ${workspace.counts?.questions ?? 0} (${workspace.counts?.pendingQuestions ?? 0} pending, ${workspace.counts?.answeredQuestions ?? 0} answered)`,
+      `- decisions: ${workspace.counts?.decisions ?? 0}`
+    );
+    if ((workspace.recentInvocations ?? []).length > 0) {
+      lines.push("- recent invocations:");
+      for (const invocation of workspace.recentInvocations ?? []) {
+        const roles = invocation.roles.length > 0 ? invocation.roles.join(",") : "auto";
+        lines.push(`  - ${invocation.kind}/${invocation.mode} via ${invocation.surface}: ${roles} (${invocation.status})`);
+      }
+    }
+    if ((workspace.pendingQuestions ?? []).length > 0) {
+      lines.push("- pending questions:");
+      for (const question of workspace.pendingQuestions ?? []) {
+        lines.push(`  - ${question.id}: ${question.question} (${question.options.join("/")})`);
+      }
+    }
+  }
+
+  const nextActions: string[] = [];
+  if (!status.setupExists) {
+    nextActions.push("longtable init --flow interview --provider codex --install-skills");
+  }
+  if (status.providers.codex.missingSkills.length > 0) {
+    nextActions.push("longtable codex install-skills");
+  }
+  if (status.providers.claude.missingSkills.length > 0) {
+    nextActions.push("longtable claude install-skills");
+  }
+  if (status.providers.codex.legacyPromptFilesInstalled.length > 0) {
+    nextActions.push("longtable codex remove-prompts");
+  }
+  if (!status.workspace.found) {
+    nextActions.push("longtable start");
+  }
+  const firstQuestion = status.workspace.pendingQuestions?.[0];
+  if (firstQuestion) {
+    nextActions.push(`longtable decide --question ${firstQuestion.id} --answer <value>`);
+  }
+
+  if (nextActions.length > 0) {
+    lines.push("", "Next actions:");
+    for (const action of nextActions) {
+      lines.push(`- ${action}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+async function runDoctor(args: Record<string, string | boolean>): Promise<void> {
+  const status = await collectDoctorStatus(args);
+  if (args.json === true) {
+    console.log(JSON.stringify(status, null, 2));
+    return;
+  }
+  console.log(renderDoctorStatus(status));
+}
+
 async function runCodexPersistInit(args: Record<string, string | boolean>): Promise<void> {
   const { flow, provider, answers } = await readPersistAnswers(args);
   const outputValue = createPersistedSetupOutput(answers, provider, flow);
@@ -1369,7 +1576,7 @@ async function runAsk(args: Record<string, string | boolean>): Promise<void> {
   const effectivePrompt = directive.cleanedPrompt;
   const inferred = directive.mode ?? inferModeFromPrompt(effectivePrompt);
   if (inferred === "status") {
-    await runCodexSubcommand("status", args);
+    await runDoctor(args);
     return;
   }
 
@@ -1744,6 +1951,11 @@ async function main(): Promise<void> {
 
   if (command === "resume") {
     await runResume(values);
+    return;
+  }
+
+  if (command === "doctor" || command === "status") {
+    await runDoctor(values);
     return;
   }
 

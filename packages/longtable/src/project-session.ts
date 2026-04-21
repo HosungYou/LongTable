@@ -69,6 +69,61 @@ export interface LongTableProjectContext {
   metaDir: string;
 }
 
+export interface LongTableWorkspaceInspection {
+  found: boolean;
+  rootPath?: string;
+  project?: {
+    name: string;
+    path: string;
+    field: string;
+    careerStage: string;
+    checkpointIntensity: string;
+  };
+  session?: {
+    currentGoal: string;
+    currentBlocker?: string;
+    requestedPerspectives: string[];
+    disagreementPreference: ProjectDisagreementPreference;
+  };
+  files?: {
+    project: string;
+    session: string;
+    state: string;
+    current: string;
+  };
+  counts?: {
+    invocations: number;
+    questions: number;
+    pendingQuestions: number;
+    answeredQuestions: number;
+    decisions: number;
+  };
+  recentInvocations?: Array<{
+    id: string;
+    kind: string;
+    mode: string;
+    surface: string;
+    status: string;
+    roles: string[];
+    linkedQuestions: number;
+    linkedDecisions: number;
+  }>;
+  pendingQuestions?: Array<{
+    id: string;
+    title: string;
+    question: string;
+    options: string[];
+    required: boolean;
+  }>;
+  recentDecisions?: Array<{
+    id: string;
+    checkpointKey: string;
+    summary: string;
+    selectedOption?: string;
+    timestamp: string;
+  }>;
+}
+
 const CURRENT_FILE_NAME = "CURRENT.md";
 const LEGACY_ROOT_FILES = ["LONGTABLE.md", "START-HERE.md", "NEXT-STEPS.md", "SESSION-SNAPSHOT.md"];
 
@@ -306,6 +361,70 @@ function recentPendingQuestions(state: ResearchState, limit = 3): QuestionRecord
     .filter((record) => record.status === "pending")
     .slice(-limit)
     .reverse();
+}
+
+function summarizeWorkspaceInspection(
+  context: LongTableProjectContext,
+  state: ResearchState
+): LongTableWorkspaceInspection {
+  const questions = state.questionLog ?? [];
+  const pendingQuestions = questions.filter((record) => record.status === "pending");
+  const answeredQuestions = questions.filter((record) => record.status === "answered");
+
+  return {
+    found: true,
+    rootPath: context.project.projectPath,
+    project: {
+      name: context.project.projectName,
+      path: context.project.projectPath,
+      field: context.project.globalSetupSummary.field,
+      careerStage: context.project.globalSetupSummary.careerStage,
+      checkpointIntensity: context.project.globalSetupSummary.checkpointIntensity
+    },
+    session: {
+      currentGoal: context.session.currentGoal,
+      ...(context.session.currentBlocker ? { currentBlocker: context.session.currentBlocker } : {}),
+      requestedPerspectives: context.session.requestedPerspectives,
+      disagreementPreference: context.session.disagreementPreference
+    },
+    files: {
+      project: context.projectFilePath,
+      session: context.sessionFilePath,
+      state: context.stateFilePath,
+      current: context.currentFilePath
+    },
+    counts: {
+      invocations: (state.invocationLog ?? []).length,
+      questions: questions.length,
+      pendingQuestions: pendingQuestions.length,
+      answeredQuestions: answeredQuestions.length,
+      decisions: (state.decisionLog ?? []).length
+    },
+    recentInvocations: recentInvocationRecords(state, 5).map((record) => ({
+      id: record.id,
+      kind: record.intent.kind,
+      mode: record.intent.mode,
+      surface: record.surface,
+      status: record.status,
+      roles: record.intent.roles,
+      linkedQuestions: record.panelResult?.linkedQuestionRecordIds.length ?? 0,
+      linkedDecisions: record.panelResult?.linkedDecisionRecordIds.length ?? 0
+    })),
+    pendingQuestions: pendingQuestions.slice(-5).reverse().map((record) => ({
+      id: record.id,
+      title: record.prompt.title,
+      question: record.prompt.question,
+      options: record.prompt.options.map((option) => option.value),
+      required: record.prompt.required
+    })),
+    recentDecisions: (state.decisionLog ?? []).slice(-5).reverse().map((record) => ({
+      id: record.id,
+      checkpointKey: record.checkpointKey,
+      summary: record.summary,
+      ...(record.selectedOption ? { selectedOption: record.selectedOption } : {}),
+      timestamp: record.timestamp
+    }))
+  };
 }
 
 function buildProjectAgentsMd(
@@ -706,6 +825,18 @@ export async function loadProjectContextFromDirectory(
     }
     current = parent;
   }
+}
+
+export async function inspectProjectWorkspace(
+  startPath: string
+): Promise<LongTableWorkspaceInspection> {
+  const context = await loadProjectContextFromDirectory(startPath);
+  if (!context) {
+    return { found: false };
+  }
+
+  const state = await loadResearchState(context.stateFilePath);
+  return summarizeWorkspaceInspection(context, state);
 }
 
 export function renderProjectWorkspaceSummary(context: LongTableProjectContext): string {
