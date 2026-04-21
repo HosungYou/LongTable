@@ -67,7 +67,7 @@ In one sentence:
 - Provider-native Codex and Claude Code skills when you approve installation
 - Researcher Checkpoints for decisions that should not be skipped silently
 - Clarification Cards for smaller tacit choices inside a task
-- Role-based review from perspectives such as reviewer, editor, methods critic,
+- Perspective-based review from viewpoints such as reviewer, editor, methods critic,
   theory critic, measurement auditor, ethics reviewer, venue strategist, and
   voice keeper
 - Panel and debate modes that preserve visible disagreement before synthesis
@@ -154,7 +154,7 @@ claude
 - What kind of gap or tacit assumption risk is present?
 - Which kind of decision should LongTable avoid skipping?
 - Which perspectives should be consulted?
-- How visible should role disagreement be?
+- How visible should perspective disagreement be?
 
 This creates:
 
@@ -187,7 +187,12 @@ status.
 ## Everyday Use
 
 Most LongTable work should happen in natural language inside the project
-directory. You can write directly to Codex or Claude Code:
+directory. Codex and Claude Code can expose LongTable through provider-specific
+skills, but the research workflow should feel the same: say what you are trying
+to decide, and let LongTable route the request to the right research
+perspectives.
+
+Natural language first:
 
 ```text
 Help me narrow this into a defensible study.
@@ -197,7 +202,8 @@ Check whether this measurement construct is defensible.
 What evidence would a reviewer expect here?
 ```
 
-Explicit LongTable directives are available when you want a clear route:
+Explicit LongTable directives are available when you want a clearer route into
+the router:
 
 ```text
 lt explore: help me narrow this research question
@@ -208,6 +214,13 @@ lt measurement: do these scales support the construct?
 lt editor: how should I position this for a journal?
 lt panel: show disagreement before I commit this argument
 ```
+
+Provider skill shortcuts may also be available after setup. In Codex, explicit
+skill entries may appear as `$longtable` or role-specific entries such as
+`$longtable-editor`, depending on the runtime. In Claude Code, the generated
+skills use trigger phrases such as `longtable`, `lt review`, `lt panel`,
+`editor`, or `measurement auditor`. Do not treat any slash-command form as the
+LongTable contract unless your provider explicitly exposes it.
 
 Shell commands are also available for scripts, debugging, and reproducible
 workflows:
@@ -277,20 +290,16 @@ records answers as durable question and decision records. In an interactive
 terminal, LongTable prefers selector UI. In plain text or non-interactive
 contexts, it falls back to numbered options.
 
-## Roles
+## Research Perspectives
 
-LongTable roles are research perspectives, not separate personalities. They are
-used to make review pressure explicit.
+Research perspectives are the viewpoints LongTable can bring into a decision.
+They are not separate products and not separate personalities. Provider skills
+are generated from these perspectives so Codex or Claude Code can foreground
+one when the user's request calls for it.
 
-List roles:
+Common perspectives:
 
-```bash
-longtable roles
-```
-
-Common roles:
-
-| Role | What it checks |
+| Perspective | What it checks |
 | --- | --- |
 | `reviewer` | likely peer-review objections and missing support |
 | `editor` | venue fit, contribution shape, and framing |
@@ -301,7 +310,7 @@ Common roles:
 | `voice_keeper` | authorship, narrative trace, and the researcher's own voice |
 | `venue_strategist` | journal or conference positioning tradeoffs |
 
-Natural role requests:
+Natural perspective requests:
 
 ```text
 Reviewer view: what would a skeptical reviewer reject?
@@ -310,18 +319,34 @@ Measurement auditor: do these measures support the construct?
 Voice keeper: does this still sound like my argument?
 ```
 
+If you want to inspect the installed registry, use:
+
+```bash
+longtable roles
+```
+
+That command is a discovery and debugging surface. Normal research use should
+not require learning role ids first.
+
 ## Panel And Debate
 
 Use a panel when disagreement matters more than a quick answer.
 
 ```bash
 longtable panel --prompt "Review this methods section." --json
-longtable review --role methods_critic,measurement_auditor --panel --prompt "Review this design." --json
 ```
 
 Panel mode creates a provider-neutral `PanelPlan`, foregrounds role-specific
 objections, and creates a follow-up checkpoint so the researcher decides what
 happens next.
+
+When you already know the exact perspectives you want, constrain the panel with
+`--role`. This is useful for scripts, tests, and reproducible reviews, but it is
+not the default researcher path:
+
+```bash
+longtable review --role methods_critic,measurement_auditor --panel --prompt "Review this design." --json
+```
 
 For deeper agent-to-agent disagreement:
 
@@ -370,14 +395,16 @@ The HUD can show:
 - pending checkpoints
 - detected gaps or tacit assumptions
 - recent decisions
-- recent role or panel invocations
+- recent perspective or panel invocations
 
 Think of tmux as an enhanced research console, not as the LongTable core. The
 core contract remains `.longtable/` state, checkpoints, and decisions.
 
-## Provider Skills
+## Provider Adapters And Skills
 
-LongTable can install provider-native skills after setup approval.
+LongTable can install provider-native skills after setup approval. These skills
+are adapters generated from the shared LongTable perspective registry. They are
+not the source of truth, and they are not a second role system.
 
 Codex:
 
@@ -402,8 +429,13 @@ use the LongTable methods critic on this design
 ```
 
 If your Codex build exposes explicit skill shortcuts, `$longtable` is the manual
-entry. Do not rely on `/prompts`; current Codex builds may reject custom prompt
-files as slash commands.
+entry and role-specific shortcuts such as `$longtable-editor` may foreground one
+perspective. Claude Code uses generated skill files under `~/.claude/skills`
+with trigger phrases rather than a LongTable-specific slash-command contract.
+
+Legacy Codex prompt files are not the recommended surface. Do not rely on
+`/prompts`; current Codex builds may reject custom prompt files as slash
+commands.
 
 ## MCP Transport
 
@@ -505,7 +537,7 @@ longtable doctor
 longtable status
 ```
 
-Research commands:
+Research commands for explicit shell use:
 
 ```bash
 longtable ask --prompt "..."
@@ -518,6 +550,10 @@ longtable panel --prompt "..."
 longtable sentinel --prompt "..."
 ```
 
+Natural-language and provider-skill use should usually come before these shell
+routes. The shell routes are still useful for reproducible runs, tests, and
+debugging.
+
 Checkpoint commands:
 
 ```bash
@@ -529,7 +565,6 @@ longtable decide --answer <value> --rationale "..."
 Runtime and provider commands:
 
 ```bash
-longtable roles
 longtable hud --watch
 longtable hud --tmux
 longtable team --tmux --prompt "..."
@@ -538,6 +573,24 @@ longtable codex install-skills
 longtable claude install-skills
 longtable mcp install --provider all
 ```
+
+Advanced and inspection commands:
+
+```bash
+longtable roles
+longtable review --role methods_critic --prompt "..."
+longtable codex persist-init --stdin
+```
+
+Legacy compatibility commands:
+
+```bash
+longtable init
+longtable codex install-prompts
+```
+
+`init` remains a deprecated alias for `setup`. Codex prompt files are legacy;
+provider skills are the preferred adapter surface.
 
 ## Workspace Files
 
