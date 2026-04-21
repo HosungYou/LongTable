@@ -5,10 +5,11 @@
 Current hardening work remains in the `0.1.x` line. Use patch releases for
 packaging, provider adapters, checkpoint policy, documentation, and CI hardening.
 
-Reserve `0.2.0` for richer interactive question sessions, provider-native
-question rendering, and MCP transport. The `0.1.x` line may include the basic
-`longtable question -> longtable decide` state lifecycle when it remains
-provider-neutral and backward-compatible.
+Reserve `0.2.0` for richer interactive question sessions, stronger
+provider-native question rendering, and scholarly search adapters. The `0.1.x`
+line may include the basic `longtable question -> longtable decide` lifecycle
+and optional MCP transport when they remain provider-neutral and
+backward-compatible.
 
 ## Required Checks
 
@@ -41,7 +42,7 @@ git push origin main --tags
 The release workflow publishes all public workspaces when a `v0.1.*` tag is
 pushed. It requires `NPM_TOKEN` to be configured in GitHub repository secrets.
 Packages are published in dependency order: core, memory, checkpoints, setup,
-provider adapters, then CLI.
+provider adapters, CLI, then MCP.
 
 ## Package Contract
 
@@ -57,6 +58,7 @@ The publishable packages are:
 - `@longtable/provider-codex`
 - `@longtable/provider-claude`
 - `@longtable/cli`
+- `@longtable/mcp`
 
 ## Release Notes
 

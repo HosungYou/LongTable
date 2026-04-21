@@ -41,6 +41,9 @@ Provider adapters render the same `QuestionRecord` through their own transport:
 - Codex renders a numbered prompt with `other` visible when allowed.
 - Claude renders a structured question payload that can be passed to a native
   structured question surface when available.
+- MCP exposes `evaluate_checkpoint`, `create_question`, and `render_question`
+  so provider runtimes can use the same checkpoint classifier and durable
+  question records without scraping `CURRENT.md`.
 
 ## Trigger Families
 

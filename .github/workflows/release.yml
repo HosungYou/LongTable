@@ -48,6 +48,7 @@ jobs:
           publish_if_needed @longtable/provider-codex packages/longtable-provider-codex
           publish_if_needed @longtable/provider-claude packages/longtable-provider-claude
           publish_if_needed @longtable/cli packages/longtable
+          publish_if_needed @longtable/mcp packages/longtable-mcp
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

@@ -92,6 +92,7 @@ Current code-level scaffolds now cover:
 - factual, current, and external claims now require source discipline; unsupported claims must be labeled as inference or estimate
 - question runtime contracts now separate shared checkpoint judgment from Claude/Codex-specific presentation surfaces
 - panel orchestration is now scoped as provider-neutral `InvocationIntent` and `PanelPlan` semantics with provider-specific execution surfaces and sequential fallback
+- `@longtable/mcp` now exposes `longtable-state` as optional structured transport over `.longtable/` state, not as a replacement source of truth
 
 ## Core Domain Objects
 

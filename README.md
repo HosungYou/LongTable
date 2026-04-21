@@ -32,6 +32,7 @@ work inspectable across Codex and Claude Code.
 | Decision log | what the researcher actually committed to | `DecisionRecord` |
 | Evidence policy | scholar-first search and citation fit | evidence docs, future search adapters |
 | Provider adapters | native-feeling Codex/Claude entrypoints | generated skills and runtime artifacts |
+| MCP transport | structured state access for provider runtimes | `@longtable/mcp`, `longtable-state` |
 | Doctor | installation and project-state health | `longtable doctor` |
 
 ## Install
@@ -146,6 +147,55 @@ use the LongTable methods critic on this design
 
 This mirrors the OMX/OMC pattern: commands and skills are entrypoints, while the
 workflow logic stays in shared runtime state.
+
+## MCP Transport
+
+LongTable 0.1.11 adds an optional MCP server named `longtable-state`.
+
+The MCP layer is not the LongTable core and does not replace `.longtable/`.
+It exposes structured tools over the existing project state so Codex, Claude
+Code, or another MCP-capable runtime can inspect and update LongTable records
+without scraping Markdown.
+
+Install or inspect provider config:
+
+```bash
+longtable mcp install --provider all
+longtable mcp install --provider codex --write
+longtable mcp install --provider claude --write
+```
+
+By default, `longtable mcp install` only prints the config snippets. It writes
+to provider config files only when `--write` is present.
+
+Default config targets:
+
+- Codex: `~/.codex/config.toml`
+- Claude Code: `~/.claude/settings.json`
+
+The server can also be run directly:
+
+```bash
+npx -y @longtable/mcp@0.1.11
+longtable-state --self-test
+```
+
+Current tools:
+
+- `read_project`
+- `read_session`
+- `inspect_workspace`
+- `pending_questions`
+- `evaluate_checkpoint`
+- `create_question`
+- `render_question`
+- `append_decision`
+- `regenerate_current`
+
+The practical advantage is architectural rather than visual: MCP gives provider
+runtimes typed access to project/session state, checkpoint evaluation,
+QuestionRecord creation, DecisionRecord append, and `CURRENT.md` regeneration.
+The durable source of truth remains `.longtable/`.
 
 ## Researcher Checkpoints
 
@@ -362,6 +412,7 @@ npm run build
 
 - [Command Surface](docs/LONGTABLE-COMMAND-SURFACE.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [MCP Transport](docs/MCP.md)
 - [Question Runtime](docs/QUESTION-RUNTIME.md)
 - [Checkpoint Triggering](docs/CHECKPOINT-TRIGGERING.md)
 - [Researcher Checkpoints](docs/RESEARCHER-CHECKPOINTS.md)

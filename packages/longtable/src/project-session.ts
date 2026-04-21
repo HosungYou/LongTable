@@ -355,6 +355,10 @@ async function loadResearchState(stateFilePath: string): Promise<ResearchState> 
   };
 }
 
+export async function loadWorkspaceState(context: LongTableProjectContext): Promise<ResearchState> {
+  return loadResearchState(context.stateFilePath);
+}
+
 function recentInvocationRecords(state: ResearchState, limit = 3): InvocationRecord[] {
   return (state.invocationLog ?? []).slice(-limit).reverse();
 }

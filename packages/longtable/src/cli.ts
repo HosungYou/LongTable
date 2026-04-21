@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { execSync } from "node:child_process";
 import { emitKeypressEvents } from "node:readline";
 import { createInterface } from "node:readline/promises";
@@ -135,6 +135,24 @@ interface DoctorRepairResult {
   skipped: string[];
 }
 
+type McpProviderTarget = "codex" | "claude";
+
+interface McpInstallTarget {
+  provider: McpProviderTarget;
+  path: string;
+  format: "toml" | "json";
+  content: string;
+}
+
+interface McpInstallResult {
+  serverName: string;
+  packageSpec: string;
+  command: string;
+  args: string[];
+  write: boolean;
+  targets: McpInstallTarget[];
+}
+
 const VALID_MODES = new Set<InteractionMode>([
   "explore",
   "review",
@@ -161,6 +179,11 @@ const ANSI = {
   cyan: "\u001B[36m",
   green: "\u001B[32m"
 };
+
+const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
+const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.11";
+const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
+const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 
 function style(text: string, prefix: string): string {
   return `${prefix}${text}${ANSI.reset}`;
@@ -207,6 +230,7 @@ function usage(): string {
     "  longtable roles [--json]",
     "  longtable show [--json] [--path <file>]",
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
+    "  longtable mcp install [--provider codex|claude|all] [--write] [--json] [--codex-config <path>] [--claude-settings <path>] [--package <spec>]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable question --prompt <decision-context> [--title <text>] [--text <question>] [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json]",
     "  longtable panel [--prompt <text>] [--role <role[,role]>] [--mode review|critique|draft|commit] [--visibility synthesis_only|show_on_conflict|always_visible] [--print] [--json] [--setup <path>] [--cwd <path>]",
@@ -221,6 +245,7 @@ function usage(): string {
     "  longtable claude install-skills [--dir <path>]",
     "  longtable claude remove-skills [--dir <path>]",
     "  longtable claude status [--dir <path>] [--json]",
+    "  longtable mcp install --provider all",
     "",
     "Examples:",
     "  longtable init --flow interview --provider codex --install-skills",
@@ -243,13 +268,13 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "start", "resume", "doctor", "status", "roles", "show", "install", "codex", "claude", "ask", "question", "panel", "decide"].includes(command);
+    command && ["init", "start", "resume", "doctor", "status", "roles", "show", "install", "mcp", "codex", "claude", "ask", "question", "panel", "decide"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
     subcommand = undefined;
     startIndex = 1;
-  } else if (command === "codex" || command === "claude") {
+  } else if (command === "codex" || command === "claude" || command === "mcp") {
     startIndex = 2;
   } else if (directCommand) {
     subcommand = undefined;
@@ -1093,6 +1118,189 @@ async function runInstall(args: Record<string, string | boolean>): Promise<void>
     return;
   }
   console.log(renderInstallSummary(result));
+}
+
+function resolveMcpProviders(value?: string | boolean): McpProviderTarget[] {
+  if (value === "codex" || value === "claude") {
+    return [value];
+  }
+  return ["codex", "claude"];
+}
+
+function resolveMcpPackageSpec(args: Record<string, string | boolean>): string {
+  return typeof args.package === "string" && args.package.trim()
+    ? args.package.trim()
+    : `@longtable/mcp@${LONGTABLE_MCP_PACKAGE_VERSION}`;
+}
+
+function resolveCodexMcpConfigPath(args: Record<string, string | boolean>): string {
+  return resolve(
+    normalizeUserPath(
+      typeof args["codex-config"] === "string" && args["codex-config"].trim()
+        ? args["codex-config"].trim()
+        : "~/.codex/config.toml"
+    )
+  );
+}
+
+function resolveClaudeMcpSettingsPath(args: Record<string, string | boolean>): string {
+  return resolve(
+    normalizeUserPath(
+      typeof args["claude-settings"] === "string" && args["claude-settings"].trim()
+        ? args["claude-settings"].trim()
+        : "~/.claude/settings.json"
+    )
+  );
+}
+
+function escapeTomlString(value: string): string {
+  return JSON.stringify(value);
+}
+
+function renderCodexMcpBlock(serverName: string, command: string, mcpArgs: string[]): string {
+  return [
+    LONGTABLE_MCP_MARKER_START,
+    `[mcp_servers.${serverName}]`,
+    `command = ${escapeTomlString(command)}`,
+    `args = [${mcpArgs.map((arg) => escapeTomlString(arg)).join(", ")}]`,
+    LONGTABLE_MCP_MARKER_END
+  ].join("\n");
+}
+
+function replaceMarkedCodexMcpBlock(existing: string, block: string, serverName: string): string {
+  const markerPattern = new RegExp(
+    `${LONGTABLE_MCP_MARKER_START.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*?${LONGTABLE_MCP_MARKER_END.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n?`,
+    "m"
+  );
+  const serverPattern = new RegExp(
+    `\\n?\\[mcp_servers\\.${serverName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\][\\s\\S]*?(?=\\n\\[|$)`,
+    "m"
+  );
+  const trimmed = existing.replace(markerPattern, "").replace(serverPattern, "").trimEnd();
+  return trimmed ? `${trimmed}\n\n${block}\n` : `${block}\n`;
+}
+
+async function writeCodexMcpConfig(path: string, block: string, serverName: string): Promise<string> {
+  const existing = existsSync(path) ? await readFile(path, "utf8") : "";
+  const updated = replaceMarkedCodexMcpBlock(existing, block, serverName);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, updated, "utf8");
+  return updated;
+}
+
+function renderClaudeMcpJson(serverName: string, command: string, mcpArgs: string[]): string {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        [serverName]: {
+          command,
+          args: mcpArgs
+        }
+      }
+    },
+    null,
+    2
+  );
+}
+
+async function writeClaudeMcpSettings(path: string, serverName: string, command: string, mcpArgs: string[]): Promise<string> {
+  let settings: Record<string, unknown> = {};
+  if (existsSync(path)) {
+    const raw = await readFile(path, "utf8");
+    settings = raw.trim() ? JSON.parse(raw) as Record<string, unknown> : {};
+  }
+  const existingServers =
+    typeof settings.mcpServers === "object" && settings.mcpServers !== null && !Array.isArray(settings.mcpServers)
+      ? settings.mcpServers as Record<string, unknown>
+      : {};
+  settings.mcpServers = {
+    ...existingServers,
+    [serverName]: {
+      command,
+      args: mcpArgs
+    }
+  };
+  const updated = JSON.stringify(settings, null, 2);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${updated}\n`, "utf8");
+  return `${updated}\n`;
+}
+
+function renderMcpInstallSummary(result: McpInstallResult): string {
+  const lines = [
+    "LongTable MCP transport",
+    `- server: ${result.serverName}`,
+    `- package: ${result.packageSpec}`,
+    `- command: ${result.command} ${result.args.join(" ")}`,
+    `- mode: ${result.write ? "wrote provider config" : "printed config only"}`,
+    ""
+  ];
+
+  for (const target of result.targets) {
+    lines.push(`${target.provider} (${target.path})`);
+    lines.push("```" + target.format);
+    lines.push(target.content.trimEnd());
+    lines.push("```");
+    lines.push("");
+  }
+
+  if (!result.write) {
+    lines.push("Run again with `--write` to update these provider config files.");
+  }
+  return lines.join("\n").trimEnd();
+}
+
+async function runMcpSubcommand(
+  subcommand: string | undefined,
+  args: Record<string, string | boolean>
+): Promise<void> {
+  if (!subcommand || subcommand === "install" || subcommand === "print-config") {
+    const serverName =
+      typeof args.name === "string" && args.name.trim()
+        ? args.name.trim()
+        : LONGTABLE_MCP_SERVER_NAME;
+    const packageSpec = resolveMcpPackageSpec(args);
+    const command = typeof args.command === "string" && args.command.trim() ? args.command.trim() : "npx";
+    const mcpArgs = command === "npx" ? ["-y", packageSpec] : [packageSpec];
+    const providers = resolveMcpProviders(args.provider);
+    const write = args.write === true;
+    const targets: McpInstallTarget[] = [];
+
+    for (const provider of providers) {
+      if (provider === "codex") {
+        const path = resolveCodexMcpConfigPath(args);
+        const block = renderCodexMcpBlock(serverName, command, mcpArgs);
+        const content = write ? await writeCodexMcpConfig(path, block, serverName) : block;
+        targets.push({ provider, path, format: "toml", content });
+      }
+      if (provider === "claude") {
+        const path = resolveClaudeMcpSettingsPath(args);
+        const content = write
+          ? await writeClaudeMcpSettings(path, serverName, command, mcpArgs)
+          : renderClaudeMcpJson(serverName, command, mcpArgs);
+        targets.push({ provider, path, format: "json", content });
+      }
+    }
+
+    const result: McpInstallResult = {
+      serverName,
+      packageSpec,
+      command,
+      args: mcpArgs,
+      write,
+      targets
+    };
+
+    if (args.json === true) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    console.log(renderMcpInstallSummary(result));
+    return;
+  }
+
+  throw new Error("Unknown mcp subcommand.");
 }
 
 function commandOnPath(command: "codex" | "claude"): boolean {
@@ -2227,6 +2435,11 @@ async function main(): Promise<void> {
 
   if (command === "install") {
     await runInstall(values);
+    return;
+  }
+
+  if (command === "mcp") {
+    await runMcpSubcommand(subcommand, values);
     return;
   }
 

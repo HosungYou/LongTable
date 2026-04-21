@@ -14,6 +14,7 @@
 - `docs/STUDY-CONTRACT.md`
 - `docs/PERSONA-ORCHESTRATION.md`
 - `docs/QUESTION-RUNTIME.md`
+- `docs/MCP.md`
 - `docs/DIVERGA-REPOSITORY-MERGE.md`
 - `docs/LONGTABLE-COMMAND-SURFACE.md`
 - `docs/CODEX-ALIAS-OVERLAY.md`

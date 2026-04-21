@@ -145,13 +145,19 @@ Splitting repositories would make it easier for provider-specific behavior to dr
 
 ## MCP Position
 
-MCP can make runtime integration more robust, but it should be adopted after this contract is stable.
+MCP makes runtime integration more robust without replacing this contract.
 
-Useful MCP candidates:
+`@longtable/mcp` exposes `longtable-state`, a structured transport over the
+same `QuestionRecord -> DecisionRecord` lifecycle.
+
+Current MCP tools can:
 
 - read LongTable project/session state
+- inspect pending questions
+- evaluate checkpoint triggers without writing state
 - write normalized question records
+- render provider-specific question transport
 - append decision records
-- expose checkpoint evaluation as a tool
+- regenerate `CURRENT.md`
 
 MCP should not become the source of truth for checkpoint semantics. It should be a transport and integration layer over `@longtable/core` and `@longtable/checkpoints`.

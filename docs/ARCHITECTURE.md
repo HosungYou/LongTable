@@ -66,6 +66,11 @@ Refactor LongTable from a Claude-centered plugin architecture into a provider-ne
 
 Transport does not own LongTable semantics. It exposes shared package behavior to a provider runtime.
 
+The first MCP transport is `longtable-state` in `@longtable/mcp`. It exposes
+workspace inspection, checkpoint evaluation, question creation/rendering,
+decision append, and `CURRENT.md` regeneration over the existing `.longtable/`
+state contract.
+
 ## Key Principle
 
 Coordinator decides `what kind of research act is happening`; adapter decides `how the platform asks and records it`.
