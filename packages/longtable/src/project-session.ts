@@ -3,10 +3,18 @@ import { existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import {
+  appendDecisionRecord as appendDecisionToResearchState,
   appendInvocationRecord as appendInvocationToResearchState,
+  appendQuestionRecords,
   createEmptyResearchState
 } from "@longtable/memory";
-import type { InvocationRecord, ResearchState } from "@longtable/core";
+import type {
+  DecisionRecord,
+  InvocationRecord,
+  QuestionAnswer,
+  QuestionRecord,
+  ResearchState
+} from "@longtable/core";
 import type { SetupPersistedOutput } from "@longtable/setup";
 
 export type ProjectDisagreementPreference =
@@ -157,7 +165,8 @@ function buildResumeHint(session: LongTableSessionRecord): string {
 function buildCurrentGuide(
   project: LongTableProjectRecord,
   session: LongTableSessionRecord,
-  recentInvocations: InvocationRecord[] = []
+  recentInvocations: InvocationRecord[] = [],
+  pendingQuestions: QuestionRecord[] = []
 ): string {
   const locale = normalizeLocale(session.locale ?? project.locale);
   const openQuestions = session.openQuestions && session.openQuestions.length > 0
@@ -192,6 +201,17 @@ function buildCurrentGuide(
               const roles = record.intent.roles.length > 0 ? record.intent.roles.join(", ") : "auto";
               return `- ${record.intent.kind}/${record.intent.mode} via ${record.surface}: ${roles}`;
             })
+          ]
+        : []),
+      ...(pendingQuestions.length > 0
+        ? [
+            "",
+            "## 대기 중인 결정 질문",
+            ...pendingQuestions.map((record) => {
+              const options = record.prompt.options.map((option) => option.value).join("/");
+              return `- ${record.id}: ${record.prompt.question} (${options})`;
+            }),
+            "- 답변 기록: `longtable decide --question <id> --answer <value>`"
           ]
         : []),
       "",
@@ -233,6 +253,17 @@ function buildCurrentGuide(
           })
         ]
       : []),
+    ...(pendingQuestions.length > 0
+      ? [
+          "",
+          "## Pending Decision Questions",
+          ...pendingQuestions.map((record) => {
+            const options = record.prompt.options.map((option) => option.value).join("/");
+            return `- ${record.id}: ${record.prompt.question} (${options})`;
+          }),
+          "- Record an answer: `longtable decide --question <id> --answer <value>`"
+        ]
+      : []),
     "",
     "## Restart Prompt",
     `- "${resumeHint}"`,
@@ -259,6 +290,7 @@ async function loadResearchState(stateFilePath: string): Promise<ResearchState> 
     openTensions: parsed.openTensions ?? [],
     decisionLog: parsed.decisionLog ?? [],
     invocationLog: parsed.invocationLog ?? [],
+    questionLog: parsed.questionLog ?? [],
     artifactRecords: parsed.artifactRecords ?? [],
     narrativeTraces: parsed.narrativeTraces ?? [],
     ...(parsed.studyContract ? { studyContract: parsed.studyContract } : {})
@@ -267,6 +299,13 @@ async function loadResearchState(stateFilePath: string): Promise<ResearchState> 
 
 function recentInvocationRecords(state: ResearchState, limit = 3): InvocationRecord[] {
   return (state.invocationLog ?? []).slice(-limit).reverse();
+}
+
+function recentPendingQuestions(state: ResearchState, limit = 3): QuestionRecord[] {
+  return (state.questionLog ?? [])
+    .filter((record) => record.status === "pending")
+    .slice(-limit)
+    .reverse();
 }
 
 function buildProjectAgentsMd(
@@ -372,20 +411,137 @@ async function removeLegacyRootFiles(projectPath: string): Promise<void> {
 
 export async function syncCurrentWorkspaceView(context: LongTableProjectContext): Promise<string> {
   const state = await loadResearchState(context.stateFilePath);
-  const body = buildCurrentGuide(context.project, context.session, recentInvocationRecords(state));
+  const body = buildCurrentGuide(
+    context.project,
+    context.session,
+    recentInvocationRecords(state),
+    recentPendingQuestions(state)
+  );
   await writeFile(context.currentFilePath, body, "utf8");
   return context.currentFilePath;
 }
 
 export async function appendInvocationRecordToWorkspace(
   context: LongTableProjectContext,
-  invocation: InvocationRecord
+  invocation: InvocationRecord,
+  questions: QuestionRecord[] = []
 ): Promise<ResearchState> {
   const state = await loadResearchState(context.stateFilePath);
-  const updated = appendInvocationToResearchState(state, invocation);
+  const withInvocation = appendInvocationToResearchState(state, invocation);
+  const updated = questions.length > 0
+    ? appendQuestionRecords(withInvocation, questions)
+    : withInvocation;
   await writeFile(context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
   await syncCurrentWorkspaceView(context);
   return updated;
+}
+
+function createId(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function findQuestionForDecision(
+  state: ResearchState,
+  questionId?: string
+): QuestionRecord | null {
+  const pending = (state.questionLog ?? []).filter((record) => record.status === "pending");
+  if (questionId) {
+    return pending.find((record) => record.id === questionId) ?? null;
+  }
+  return pending.at(-1) ?? null;
+}
+
+function updateInvocationWithDecision(
+  invocation: InvocationRecord,
+  questionId: string,
+  decisionId: string
+): InvocationRecord {
+  if (!invocation.panelResult?.linkedQuestionRecordIds.includes(questionId)) {
+    return invocation;
+  }
+
+  const linkedDecisionRecordIds = invocation.panelResult.linkedDecisionRecordIds.includes(decisionId)
+    ? invocation.panelResult.linkedDecisionRecordIds
+    : [...invocation.panelResult.linkedDecisionRecordIds, decisionId];
+
+  return {
+    ...invocation,
+    updatedAt: nowIso(),
+    panelResult: {
+      ...invocation.panelResult,
+      updatedAt: nowIso(),
+      linkedDecisionRecordIds
+    }
+  };
+}
+
+export async function answerWorkspaceQuestion(options: {
+  context: LongTableProjectContext;
+  questionId?: string;
+  answer: string;
+  rationale?: string;
+  provider?: "codex" | "claude";
+}): Promise<{
+  question: QuestionRecord;
+  decision: DecisionRecord;
+  state: ResearchState;
+}> {
+  const state = await loadResearchState(options.context.stateFilePath);
+  const question = findQuestionForDecision(state, options.questionId);
+  if (!question) {
+    throw new Error(options.questionId ? `No pending LongTable question found for ${options.questionId}.` : "No pending LongTable question was found.");
+  }
+
+  const option = question.prompt.options.find((candidate) => candidate.value === options.answer);
+  const answer: QuestionAnswer = {
+    promptId: question.prompt.id,
+    selectedValues: [option?.value ?? "other"],
+    selectedLabels: [option?.label ?? options.answer],
+    ...(option ? {} : { otherText: options.answer }),
+    ...(options.rationale ? { rationale: options.rationale } : {}),
+    ...(options.provider ? { provider: options.provider } : {}),
+    surface: options.provider === "claude" ? "native_structured" : "numbered"
+  };
+
+  const timestamp = nowIso();
+  const decision: DecisionRecord = {
+    id: createId("decision"),
+    timestamp,
+    checkpointKey: question.prompt.checkpointKey ?? "manual",
+    level: question.prompt.required ? "adaptive_required" : "recommended",
+    mode: "commit",
+    summary: `Answered ${question.prompt.title}: ${answer.selectedLabels.join(", ")}`,
+    selectedOption: answer.selectedValues[0],
+    ...(options.rationale ? { rationale: options.rationale } : {})
+  };
+
+  const answeredQuestion: QuestionRecord = {
+    ...question,
+    updatedAt: timestamp,
+    status: "answered",
+    answer,
+    decisionRecordId: decision.id
+  };
+
+  const withQuestion = {
+    ...state,
+    questionLog: (state.questionLog ?? []).map((record) =>
+      record.id === question.id ? answeredQuestion : record
+    ),
+    invocationLog: (state.invocationLog ?? []).map((record) =>
+      updateInvocationWithDecision(record, question.id, decision.id)
+    )
+  };
+  const updated = appendDecisionToResearchState(withQuestion, decision);
+
+  await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
+  await syncCurrentWorkspaceView(options.context);
+
+  return {
+    question: answeredQuestion,
+    decision,
+    state: updated
+  };
 }
 
 export async function createOrUpdateProjectWorkspace(options: {

@@ -26,7 +26,7 @@ LongTable already has a provider-neutral foundation:
 
 The remaining layer is a complete invocation result contract and state log.
 
-Today, `routePersonas()` can say which LongTable role should shape the answer, and provider adapters can generate skill files from the same role registry. Panel planning now appends `InvocationRecord` entries to `.longtable/state.json` when run inside a LongTable project workspace. The next gap is linking those invocation records to answered checkpoint questions and final decisions.
+Today, `routePersonas()` can say which LongTable role should shape the answer, and provider adapters can generate skill files from the same role registry. Panel planning now appends `InvocationRecord` entries to `.longtable/state.json` when run inside a LongTable project workspace. It also creates a pending follow-up `QuestionRecord`; `longtable decide` answers that question, appends a `DecisionRecord`, and links the decision back to the panel invocation.
 
 ## Diverga Findings
 
@@ -99,7 +99,7 @@ Do not adopt:
 2. Generate Claude skill bundles from the canonical role registry. Done.
 3. Generate Codex skill bundles from the canonical role registry. Done.
 4. Append panel `InvocationRecord` entries to `.longtable/state.json`. Done.
-5. Link checkpoint questions and decisions to invocation records.
+5. Link panel follow-up questions and decisions to invocation records. Done.
 6. Add `longtable-state` MCP as structured transport for project/session reads, checkpoint evaluation, question records, decision append, and `CURRENT.md` regeneration.
 7. Add doctor checks that verify provider installations without treating either provider as canonical.
 

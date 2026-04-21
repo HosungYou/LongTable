@@ -7,6 +7,7 @@ import type {
   PanelPlan,
   PanelResult,
   PanelVisibility,
+  QuestionRecord,
   ProviderKind,
   RoleKey
 } from "@longtable/core";
@@ -32,6 +33,7 @@ export interface PanelFallback {
   plan: PanelPlan;
   result: PanelResult;
   invocationRecord: InvocationRecord;
+  questionRecord: QuestionRecord;
   prompt: string;
 }
 
@@ -165,9 +167,63 @@ export function buildInvocationIntent(options: {
   };
 }
 
-export function createPlannedPanelResult(
+export function createPlannedPanelQuestionRecord(
   plan: PanelPlan,
   provider?: ProviderKind
+): QuestionRecord {
+  const createdAt = nowIso();
+  return {
+    id: createId("question_record"),
+    createdAt,
+    updatedAt: createdAt,
+    status: "pending",
+    prompt: {
+      id: createId("question_prompt"),
+      checkpointKey: "panel_next_decision",
+      title: "Panel follow-up decision",
+      question: "What should LongTable treat as the next human decision after this panel review?",
+      type: "single_choice",
+      options: [
+        {
+          value: "revise",
+          label: "Revise before proceeding",
+          description: "Use the panel result to revise the claim, design, or draft first."
+        },
+        {
+          value: "evidence",
+          label: "Gather or verify evidence first",
+          description: "Do not proceed until the relevant evidence or citation support is checked."
+        },
+        {
+          value: "proceed",
+          label: "Proceed with current direction",
+          description: "Accept the risk profile and continue with the current direction."
+        },
+        {
+          value: "defer",
+          label: "Keep this open",
+          description: "Do not commit yet; keep the panel issue visible as an open tension."
+        }
+      ],
+      allowOther: true,
+      otherLabel: "Other decision",
+      required: plan.checkpointSensitivity === "high",
+      source: "runtime_guidance",
+      rationale: [
+        "Panel review creates disagreement or risk visibility that should connect to an explicit researcher decision.",
+        `Panel checkpoint sensitivity: ${plan.checkpointSensitivity}.`
+      ],
+      preferredSurfaces: provider === "claude"
+        ? ["native_structured", "numbered"]
+        : ["numbered", "native_structured"]
+    }
+  };
+}
+
+export function createPlannedPanelResult(
+  plan: PanelPlan,
+  provider?: ProviderKind,
+  linkedQuestionRecordIds: string[] = []
 ): PanelResult {
   const createdAt = nowIso();
   return {
@@ -183,7 +239,7 @@ export function createPlannedPanelResult(
       label: member.label,
       status: "planned"
     })),
-    linkedQuestionRecordIds: [],
+    linkedQuestionRecordIds,
     linkedDecisionRecordIds: []
   };
 }
@@ -263,7 +319,8 @@ export function buildPanelFallback(options: BuildPanelPlanOptions): PanelFallbac
     checkpointSensitivity: plan.checkpointSensitivity,
     rationale: plan.rationale
   });
-  const result = createPlannedPanelResult(plan, options.provider);
+  const questionRecord = createPlannedPanelQuestionRecord(plan, options.provider);
+  const result = createPlannedPanelResult(plan, options.provider, [questionRecord.id]);
   return {
     intent,
     plan,
@@ -274,6 +331,7 @@ export function buildPanelFallback(options: BuildPanelPlanOptions): PanelFallbac
       result,
       provider: options.provider
     }),
+    questionRecord,
     prompt: renderSequentialFallbackPrompt(plan)
   };
 }

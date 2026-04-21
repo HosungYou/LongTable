@@ -5,6 +5,7 @@ import type {
   InteractionMode,
   InvocationRecord,
   NarrativeTrace,
+  QuestionRecord,
   ResearchState
 } from "@longtable/core";
 
@@ -15,6 +16,7 @@ export interface MemorySummary {
   openTensions: string[];
   decisionLog: DecisionRecord[];
   invocationLog: InvocationRecord[];
+  questionLog: QuestionRecord[];
   artifactRecords: ArtifactRecord[];
   narrativeTraces: NarrativeTrace[];
 }
@@ -26,5 +28,6 @@ export type {
   InteractionMode,
   InvocationRecord,
   NarrativeTrace,
+  QuestionRecord,
   ResearchState
 } from "@longtable/core";

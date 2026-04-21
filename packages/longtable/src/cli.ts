@@ -50,6 +50,7 @@ import { PERSONA_DEFINITIONS, listRoleDefinitions } from "./personas.js";
 import { buildPanelFallback, renderPanelSummary } from "./panel.js";
 import {
   appendInvocationRecordToWorkspace,
+  answerWorkspaceQuestion,
   createOrUpdateProjectWorkspace,
   loadProjectContextFromDirectory,
   renderProjectWorkspaceSummary,
@@ -157,6 +158,7 @@ function usage(): string {
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable panel [--prompt <text>] [--role <role[,role]>] [--mode review|critique|draft|commit] [--visibility synthesis_only|show_on_conflict|always_visible] [--print] [--json] [--setup <path>] [--cwd <path>]",
+    "  longtable decide [--question <id>] --answer <value-or-text> [--rationale <text>] [--provider codex|claude] [--cwd <path>] [--json]",
     "  longtable explore|review|critique|draft|commit|submit [--prompt <text>] [--role <role[,role]>] [--panel] [--show-conflicts] [--show-deliberation] [--print] [--json] [--stage <stage>] [--setup <path>] [--cwd <path>]",
     "  longtable codex persist-init [--answers-json <json> | --stdin | full setup flags] [--install-skills] [--install-prompts] [--json]",
     "  longtable codex install-skills [--dir <path>]",
@@ -188,7 +190,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "start", "resume", "roles", "show", "install", "codex", "claude", "ask", "panel"].includes(command);
+    command && ["init", "start", "resume", "roles", "show", "install", "codex", "claude", "ask", "panel", "decide"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -1310,7 +1312,7 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
   if (projectAware.projectContextFound) {
     const context = await loadProjectContextFromDirectory(workingDirectory);
     if (context) {
-      await appendInvocationRecordToWorkspace(context, fallback.invocationRecord);
+      await appendInvocationRecordToWorkspace(context, fallback.invocationRecord, [fallback.questionRecord]);
     }
   }
 
@@ -1322,6 +1324,7 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
           plan: fallback.plan,
           result: fallback.result,
           invocationRecord: fallback.invocationRecord,
+          questionRecord: fallback.questionRecord,
           execution: {
             status: "planned",
             stableSurface: "sequential_fallback",
@@ -1386,6 +1389,53 @@ async function runAsk(args: Record<string, string | boolean>): Promise<void> {
     return;
   }
   await runModeCommand(mode, delegatedArgs);
+}
+
+async function runDecide(args: Record<string, string | boolean>): Promise<void> {
+  const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+  const answer = typeof args.answer === "string" ? args.answer.trim() : "";
+  if (!answer) {
+    throw new Error("A decision answer is required. Pass --answer <value-or-text>.");
+  }
+
+  const context = await loadProjectContextFromDirectory(workingDirectory);
+  if (!context) {
+    throw new Error("No LongTable project workspace was found here. Run this inside a project or pass --cwd.");
+  }
+
+  const provider = args.provider === "claude" ? "claude" : args.provider === "codex" ? "codex" : undefined;
+  const result = await answerWorkspaceQuestion({
+    context,
+    questionId: typeof args.question === "string" ? args.question : undefined,
+    answer,
+    rationale: typeof args.rationale === "string" ? args.rationale : undefined,
+    provider
+  });
+
+  if (args.json === true) {
+    console.log(
+      JSON.stringify(
+        {
+          question: result.question,
+          decision: result.decision,
+          files: {
+            state: context.stateFilePath,
+            current: context.currentFilePath
+          }
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
+
+  console.log("LongTable decision recorded");
+  console.log(`- question: ${result.question.id}`);
+  console.log(`- decision: ${result.decision.id}`);
+  console.log(`- answer: ${result.decision.selectedOption ?? answer}`);
+  console.log(`- state: ${context.stateFilePath}`);
+  console.log(`- current: ${context.currentFilePath}`);
 }
 
 async function runRoles(args: Record<string, string | boolean>): Promise<void> {
@@ -1719,6 +1769,11 @@ async function main(): Promise<void> {
 
   if (command === "panel") {
     await runPanelCommand(values);
+    return;
+  }
+
+  if (command === "decide") {
+    await runDecide(values);
     return;
   }
 

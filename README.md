@@ -191,7 +191,14 @@ semantics.
 
 When panel review runs inside a LongTable project workspace, LongTable appends an
 `InvocationRecord` to `.longtable/state.json` and refreshes `CURRENT.md` with the
-recent invocation summary.
+recent invocation summary. It also creates a pending follow-up `QuestionRecord`
+so the researcher can explicitly decide what happens next.
+
+Record that decision with:
+
+```bash
+longtable decide --answer evidence --rationale "Need citation support before continuing."
+```
 
 ## Evidence
 

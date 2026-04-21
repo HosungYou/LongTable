@@ -106,12 +106,14 @@ Option A 기준에서 `panel`은 native subagent나 Claude skill을 요구하지
 - `--json`은 실행 가능한 계획과 planned `PanelResult`를 보여줍니다.
 - `--print`는 provider runtime에 넘길 fallback prompt를 보여줍니다.
 - LongTable project workspace 안에서 실행되면 `.longtable/state.json`에 `InvocationRecord`를 append하고 `CURRENT.md`를 재생성합니다.
+- panel follow-up `QuestionRecord`를 생성하고, `longtable decide`로 답하면 `DecisionRecord`를 append한 뒤 invocation과 연결합니다.
 
 예:
 
 ```bash
 longtable panel --prompt "review this methods section" --json
 longtable review --role methods_critic,measurement_auditor --panel --prompt "review this methods section" --json
+longtable decide --answer evidence --rationale "Need citation support before continuing."
 ```
 
 ### Provider adapter installation

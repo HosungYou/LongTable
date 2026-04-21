@@ -10,7 +10,7 @@ after the session.
 
 ## What Gets Recorded
 
-The first implemented path is panel planning:
+The implemented path is panel planning:
 
 ```bash
 longtable panel --prompt "Review this methods section." --json
@@ -23,7 +23,7 @@ When this command runs inside a LongTable project workspace, LongTable appends a
 .longtable/state.json
 ```
 
-The record includes:
+The invocation record includes:
 
 - `InvocationIntent`: what the user asked for
 - `PanelPlan`: which roles were selected and why
@@ -31,8 +31,32 @@ The record includes:
 - provider and execution surface
 - degradation/fallback reason when native team execution is not used
 
-`CURRENT.md` is regenerated after the append and shows recent LongTable
-invocations.
+Panel planning also creates a pending `QuestionRecord` asking what human decision
+should follow the panel review. The `PanelResult` links to that question through
+`linkedQuestionRecordIds`.
+
+`CURRENT.md` is regenerated after the append and shows:
+
+- recent LongTable invocations
+- pending decision questions
+- the `longtable decide` command needed to answer them
+
+## Recording A Decision
+
+Answer a pending decision question with:
+
+```bash
+longtable decide --question <question-id> --answer evidence --rationale "Need citation support before continuing."
+```
+
+If `--question` is omitted, LongTable answers the most recent pending question.
+
+The answer does three things:
+
+1. marks the `QuestionRecord` as `answered`
+2. appends a `DecisionRecord` to `decisionLog`
+3. links the decision back to the panel `InvocationRecord` through
+   `PanelResult.linkedDecisionRecordIds`
 
 ## Why This Matters
 
@@ -53,14 +77,15 @@ Implemented:
 
 - panel invocation logging
 - `CURRENT.md` recent invocation summary
+- pending panel follow-up `QuestionRecord`
+- `longtable decide` for answering pending questions
+- `QuestionRecord -> DecisionRecord -> InvocationRecord` linking
 - backward-compatible state loading for older `.longtable/state.json` files
 
 Not yet implemented:
 
 - logging every natural-language skill activation
-- appending answered `QuestionRecord` entries
-- linking invocation records to final `DecisionRecord` entries
 - storing native provider subagent transcripts
 
-The next expansion should connect checkpoint questions and decisions to the
-invocation that produced them.
+The next expansion should apply the same lifecycle to every natural-language
+skill activation, not only explicit panel planning.

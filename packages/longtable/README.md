@@ -135,7 +135,12 @@ Codex and Claude Code without making either provider's native question or agent
 tool the source of truth.
 
 Inside a LongTable project workspace, panel planning also appends an
-`InvocationRecord` to `.longtable/state.json` and refreshes `CURRENT.md`.
+`InvocationRecord` to `.longtable/state.json`, creates a pending follow-up
+`QuestionRecord`, and refreshes `CURRENT.md`.
+
+```bash
+longtable decide --answer evidence --rationale "Need citation support before continuing."
+```
 
 Default panel roles include:
 

@@ -328,6 +328,7 @@ export interface ResearchState {
   openTensions: string[];
   decisionLog: DecisionRecord[];
   invocationLog: InvocationRecord[];
+  questionLog: QuestionRecord[];
   artifactRecords: ArtifactRecord[];
   narrativeTraces: NarrativeTrace[];
   studyContract?: StudyContract;

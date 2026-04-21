@@ -28,6 +28,7 @@ export function createEmptyResearchState(): ResearchState {
     openTensions: [],
     decisionLog: [],
     invocationLog: [],
+    questionLog: [],
     artifactRecords: [],
     narrativeTraces: []
   };
@@ -67,6 +68,7 @@ export function promoteHypothesisToExplicitState(
     openTensions: state.openTensions,
     decisionLog: state.decisionLog,
     invocationLog: state.invocationLog ?? [],
+    questionLog: state.questionLog ?? [],
     artifactRecords: state.artifactRecords,
     narrativeTraces: state.narrativeTraces,
     studyContract: state.studyContract
@@ -111,6 +113,26 @@ export function appendInvocationRecord(
   };
 }
 
+export function appendQuestionRecord(
+  state: ResearchState,
+  question: NonNullable<ResearchState["questionLog"]>[number]
+): ResearchState {
+  return {
+    ...state,
+    questionLog: [...(state.questionLog ?? []), question]
+  };
+}
+
+export function appendQuestionRecords(
+  state: ResearchState,
+  questions: NonNullable<ResearchState["questionLog"]>
+): ResearchState {
+  return {
+    ...state,
+    questionLog: [...(state.questionLog ?? []), ...questions]
+  };
+}
+
 export function recordArtifactProvenance(
   state: ResearchState,
   artifact: ArtifactRecord
@@ -149,6 +171,7 @@ export function restoreWorkingState(state: ResearchState): ResearchState {
     openTensions: [...state.openTensions],
     decisionLog: [...state.decisionLog],
     invocationLog: [...(state.invocationLog ?? [])],
+    questionLog: [...(state.questionLog ?? [])],
     artifactRecords: [...state.artifactRecords],
     narrativeTraces: [...state.narrativeTraces],
     studyContract: state.studyContract
@@ -177,6 +200,10 @@ export function summarizeForCheckpoint(
       mode === "commit" || mode === "submit"
         ? (state.invocationLog ?? []).slice(-5)
         : (state.invocationLog ?? []).slice(-2),
+    questionLog:
+      mode === "commit" || mode === "submit"
+        ? (state.questionLog ?? []).slice(-5)
+        : (state.questionLog ?? []).slice(-2),
     artifactRecords:
       mode === "submit"
         ? state.artifactRecords.slice(-5)
@@ -199,6 +226,7 @@ export function summarizeStateForMode(
     openTensions: [],
     decisionLog: [],
     invocationLog: [],
+    questionLog: [],
     artifactRecords: [],
     narrativeTraces: []
   };
@@ -221,6 +249,7 @@ export function summarizeStateForMode(
     openTensions: state.openTensions,
     decisionLog: state.decisionLog.slice(-3),
     invocationLog: (state.invocationLog ?? []).slice(-3),
+    questionLog: (state.questionLog ?? []).slice(-3),
     artifactRecords: state.artifactRecords.slice(-3),
     narrativeTraces: state.narrativeTraces.slice(-3)
   };
