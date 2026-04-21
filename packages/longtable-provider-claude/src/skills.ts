@@ -68,7 +68,8 @@ function baseSkillSpecs(): ClaudeSkillSpec[] {
         "",
         "- Treat `.longtable/` state as the project source of truth when present.",
         "- Prefer natural language over asking the researcher to run shell role commands.",
-        "- If a checkpoint is needed, ask a short structured question and wait for the researcher.",
+        "- If a Researcher Checkpoint is needed, ask a short structured question with meaningful options and wait for the researcher.",
+        "- Treat Claude's structured question surface as transport; LongTable state records are the source of truth.",
         "- Preserve open tensions and authorship instead of forcing closure.",
         "- Disclose consulted roles with `LongTable consulted: ...` when a role is foregrounded.",
         "- Label unsupported external claims as inference or estimate.",
@@ -101,6 +102,7 @@ function baseSkillSpecs(): ClaudeSkillSpec[] {
         "",
         "- Use multiple research perspectives when the request touches methods, theory, measurement, venue fit, ethics, or authorship.",
         "- Do not collapse disagreement too early.",
+        "- Use a Researcher Checkpoint before treating panel synthesis as settled.",
         "- Do not expose hidden reasoning or tool logs.",
         "- If `.longtable/` exists, align the panel with `CURRENT.md` and project state.",
         "- If `longtable panel --print --prompt \"...\"` is available, it may be used to obtain the canonical fallback prompt."
@@ -168,7 +170,7 @@ function roleSkillSpec(role: RoleDefinition): ClaudeSkillSpec {
       "- Keep the role grounded in the user's research object and project state.",
       "- Do not invent a separate role definition; this skill is an adapter generated from the LongTable role registry.",
       "- If evidence is needed, ask whether the researcher wants scholarly search or citation verification.",
-      "- If the role's judgment would change the project direction, ask a checkpoint question before closure."
+      "- If the role's judgment would change the project direction, ask a Researcher Checkpoint before closure."
     ]
   };
 }

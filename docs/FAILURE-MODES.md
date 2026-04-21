@@ -51,6 +51,9 @@ checkpoint가 보호 장치가 아니라 훈육 장치처럼 작동한다.
 - 인간은 approve button 역할만 수행
 - decision log는 남지만 real agency는 없음
 
+Researcher Checkpoint가 이름만 있고 선택지가 약하면 이 실패 모드가 강화된다.
+질문 UI가 있다는 사실보다, 옵션이 실제 연구 판단을 보존하는지가 더 중요하다.
+
 ### 6. Tool Mystification
 
 연구자가 시스템을 이해하지 못한 채 결과만 소비한다.
@@ -75,5 +78,6 @@ checkpoint가 보호 장치가 아니라 훈육 장치처럼 작동한다.
 - important mode에서 “why not” 반론을 강제
 - inferred hypothesis는 confirmation 전 explicit state로 승격 금지
 - checkpoint에서 block 이유와 stakes를 함께 제시
+- Researcher Checkpoint는 하나의 focused question과 의미 있는 선택지를 가져야 함
 - researcher-facing recap 문서를 자동 생성
 - humanization success criteria에 narrative trace 보존 포함

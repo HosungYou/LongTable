@@ -68,6 +68,7 @@ function baseSkillSpecs(): CodexSkillSpec[] {
         "- `lt review` starts with the strongest weakness, objection, or missing evidence.",
         "- `lt panel` creates a visible multi-role review with synthesis, role opinions, conflict summary, and a decision prompt.",
         "- Natural references to methods, measurement, theory, reviewer, editor, ethics, venue, or voice should foreground the matching LongTable role.",
+        "- When research responsibility is about to shift, surface a Researcher Checkpoint before closure.",
         "",
         "## Panel And Team Behavior",
         "",
@@ -80,7 +81,8 @@ function baseSkillSpecs(): CodexSkillSpec[] {
         "",
         "- Treat `.longtable/` state as the source of truth when present.",
         "- Read `CURRENT.md` when available before giving project-specific advice.",
-        "- If a checkpoint is needed, ask a concise question and wait for the researcher.",
+        "- If a Researcher Checkpoint is needed, ask a concise question with meaningful options and wait for the researcher.",
+        "- Treat provider-native question UI as transport; LongTable state records are the source of truth.",
         "- Preserve open tensions and authorship instead of forcing closure.",
         "- Label unsupported external claims as inference or estimate."
       ]
@@ -113,7 +115,7 @@ function baseSkillSpecs(): CodexSkillSpec[] {
         "## Rules",
         "",
         "- Do not collapse disagreement too early.",
-        "- Ask before treating a high-stakes research decision as settled.",
+        "- Use a Researcher Checkpoint before treating a high-stakes research decision as settled.",
         "- Use `longtable panel --print --prompt \"...\"` only as an optional canonical prompt aid, not as the user's primary interface."
       ]
     },
@@ -178,7 +180,7 @@ function roleSkillSpec(role: RoleDefinition): CodexSkillSpec {
       "- Keep the role grounded in the user's research object and project state.",
       "- Do not invent a separate role definition; this skill is an adapter generated from the LongTable role registry.",
       "- If evidence is needed, ask whether the researcher wants scholarly search or citation verification.",
-      "- If the role's judgment would change the project direction, ask a checkpoint question before closure."
+      "- If the role's judgment would change the project direction, ask a Researcher Checkpoint before closure."
     ]
   };
 }

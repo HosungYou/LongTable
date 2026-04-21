@@ -14,9 +14,25 @@ are adapters.
 - keeps a human-readable `CURRENT.md` view of the project
 - routes requests through research roles such as reviewer, methods critic, and
   measurement auditor
-- activates checkpoints when a decision needs clarification
+- activates **Researcher Checkpoints** when a decision needs clarification
 - supports panel-style disagreement before a claim or design choice is committed
 - treats scholarly evidence and citation support as first-class research objects
+
+## System Map
+
+LongTable is not a single prompt. It is a set of small systems that keep research
+work inspectable across Codex and Claude Code.
+
+| System | What It Protects | Where It Lives |
+| --- | --- | --- |
+| Research workspace | continuity across sessions | `.longtable/`, `CURRENT.md` |
+| Role router | the right research perspective at the right moment | generated Codex/Claude skills, CLI modes |
+| Panel orchestration | visible disagreement before closure | `PanelPlan`, `PanelResult`, `InvocationRecord` |
+| Researcher Checkpoints | proactive human judgment at high-stakes moments | `QuestionRecord`, provider question UI, numbered fallback |
+| Decision log | what the researcher actually committed to | `DecisionRecord` |
+| Evidence policy | scholar-first search and citation fit | evidence docs, future search adapters |
+| Provider adapters | native-feeling Codex/Claude entrypoints | generated skills and runtime artifacts |
+| Doctor | installation and project-state health | `longtable doctor` |
 
 ## Install
 
@@ -77,6 +93,10 @@ files or separate agent definitions. The router maps the phrase to a mode,
 detects relevant research roles, and then uses the strongest installed provider
 surface.
 
+When a request approaches a research commitment, LongTable should not silently
+continue. It should surface a **Researcher Checkpoint**: a concise question with
+clear options, a reason for asking, and a durable record in project state.
+
 You can also call LongTable directly from the shell when you want an explicit
 debuggable route:
 
@@ -126,6 +146,42 @@ use the LongTable methods critic on this design
 
 This mirrors the OMX/OMC pattern: commands and skills are entrypoints, while the
 workflow logic stays in shared runtime state.
+
+## Researcher Checkpoints
+
+LongTable adapts the idea behind Claude's AskUserQuestion-style interaction and
+OMX's structured approval checkpoints, but names it for research work:
+**Researcher Checkpoint**.
+
+A Researcher Checkpoint is not a generic "are you sure?" prompt. It appears when
+the system is about to treat uncertainty as settled, for example:
+
+- freezing a research question
+- choosing a theory anchor
+- committing to a method or measurement design
+- interpreting tacit researcher context
+- deciding whether a panel result needs evidence, revision, or closure
+- preparing external submission, preregistration, or public sharing
+
+The ideal shape is:
+
+```text
+Researcher Checkpoint
+Why now: this choice changes the downstream study design.
+Question: What should LongTable treat as the next human decision?
+Options: revise / gather evidence / proceed / defer
+Record: QuestionRecord -> DecisionRecord
+```
+
+Provider behavior differs:
+
+- Claude Code can use native structured question surfaces when available.
+- Codex uses numbered choices and strict parsing as the stable fallback.
+- Both providers write the same LongTable state records.
+
+This is the main difference from a plain AskUserQuestion tool. The UI is only the
+transport; the LongTable product contract is proactive, research-aware
+checkpointing with durable decision records.
 
 ## Health Check
 
@@ -225,6 +281,9 @@ Record that decision with:
 longtable decide --answer evidence --rationale "Need citation support before continuing."
 ```
 
+This panel follow-up is also a Researcher Checkpoint. It is how LongTable avoids
+turning a multi-role review into an invisible AI decision.
+
 ## Evidence
 
 LongTable should not behave like a generic web scraper. For research questions,
@@ -277,6 +336,7 @@ npm run build
 - [Command Surface](docs/LONGTABLE-COMMAND-SURFACE.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Question Runtime](docs/QUESTION-RUNTIME.md)
+- [Researcher Checkpoints](docs/RESEARCHER-CHECKPOINTS.md)
 - [Invocation Log](docs/INVOCATION-LOG.md)
 - [Doctor Status](docs/DOCTOR.md)
 - [Checkpointing](docs/CHECKPOINTING.md)

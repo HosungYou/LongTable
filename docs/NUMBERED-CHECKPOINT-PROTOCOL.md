@@ -4,6 +4,9 @@
 
 Codex-like environments may not provide a native structured question widget. LongTable therefore needs a provider-neutral blocking checkpoint interaction.
 
+This is the Codex-compatible transport for LongTable's **Researcher Checkpoint**
+concept.
+
 This is a fallback and compatibility contract, not a reason to avoid native structured question tools in providers that support them.
 
 ## Baseline Contract
@@ -40,4 +43,6 @@ Reply with:
 
 It creates a single checkpoint contract that can work in Claude, Codex, and future web interfaces.
 
-Claude can present the same contract through `AskUserQuestion`; Codex can present it through numbered text and strict parsing. Both paths must normalize to the same decision record.
+Claude can present the same Researcher Checkpoint through `AskUserQuestion`;
+Codex can present it through numbered text and strict parsing. Both paths must
+normalize to the same decision record.

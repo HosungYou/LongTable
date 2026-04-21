@@ -28,6 +28,7 @@ Refactor LongTable from a Claude-centered plugin architecture into a provider-ne
 - domain objects
 - state transitions
 - checkpoint policy engine
+- Researcher Checkpoint contract
 - decision log model
 - invocation intent model
 - panel plan/result model
@@ -51,7 +52,7 @@ Refactor LongTable from a Claude-centered plugin architecture into a provider-ne
 ### 4. Interaction Layer
 
 - setup
-- checkpoint prompts
+- Researcher Checkpoint prompts
 - review mode
 - submit mode
 - panel mode
@@ -68,6 +69,10 @@ Transport does not own LongTable semantics. It exposes shared package behavior t
 ## Key Principle
 
 Coordinator decides `what kind of research act is happening`; adapter decides `how the platform asks and records it`.
+
+For questions, this means LongTable owns the Researcher Checkpoint semantics.
+Claude, Codex, MCP, or a future web app only decide whether the checkpoint is
+rendered as native structured UI, numbered choices, terminal selector, or form.
 
 ## Panel Orchestration
 
@@ -100,3 +105,21 @@ The researcher should be able to inspect the panel result technically through st
 - linked checkpoint or question record
 
 This is not a promise to expose raw hidden reasoning. LongTable inspectability means auditable structured outputs and decision records.
+
+## Question Layer
+
+The question layer is not a chat habit. It is a state transition.
+
+```text
+commitment risk
+  -> Researcher Checkpoint
+  -> QuestionRecord
+  -> provider-rendered question surface
+  -> DecisionRecord
+  -> refreshed CURRENT.md
+```
+
+This is where LongTable differs from directly using a provider's AskUserQuestion
+tool. The native tool may render the question, but LongTable decides when the
+question is required, what options are valid, and how the answer changes project
+state.

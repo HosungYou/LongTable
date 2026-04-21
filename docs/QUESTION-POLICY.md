@@ -10,6 +10,13 @@
 
 하지만 더 중요한 건, 질문해야 할 순간에 질문하지 않는 시스템은 위험하다는 점이다.
 
+LongTable에서 이 질문 장치는 **Researcher Checkpoint**라고 부른다.
+
+Claude Code의 AskUserQuestion-style UI나 Codex의 numbered-choice fallback은
+transport일 뿐이다. LongTable의 제품 계약은 "질문할 수 있음"이 아니라,
+연구적 책임이 넘어가기 전에 연구자의 판단을 적극적으로 확인하고 그 답을
+state에 남기는 것이다.
+
 ## Must-Ask Conditions
 
 아래 조건에서는 질문을 생략하면 안 된다.
@@ -64,15 +71,57 @@
 - tacit knowledge를 다루고 있을 때
 - 사용자가 “토론”, “성찰”, “탐구”를 요청했을 때
 
+## Researcher Checkpoint Shape
+
+좋은 Researcher Checkpoint는 아래 구조를 가진다.
+
+```text
+Researcher Checkpoint
+Why now: 지금 닫으면 downstream research choice가 바뀐다.
+Question: 무엇을 LongTable가 다음 인간 결정으로 취급해야 하는가?
+Options: revise / gather evidence / proceed / defer
+Record: QuestionRecord -> DecisionRecord
+```
+
+필수 속성:
+
+- 왜 지금 묻는지 설명한다.
+- 하나의 판단만 묻는다.
+- 선택지는 2-4개로 제한한다.
+- 선택지가 실제로 의미 있는 trade-off를 가져야 한다.
+- 답변은 `QuestionRecord`를 answered 상태로 바꾸고 `DecisionRecord`를 만든다.
+- pending question은 `CURRENT.md`에 남아야 한다.
+
+## Proactive Triggering
+
+Researcher Checkpoint는 사용자가 "필요하면 질문해"라고 말했을 때만 나오는
+것이 아니다. 아래 순간에는 proactive하게 나타나야 한다.
+
+- 연구 질문을 freeze하려 할 때
+- theory anchor, method, measurement, analysis plan을 commit하려 할 때
+- tacit knowledge를 AI가 추론으로 채우려 할 때
+- panel disagreement가 synthesis 하나로 접힐 위험이 있을 때
+- evidence 없이 다음 단계로 진행하려 할 때
+- 외부 제출, preregistration, public sharing이 가까워질 때
+
+단, reversible draft나 low-stakes formatting처럼 책임이 넘어가지 않는 작업은
+interrupt보다 log-only가 낫다.
+
 ## Anti-Pattern
 
 - 질문할 필요가 있는데 action item으로 덮기
 - ambiguity가 큰데 단일 recommendation을 먼저 주기
 - 사용자가 명시하지 않은 선호를 사실처럼 전제하기
 - “필요한 질문이 있냐”고 묻고 실제론 아무 질문도 하지 않기
+- AI가 이미 결론을 정한 뒤 형식적 승인만 받기
+- 옵션이 한 방향으로 편향되어 researcher agency를 약화시키기
 
 ## Product Implication
 
 Codex/OMX 환경에서는 execution bias가 강하므로, LongTable는 question bias를 의도적으로 보정해야 한다.
 
 즉 좋은 질문 정책은 단순 UX 개선이 아니라 governance 장치다.
+
+OMX의 AskUserQuestion 패턴에서 차용할 점은 clickable UI가 아니라
+stateful checkpoint다. LongTable는 이를 연구자의 판단 리듬에 맞춰
+Researcher Checkpoint로 재해석한다.

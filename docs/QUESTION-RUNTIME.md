@@ -4,6 +4,9 @@
 
 LongTable owns the checkpoint and question semantics, but provider adapters own the presentation surface.
 
+The product-facing name for this layer is **Researcher Checkpoint**.
+`AskUserQuestion` and numbered prompts are provider transports for that layer.
+
 This means the core system decides:
 
 - whether a question is required
@@ -21,6 +24,12 @@ Provider adapters decide:
 
 The shared contract is `QuestionPrompt -> QuestionAnswer -> QuestionRecord`.
 
+At the product level, this lifecycle is described as:
+
+```text
+Researcher Checkpoint -> QuestionRecord -> DecisionRecord
+```
+
 `QuestionPrompt` is provider-neutral. It carries the checkpoint key, question text, options, required/blocking posture, source, rationale, and preferred surfaces.
 
 `QuestionAnswer` is normalized. Claude native choices, Codex numbered responses, and future web form selections should all become the same shape before they update LongTable state.
@@ -36,7 +45,7 @@ Claude should prefer native structured questions when available.
 Flow:
 
 1. checkpoint engine resolves `blocking` and runtime guidance
-2. Claude adapter converts the checkpoint into `AskUserQuestion` input
+2. Claude adapter converts the Researcher Checkpoint into `AskUserQuestion` input
 3. Claude Code presents the native question surface
 4. the selected answer is normalized into LongTable state
 
