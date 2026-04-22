@@ -35,11 +35,12 @@ function sourceBoost(card: EvidenceCard): number {
 }
 
 function supportStatus(card: EvidenceCard, matches: string[], keywords: string[]): CitationSupportStatus {
-  if (!card.abstractAvailable) {
+  if (card.verificationDepth === "metadata" || !card.abstractAvailable) {
     return "not_verified";
   }
   const ratio = keywords.length === 0 ? 0 : matches.length / keywords.length;
-  if (ratio >= 0.65) return "direct_support";
+  const fullTextChecked = card.verificationDepth === "licensed_snippet" || card.verificationDepth === "legal_full_text";
+  if (fullTextChecked && ratio >= 0.65) return "direct_support";
   if (ratio >= 0.35) return "indirect_support";
   if (ratio > 0) return "background";
   return "questionable_fit";
@@ -86,8 +87,23 @@ function scoreCard(card: EvidenceCard, intent: ResearchSearchIntent, matches: st
   return Math.max(0, Math.round(score * 10) / 10);
 }
 
+function accessStrength(card: EvidenceCard): number {
+  if (card.accessStatus === "licensed_full_text_checked") return 6;
+  if (card.accessStatus === "licensed_full_text_available") return 5;
+  if (card.accessStatus === "legal_full_text_available") return 4;
+  if (card.accessStatus === "abstract_available") return 3;
+  if (card.accessStatus === "metadata_only") return 2;
+  if (card.accessStatus === "license_unknown") return 1;
+  return 0;
+}
+
+function strongerAccess(existing: EvidenceCard, incoming: EvidenceCard): EvidenceCard {
+  return accessStrength(incoming) > accessStrength(existing) ? incoming : existing;
+}
+
 function mergeCards(existing: EvidenceCard, incoming: EvidenceCard): EvidenceCard {
   const sourceRoutes = [...new Set([...existing.sourceRoutes, ...incoming.sourceRoutes])];
+  const stronger = strongerAccess(existing, incoming);
   return {
     ...existing,
     authors: existing.authors.length > 0 ? existing.authors : incoming.authors,
@@ -104,6 +120,14 @@ function mergeCards(existing: EvidenceCard, incoming: EvidenceCard): EvidenceCar
     abstractAvailable: existing.abstractAvailable || incoming.abstractAvailable,
     legalFullTextAvailable: existing.legalFullTextAvailable || incoming.legalFullTextAvailable,
     fullTextUrl: existing.fullTextUrl ?? incoming.fullTextUrl,
+    publisher: existing.publisher ?? incoming.publisher,
+    entitlementSource: stronger.entitlementSource ?? existing.entitlementSource ?? incoming.entitlementSource,
+    collectionDepth: stronger.collectionDepth ?? existing.collectionDepth ?? incoming.collectionDepth,
+    licenseNote: stronger.licenseNote ?? existing.licenseNote ?? incoming.licenseNote,
+    publisherAccess: stronger.publisherAccess ?? existing.publisherAccess ?? incoming.publisherAccess,
+    accessStatus: stronger.accessStatus,
+    verificationDepth: stronger.verificationDepth,
+    verificationNote: stronger.verificationNote,
     citationCount: Math.max(existing.citationCount ?? 0, incoming.citationCount ?? 0) || undefined,
     researchDesign: existing.researchDesign ?? incoming.researchDesign,
     constructsOrMeasures: [...new Set([...(existing.constructsOrMeasures ?? []), ...(incoming.constructsOrMeasures ?? [])])],

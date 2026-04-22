@@ -48,6 +48,25 @@ function textResponse(payload) {
 async function mockFetch(url) {
   const parsed = new URL(url);
   if (parsed.hostname === "api.crossref.org") {
+    if (parsed.pathname.startsWith("/works/10.1234%2Ftrust.2024.1")) {
+      return jsonResponse({
+        message: {
+          DOI: "10.1234/trust.2024.1",
+          publisher: "Elsevier",
+          title: ["Trust calibration measurement in automated decision systems"],
+          URL: "https://doi.org/10.1234/trust.2024.1",
+          link: [{
+            URL: "https://api.elsevier.com/content/article/doi/10.1234%2Ftrust.2024.1?httpAccept=text%2Fplain",
+            "content-type": "text/plain",
+            "content-version": "vor",
+            "intended-application": "text-mining"
+          }],
+          license: [{
+            URL: "https://www.elsevier.com/about/policies-and-standards/text-and-data-mining/license"
+          }]
+        }
+      });
+    }
     return jsonResponse({
       message: {
         items: [{
@@ -62,6 +81,13 @@ async function mockFetch(url) {
         }]
       }
     });
+  }
+
+  if (parsed.hostname === "api.elsevier.com") {
+    if (!parsed.pathname.includes("/content/article/doi/")) {
+      throw new Error(`Unexpected Elsevier path: ${parsed.pathname}`);
+    }
+    return textResponse("Full text section. This licensed article directly validates a trust calibration measurement instrument for automated decision systems.");
   }
 
   if (parsed.hostname === "export.arxiv.org") {
@@ -222,6 +248,38 @@ const merged = run.cards.find((card) => card.doi === "10.1234/trust.2024.1");
 assert(merged, "duplicate DOI card should remain after dedupe");
 assert(merged.sourceRoutes.length >= 3, "duplicate DOI card should merge source routes");
 assert(["direct_support", "indirect_support"].includes(merged.citationSupportStatus), "merged card should have abstract-based support status");
+assert(merged.accessStatus, "merged card should expose access status");
+assert(merged.verificationNote.includes("not full-paper verified"), "abstract evidence should make verification depth explicit");
+
+const publisherProbe = await search.probePublisherAccess({
+  doi: "10.1234/trust.2024.1",
+  publisher: "elsevier",
+  env: {
+    ELSEVIER_API_KEY: "test-elsevier",
+    LONGTABLE_CONTACT_EMAIL: "researcher@example.test"
+  },
+  fetch: mockFetch
+});
+assertEqual(publisherProbe.credentialStatus, "valid", "Elsevier probe credential status");
+assertEqual(publisherProbe.entitlementStatus, "licensed_full_text_available", "Elsevier probe entitlement status");
+assertEqual(publisherProbe.collectionDepth, "licensed_snippet", "Elsevier probe collection depth");
+assert(publisherProbe.evidenceSnippet && publisherProbe.evidenceSnippet.includes("directly validates"), "Elsevier probe should extract a short snippet");
+
+const publisherRun = await search.runResearchSearch({
+  query: "trust calibration measurement instrument",
+  source: "test",
+  sources: "crossref",
+  env: {
+    ELSEVIER_API_KEY: "test-elsevier",
+    LONGTABLE_CONTACT_EMAIL: "researcher@example.test"
+  },
+  fetch: mockFetch,
+  publisherAccess: true,
+  allowPartial: true
+});
+const publisherCard = publisherRun.cards.find((card) => card.doi === "10.1234/trust.2024.1");
+assert(publisherCard.publisherAccess, "publisher access enrichment should attach probe record");
+assertEqual(publisherCard.accessStatus, "licensed_full_text_checked", "publisher-enriched access status");
 
 const cliBlocked = JSON.parse(execFileSync("node", [
   cli,
@@ -238,5 +296,21 @@ const cliBlocked = JSON.parse(execFileSync("node", [
   }
 }));
 assertEqual(cliBlocked.run.status, "blocked", "CLI non-TTY missing credential status");
+
+const cliDoctor = JSON.parse(execFileSync("node", [
+  cli,
+  "search",
+  "doctor",
+  "--json"
+], {
+  cwd: repoRoot,
+  encoding: "utf8",
+  env: {
+    PATH: process.env.PATH ?? "",
+    HOME: process.env.HOME ?? ""
+  }
+}));
+assertEqual(cliDoctor.records.length, 4, "CLI search doctor should report four publisher adapters");
+assert(cliDoctor.records.every((record) => !JSON.stringify(record).includes("test-elsevier")), "doctor output should not leak key values");
 
 console.log("search smoke passed");

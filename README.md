@@ -473,7 +473,7 @@ Default config targets:
 Run the server directly:
 
 ```bash
-npx -y @longtable/mcp@0.1.29
+npx -y @longtable/mcp@0.1.30
 longtable-state --self-test
 ```
 
@@ -535,12 +535,20 @@ Implemented scholarly routes include:
 Some sources require local environment configuration. OpenAlex uses
 `OPENALEX_API_KEY`; Unpaywall uses `LONGTABLE_CONTACT_EMAIL`; Semantic Scholar
 and NCBI can use optional keys for more reliable or higher-rate access.
+Publisher access is access-aware rather than OA-only: Elsevier, Springer
+Nature, Wiley, and Taylor & Francis can be probed through user-provided
+API/TDM credentials and institutional entitlement, while LongTable records only
+non-secret capability status and short verification snippets.
 
 The important policy is claim-level support. A source can be useful background
 while still failing to support the specific sentence attached to it.
 
 ```bash
+longtable search setup
+longtable search doctor --json
+longtable search probe --doi "10.1016/example" --publisher elsevier
 longtable search --query "trust calibration measurement" --intent measurement --record
+longtable search --query "trust calibration measurement" --publisher-access --json
 longtable search --query "does this citation support my claim?" --intent citation --source all --json
 ```
 

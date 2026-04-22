@@ -222,7 +222,11 @@ publication metadata, and research decisions that need external support.
 Examples:
 
 ```bash
+longtable search setup
+longtable search doctor --json
+longtable search probe --doi "10.1016/example" --publisher elsevier
 longtable search --query "trust calibration measurement" --intent measurement
+longtable search --query "trust calibration measurement" --publisher-access --json
 longtable search --query "trust calibration citation support" --intent citation --record
 ```
 
@@ -230,6 +234,11 @@ The command routes to scholarly metadata sources, normalizes results as
 evidence cards, deduplicates and ranks them, and optionally records the run
 under `.longtable/evidence/`. Missing credentials block non-interactive full
 router runs unless `--allow-partial` is supplied.
+
+`search setup`, `search doctor`, and `search probe` configure publisher access
+without storing secrets. They read environment variables for Elsevier, Springer
+Nature, Wiley, and Taylor & Francis, verify DOI entitlement where possible, and
+store only non-secret capability status under `~/.longtable/search-capabilities.json`.
 
 ### `longtable roles`
 

@@ -1,5 +1,6 @@
 import { buildResearchSearchIntent } from "./query.js";
 import { dedupeAndRankCards } from "./rank.js";
+import { enrichCardsWithPublisherAccess } from "./publisher-access.js";
 import {
   assessSearchSourceCapabilities,
   runSourceSearch
@@ -103,6 +104,13 @@ export async function runResearchSearch(input: RunResearchSearchInput): Promise<
   }
 
   const rankedCards = dedupeAndRankCards(cards, intent);
+  const finalCards = input.publisherAccess === true
+    ? await enrichCardsWithPublisherAccess({
+      cards: rankedCards,
+      env,
+      fetch: httpFetch
+    })
+    : rankedCards;
   const hasFailure = sourceReports.some((report) => report.status === "failed" || report.status === "skipped");
   const status: EvidenceRunStatus = hasFailure ? "partial" : "completed";
 
@@ -113,7 +121,7 @@ export async function runResearchSearch(input: RunResearchSearchInput): Promise<
     status,
     intent,
     sourceReports,
-    cards: rankedCards,
+    cards: finalCards,
     skippedSources,
     warnings: [
       ...skippedSources.map((capability) => capability.reason ?? `${capability.source} unavailable.`),

@@ -1,5 +1,6 @@
 import {
   SEARCH_SOURCES,
+  type AccessStatus,
   type EvidenceCard,
   type EvidenceDepth,
   type ResearchSearchIntent,
@@ -7,7 +8,8 @@ import {
   type SearchSourceCapability,
   type SourceSearchContext,
   type SourceSearchRequest,
-  type SourceSearchResult
+  type SourceSearchResult,
+  type VerificationDepth
 } from "./types.js";
 
 function endpoint(url: string, params: Record<string, string | number | undefined>): string {
@@ -81,6 +83,30 @@ function inferEvidenceDepth(abstract?: string, legalFullTextAvailable = false): 
   return "metadata_only";
 }
 
+function inferAccessStatus(abstract?: string, legalFullTextAvailable = false): AccessStatus {
+  if (legalFullTextAvailable) return "legal_full_text_available";
+  if (abstract) return "abstract_available";
+  return "metadata_only";
+}
+
+function inferVerificationDepth(abstract?: string): VerificationDepth {
+  if (abstract) return "abstract";
+  return "metadata";
+}
+
+function verificationNote(abstract?: string, legalFullTextAvailable = false): string {
+  if (legalFullTextAvailable && abstract) {
+    return "Legal full text URL was found, but this card is abstract-based and not full-paper verified.";
+  }
+  if (legalFullTextAvailable) {
+    return "Legal full text URL was found, but LongTable did not retrieve or verify the full text.";
+  }
+  if (abstract) {
+    return "Abstract is available; citation support is abstract-based, not full-paper verified.";
+  }
+  return "Metadata exists; citation support has not been verified against abstract or full text.";
+}
+
 function inferResearchDesign(abstract?: string): string | undefined {
   const normalized = abstract?.toLowerCase() ?? "";
   if (!normalized) return undefined;
@@ -144,6 +170,9 @@ function baseCard(input: {
     abstract,
     abstractAvailable: Boolean(abstract),
     evidenceDepth: inferEvidenceDepth(abstract, legalFullTextAvailable),
+    accessStatus: inferAccessStatus(abstract, legalFullTextAvailable),
+    verificationDepth: inferVerificationDepth(abstract),
+    verificationNote: verificationNote(abstract, legalFullTextAvailable),
     legalFullTextAvailable,
     fullTextUrl: input.fullTextUrl,
     citationCount: input.citationCount,
@@ -162,7 +191,7 @@ async function fetchJson(context: SourceSearchContext, url: string): Promise<unk
   const response = await context.fetch(url, {
     headers: {
       "accept": "application/json",
-      "user-agent": "LongTable/0.1.29 (https://github.com/HosungYou/LongTable)"
+      "user-agent": "LongTable/0.1.30 (https://github.com/HosungYou/LongTable)"
     }
   });
   if (!response.ok) {
@@ -175,7 +204,7 @@ async function fetchText(context: SourceSearchContext, url: string): Promise<str
   const response = await context.fetch(url, {
     headers: {
       "accept": "application/xml, text/xml, application/atom+xml, text/plain",
-      "user-agent": "LongTable/0.1.29 (https://github.com/HosungYou/LongTable)"
+      "user-agent": "LongTable/0.1.30 (https://github.com/HosungYou/LongTable)"
     }
   });
   if (!response.ok) {

@@ -14,8 +14,15 @@ import { classifyCheckpointTrigger } from "@longtable/checkpoints";
 import {
   assessSearchSourceCapabilities,
   buildResearchSearchIntent,
+  buildSearchCapabilitySnapshot,
+  parsePublisherTarget,
+  probePublisherAccess,
+  publisherConfigs,
   runResearchSearch,
+  searchCapabilitySnapshotPath,
+  summarizeConfiguredPublisherAccess,
   type EvidenceRun,
+  type PublisherAccessRecord,
   type SearchSourceCapability
 } from "./search/index.js";
 import {
@@ -207,7 +214,7 @@ const ANSI = {
 };
 
 const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
-const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.29";
+const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.30";
 const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
 const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 
@@ -258,7 +265,10 @@ function usage(): string {
     "  longtable show [--json] [--path <file>]",
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
     "  longtable mcp install [--provider codex|claude|all] [--write] [--checkpoint-ui off|interactive|strong] [--json] [--codex-config <path>] [--claude-settings <path>] [--package <spec>]",
-    "  longtable search --query <text> [--intent literature|theory|measurement|citation|metadata|venue] [--field <text>] [--source all|crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj,unpaywall] [--must <term[,term]>] [--exclude <term[,term]>] [--limit <n>] [--allow-partial] [--record] [--cwd <path>] [--json]",
+    "  longtable search --query <text> [--intent literature|theory|measurement|citation|metadata|venue] [--field <text>] [--source all|crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj,unpaywall] [--must <term[,term]>] [--exclude <term[,term]>] [--limit <n>] [--allow-partial] [--publisher-access] [--record] [--cwd <path>] [--json]",
+    "  longtable search setup [--doi <doi>] [--json]",
+    "  longtable search doctor [--doi <doi>] [--publisher auto|elsevier|springer_nature|wiley|taylor_francis|all] [--json]",
+    "  longtable search probe --doi <doi> [--publisher auto|elsevier|springer_nature|wiley|taylor_francis] [--json]",
     "  longtable sentinel --prompt <text> [--cwd <path>] [--json] [--record]",
     "  longtable team --prompt <text> [--role <role[,role]>] [--debate] [--rounds 3|5] [--cwd <path>] [--json]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
@@ -306,6 +316,9 @@ function parseArgs(argv: string[]): ParsedArgs {
     subcommand = undefined;
     startIndex = 1;
   } else if (command === "codex" || command === "claude" || command === "mcp") {
+    startIndex = 2;
+  } else if (command === "search" && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
+    subcommand = maybeSubcommand;
     startIndex = 2;
   } else if (directCommand) {
     subcommand = undefined;
@@ -2661,6 +2674,7 @@ function renderEvidenceRunSummary(run: EvidenceRun, recordedPath?: string): stri
     ].filter(Boolean).join(", ");
     lines.push(`  - ${card.title}`);
     lines.push(`    score: ${card.relevanceScore}; support: ${card.citationSupportStatus}; depth: ${card.evidenceDepth}; sources: ${card.sourceRoutes.join(", ")}`);
+    lines.push(`    access: ${card.accessStatus}; verification: ${card.verificationNote}`);
     if (identifiers) {
       lines.push(`    ids: ${identifiers}`);
     }
@@ -2710,7 +2724,200 @@ async function recordEvidenceRun(run: EvidenceRun, workingDirectory: string): Pr
   return evidencePath;
 }
 
-async function runSearch(args: Record<string, string | boolean>): Promise<void> {
+function renderPublisherAccessRecord(record: PublisherAccessRecord): string {
+  const envSummary = record.missingEnv.length > 0
+    ? `missing ${record.missingEnv.join(", ")}`
+    : `configured ${record.presentEnv.join(", ") || "none"}`;
+  const lines = [
+    `${record.publisher}:`,
+    `  credential: ${record.credentialStatus} (${envSummary})`,
+    `  entitlement: ${record.entitlementStatus}; tdm: ${record.tdmStatus}; depth: ${record.collectionDepth}`,
+    `  verification: ${record.verificationNote}`
+  ];
+  if (record.testedDoi) {
+    lines.push(`  tested doi: ${record.testedDoi}`);
+  }
+  if (record.endpoint) {
+    lines.push(`  endpoint: ${record.endpoint}`);
+  }
+  if (record.licenseNote) {
+    lines.push(`  license: ${record.licenseNote}`);
+  }
+  if (record.setupHint) {
+    lines.push(`  setup: ${record.setupHint}`);
+  }
+  return lines.join("\n");
+}
+
+function renderPublisherAccessRecords(title: string, records: PublisherAccessRecord[], capabilityPath?: string): string {
+  const lines = [title];
+  if (capabilityPath) {
+    lines.push(`- capability file: ${capabilityPath}`);
+  }
+  for (const record of records) {
+    lines.push(renderPublisherAccessRecord(record));
+  }
+  return lines.join("\n");
+}
+
+async function saveSearchCapabilityRecords(records: PublisherAccessRecord[]): Promise<string> {
+  const snapshotPath = searchCapabilitySnapshotPath();
+  await mkdir(dirname(snapshotPath), { recursive: true });
+  await writeJsonFile(snapshotPath, buildSearchCapabilitySnapshot(records, env));
+  return snapshotPath;
+}
+
+async function probeAllPublishers(doi: string): Promise<PublisherAccessRecord[]> {
+  const records: PublisherAccessRecord[] = [];
+  for (const publisher of publisherConfigs()) {
+    records.push(await probePublisherAccess({
+      doi,
+      publisher: publisher.publisher,
+      env
+    }));
+  }
+  return records;
+}
+
+async function runSearchProbe(args: Record<string, string | boolean>): Promise<PublisherAccessRecord[]> {
+  if (typeof args.doi !== "string" || !args.doi.trim()) {
+    throw new Error("`longtable search probe` requires --doi <doi>.");
+  }
+  const publisher = parsePublisherTarget(args.publisher);
+  const record = await probePublisherAccess({
+    doi: args.doi,
+    publisher,
+    env
+  });
+  if (args.json === true) {
+    console.log(JSON.stringify({ record }, null, 2));
+  } else {
+    console.log(renderPublisherAccessRecord(record));
+  }
+  return [record];
+}
+
+async function runSearchDoctor(args: Record<string, string | boolean>): Promise<PublisherAccessRecord[]> {
+  let records: PublisherAccessRecord[];
+  if (typeof args.doi === "string" && args.doi.trim()) {
+    if (args.publisher === "all") {
+      records = await probeAllPublishers(args.doi);
+    } else {
+      const publisher = parsePublisherTarget(args.publisher);
+      records = [await probePublisherAccess({
+        doi: args.doi,
+        publisher,
+        env
+      })];
+    }
+  } else {
+    records = summarizeConfiguredPublisherAccess(env);
+  }
+
+  const snapshotPath = searchCapabilitySnapshotPath();
+  const snapshotExists = existsSync(snapshotPath);
+  if (args.json === true) {
+    console.log(JSON.stringify({
+      capabilityFile: snapshotPath,
+      capabilityFileExists: snapshotExists,
+      records
+    }, null, 2));
+  } else {
+    console.log(renderPublisherAccessRecords("LongTable Search Publisher Access Doctor", records, snapshotPath));
+    if (!snapshotExists) {
+      console.log("- saved capabilities: none yet; run `longtable search setup` to record non-secret capability status.");
+    }
+  }
+  return records;
+}
+
+async function promptPublisherDoi(rl: ReadlineInterface, label: string, defaultDoi?: string): Promise<string | undefined> {
+  const prompt = defaultDoi
+    ? `${label} test DOI [${defaultDoi}, Enter to reuse, skip to skip]: `
+    : `${label} test DOI (Enter to skip): `;
+  const answer = (await rl.question(prompt)).trim();
+  if (!answer && defaultDoi) {
+    return defaultDoi;
+  }
+  if (!answer || /^skip$/i.test(answer)) {
+    return undefined;
+  }
+  return answer;
+}
+
+async function runInteractiveSearchSetup(defaultDoi?: string): Promise<PublisherAccessRecord[]> {
+  const rl = createInterface({ input, output });
+  const records: PublisherAccessRecord[] = [];
+  try {
+    console.log("LongTable publisher access setup");
+    console.log("LongTable does not store API keys or TDM tokens. It reads environment variables and records only non-secret capability results.");
+    console.log("");
+    for (const publisher of publisherConfigs()) {
+      console.log(`${publisher.label}`);
+      console.log(`  required env: ${publisher.requiredEnv.join(", ")}`);
+      if (publisher.optionalEnv.length > 0) {
+        console.log(`  optional env: ${publisher.optionalEnv.join(", ")}`);
+      }
+      console.log(`  ${publisher.setupHint}`);
+      const doi = await promptPublisherDoi(rl, publisher.label, defaultDoi);
+      if (doi) {
+        records.push(await probePublisherAccess({
+          doi,
+          publisher: publisher.publisher,
+          env
+        }));
+      } else {
+        const summary = summarizeConfiguredPublisherAccess(env)
+          .find((record) => record.publisher === publisher.publisher);
+        if (summary) {
+          records.push(summary);
+        }
+      }
+      console.log(renderPublisherAccessRecord(records[records.length - 1]));
+      console.log("");
+    }
+  } finally {
+    rl.close();
+  }
+  return records;
+}
+
+async function runSearchSetup(args: Record<string, string | boolean>): Promise<void> {
+  const defaultDoi = typeof args.doi === "string" ? args.doi : undefined;
+  const records = input.isTTY && output.isTTY && args.json !== true
+    ? await runInteractiveSearchSetup(defaultDoi)
+    : defaultDoi
+      ? await probeAllPublishers(defaultDoi)
+      : summarizeConfiguredPublisherAccess(env);
+  const snapshotPath = await saveSearchCapabilityRecords(records);
+
+  if (args.json === true) {
+    console.log(JSON.stringify({
+      capabilityFile: snapshotPath,
+      snapshot: buildSearchCapabilitySnapshot(records, env)
+    }, null, 2));
+    return;
+  }
+  console.log(renderPublisherAccessRecords("LongTable Search Publisher Access Setup", records, snapshotPath));
+}
+
+async function runSearch(subcommand: string | undefined, args: Record<string, string | boolean>): Promise<void> {
+  if (subcommand === "probe") {
+    await runSearchProbe(args);
+    return;
+  }
+  if (subcommand === "doctor" || subcommand === "status") {
+    await runSearchDoctor(args);
+    return;
+  }
+  if (subcommand === "setup") {
+    await runSearchSetup(args);
+    return;
+  }
+  if (subcommand) {
+    throw new Error(`Unknown search subcommand: ${subcommand}`);
+  }
+
   const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
   const projectContext = await loadProjectContextFromDirectory(workingDirectory);
   const searchInput = {
@@ -2739,7 +2946,8 @@ async function runSearch(args: Record<string, string | boolean>): Promise<void> 
   const run = await runResearchSearch({
     ...searchInput,
     env,
-    allowPartial
+    allowPartial,
+    publisherAccess: args["publisher-access"] === true
   });
 
   let recordedPath: string | undefined;
@@ -3727,7 +3935,7 @@ async function main(): Promise<void> {
   }
 
   if (command === "search") {
-    await runSearch(values);
+    await runSearch(subcommand, values);
     return;
   }
 

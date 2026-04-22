@@ -72,6 +72,34 @@ LongTable should prefer source-specific scholarly routes before generic web sear
 | DOAJ | open-access journal/article metadata | useful for OA filtering; API behavior should be verified during implementation |
 | Unpaywall | legal open-access location lookup by DOI | email parameter required |
 
+### Licensed publisher access
+
+LongTable should not restrict scholarly discovery to open-access material.
+Springer Nature, Elsevier/ScienceDirect, Wiley, and Taylor & Francis records can
+be relevant even when full text is licensed. LongTable therefore separates:
+
+- scholarly relevance
+- credential presence
+- institutional entitlement
+- TDM permission
+- collection depth
+
+Publisher access must use user-provided credentials and licensed TDM routes. It
+must not use browser-login scraping, CAPTCHA bypassing, or paywall workarounds.
+
+Supported setup posture:
+
+| Publisher | Environment variables | What LongTable verifies |
+| --- | --- | --- |
+| Elsevier / ScienceDirect | `ELSEVIER_API_KEY`, optional `ELSEVIER_INST_TOKEN`, `ELSEVIER_AUTHTOKEN` | API credential, entitlement response, short licensed snippet when returned |
+| Springer Nature | `SPRINGER_NATURE_API_KEY`, optional `SPRINGER_NATURE_TDM_API_KEY`, `SPRINGER_NATURE_TDM_ENDPOINT` | metadata API response; licensed full-text only when a TDM endpoint is configured |
+| Wiley | `WILEY_TDM_TOKEN` or `WILEY_TDM_CLIENT_TOKEN` | TDM token response for a DOI |
+| Taylor & Francis | `TANDF_TDM_TOKEN`/`TANDF_TDM_ENDPOINT` or `TAYLOR_FRANCIS_*` equivalents | configured institutional TDM endpoint, otherwise license-review status |
+
+`longtable search setup` stores only non-secret capability results under
+`~/.longtable/search-capabilities.json`; it does not store keys, tokens, or full
+text.
+
 ### General web fallback
 
 Generic web search should be a fallback when:
@@ -103,6 +131,18 @@ Recommended setup fields:
 - `OPENALEX_API_KEY`
 - `SEMANTIC_SCHOLAR_API_KEY`
 - `NCBI_API_KEY`
+- `ELSEVIER_API_KEY`
+- `ELSEVIER_INST_TOKEN`
+- `ELSEVIER_AUTHTOKEN`
+- `SPRINGER_NATURE_API_KEY`
+- `SPRINGER_NATURE_TDM_API_KEY`
+- `SPRINGER_NATURE_TDM_ENDPOINT`
+- `WILEY_TDM_TOKEN`
+- `WILEY_TDM_CLIENT_TOKEN`
+- `TANDF_TDM_TOKEN`
+- `TANDF_TDM_ENDPOINT`
+- `TAYLOR_FRANCIS_TDM_TOKEN`
+- `TAYLOR_FRANCIS_TDM_ENDPOINT`
 
 Derived use:
 
@@ -110,6 +150,9 @@ Derived use:
 - Unpaywall requires a real email parameter.
 - OpenAlex should use an API key for reliable API usage.
 - Semantic Scholar and NCBI can run without keys in light use, but keys improve reliability or rate limits.
+- Publisher credentials are optional and are read from environment variables.
+- `longtable search setup` and `longtable search probe` verify credentials with
+  DOI probes and record only capability status.
 
 Do not store credentials in project `CURRENT.md`, `AGENTS.md`, or researcher-facing summaries.
 
@@ -171,10 +214,15 @@ LongTable should be explicit about source depth:
 - metadata only
 - abstract only
 - full text available
+- licensed full text checked
+- access denied
+- license unknown
 - full text not legally available
 - secondary summary only
 
 If only metadata or abstract is available, LongTable must not claim full-paper verification.
+`direct_support` should be reserved for claim checks against licensed snippets
+or other full-text evidence, not metadata or keyword overlap alone.
 
 ## Evidence Card
 
@@ -190,6 +238,9 @@ Recommended card fields:
 - source route used
 - abstract availability
 - legal full-text availability
+- licensed publisher access status
+- entitlement source and TDM status
+- collection depth
 - research design, if visible
 - constructs or measures, if visible
 - main finding, if visible
@@ -237,11 +288,16 @@ Unpaywall, then normalize results as `EvidenceCard` records.
 V1 behavior:
 
 - environment-variable credentials only; project files do not store API keys
+- `longtable search setup`, `search doctor`, and `search probe` verify
+  publisher credentials and entitlement scope without storing secrets
+- publisher adapters cover Elsevier, Springer Nature, Wiley, and Taylor &
+  Francis with graceful metadata-only fallback
 - partial-search confirmation when requested sources are unavailable
 - DOI/PMID/arXiv/OpenAlex/Semantic Scholar/title deduplication
 - relevance ranking from keyword overlap, recency, citation count, source
   signal, and full-text availability
-- metadata/abstract-based citation support labels only
+- metadata/abstract-based citation support labels are conservative and do not
+  claim full-paper verification
 - optional `--record` storage under `.longtable/evidence/<run-id>.json`
 
 ## Implementation Sequence
@@ -252,13 +308,15 @@ V1 behavior:
    and Unpaywall routes behind capability checks.
 4. Done: add metadata/abstract-based citation support labels.
 5. Done: record search outputs as evidence artifacts.
-6. Next: connect evidence cards directly into panel results and decision records.
-7. Later: add setup/doctor helpers for search credentials.
+6. Done: add publisher access setup, doctor, DOI probe, and entitlement status.
+7. Next: connect evidence cards directly into panel results and decision records.
 
 ## Non-Goals
 
 - scraping paywalled full text
+- using browser login sessions as a hidden data source
 - bypassing CAPTCHAs or login walls
+- redistributing licensed full text
 - treating generic web search as peer-reviewed evidence
 - claiming citation support from metadata alone
 - calling every scholarly API for every user question
