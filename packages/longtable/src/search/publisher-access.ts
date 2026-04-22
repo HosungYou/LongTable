@@ -194,7 +194,7 @@ export async function discoverCrossrefTdm(
   const response = await httpFetch(url, {
     headers: {
       accept: "application/json",
-      "user-agent": "LongTable/0.1.30 (https://github.com/HosungYou/LongTable)"
+      "user-agent": "LongTable/0.1.31 (https://github.com/HosungYou/LongTable)"
     }
   });
   if (!response.ok) {

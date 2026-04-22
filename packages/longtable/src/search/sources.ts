@@ -191,7 +191,7 @@ async function fetchJson(context: SourceSearchContext, url: string): Promise<unk
   const response = await context.fetch(url, {
     headers: {
       "accept": "application/json",
-      "user-agent": "LongTable/0.1.30 (https://github.com/HosungYou/LongTable)"
+      "user-agent": "LongTable/0.1.31 (https://github.com/HosungYou/LongTable)"
     }
   });
   if (!response.ok) {
@@ -204,7 +204,7 @@ async function fetchText(context: SourceSearchContext, url: string): Promise<str
   const response = await context.fetch(url, {
     headers: {
       "accept": "application/xml, text/xml, application/atom+xml, text/plain",
-      "user-agent": "LongTable/0.1.30 (https://github.com/HosungYou/LongTable)"
+      "user-agent": "LongTable/0.1.31 (https://github.com/HosungYou/LongTable)"
     }
   });
   if (!response.ok) {

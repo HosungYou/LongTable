@@ -3,7 +3,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { execSync } from "node:child_process";
-import { emitKeypressEvents } from "node:readline";
 import { createInterface } from "node:readline/promises";
 import type { Interface as ReadlineInterface } from "node:readline/promises";
 import { stdin as input, stdout as output, cwd, env, exit } from "node:process";
@@ -85,7 +84,10 @@ import {
   syncCurrentWorkspaceView,
   type LongTableProjectContext,
   type LongTableWorkspaceInspection,
-  type ProjectDisagreementPreference
+  type ProjectDisagreementPreference,
+  type StartInterviewSession,
+  type StartInterviewSignal,
+  type StartInterviewTurn
 } from "./project-session.js";
 import {
   buildTeamDebate,
@@ -93,6 +95,7 @@ import {
   renderTeamDebateSummary,
   type TeamDebateBundle
 } from "./debate.js";
+import { createPromptRenderer } from "./prompt-renderer.js";
 
 interface ParsedArgs {
   command?: string;
@@ -118,9 +121,10 @@ interface ProjectInterviewAnswers {
   projectPath: string;
   currentGoal: string;
   currentBlocker?: string;
-  researchObject: string;
-  gapRisk: string;
-  protectedDecision: string;
+  researchObject?: string;
+  gapRisk?: string;
+  protectedDecision?: string;
+  startInterview?: StartInterviewSession;
   requestedPerspectives: string[];
   disagreementPreference: ProjectDisagreementPreference;
 }
@@ -214,7 +218,7 @@ const ANSI = {
 };
 
 const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
-const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.30";
+const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.31";
 const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
 const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 
@@ -351,12 +355,6 @@ function parseArgs(argv: string[]): ParsedArgs {
   return { command, subcommand, values };
 }
 
-function renderChoices(choices: SetupChoice[]): string {
-  return choices
-    .map((choice, index) => `${index + 1}. ${choice.label} — ${choice.description}`)
-    .join("\n");
-}
-
 function buildSetupFlowChoices(): SetupChoice[] {
   return [
     {
@@ -410,27 +408,6 @@ function questionSection(questionId: string): string {
 
 function formatModeLabel(mode: InteractionMode): string {
   return `${mode[0].toUpperCase()}${mode.slice(1)}`;
-}
-
-function moveCursorUp(lines: number): string {
-  return lines > 0 ? `\u001B[${lines}A` : "";
-}
-
-function clearLine(): string {
-  return "\u001B[2K\r";
-}
-
-function renderArrowMenu(prompt: string, choices: SetupChoice[], selectedIndex: number): string {
-  const lines = [style(prompt, ANSI.bold), style("Use ↑/↓ and Enter.", ANSI.dim)];
-  for (let index = 0; index < choices.length; index += 1) {
-    const prefix = index === selectedIndex ? style(">", `${ANSI.bold}${ANSI.green}`) : " ";
-    lines.push(`${prefix} ${choices[index].label} - ${choices[index].description}`);
-  }
-  return lines.join("\n");
-}
-
-function countRenderedLines(text: string): number {
-  return text.split("\n").length;
 }
 
 function stripWrappingQuotes(value: string): string {
@@ -511,227 +488,25 @@ async function verifyWritableWorkspaceParent(projectPath: string): Promise<void>
   }
 }
 
-async function promptChoiceByNumber(
-  rl: ReadlineInterface,
-  prompt: string,
-  choices: SetupChoice[]
-): Promise<string> {
-  while (true) {
-    const answer = await rl.question(`${prompt}\n${renderChoices(choices)}\nSelect one number: `);
-    const numeric = Number(answer.trim());
-    if (!Number.isInteger(numeric) || numeric < 1 || numeric > choices.length) {
-      console.log("Invalid selection. Enter one of the listed numbers.");
-      continue;
-    }
-
-    const choice = choices[numeric - 1];
-    if (choice.fallbackToText) {
-      const freeText = await rl.question("Type your custom value: ");
-      if (!freeText.trim()) {
-        console.log("Custom value cannot be empty.");
-        continue;
-      }
-      return freeText.trim();
-    }
-
-    return choice.id;
-  }
-}
-
 async function promptText(
-  rl: ReadlineInterface,
   prompt: string,
   required: boolean
 ): Promise<string | undefined> {
-  while (true) {
-    const answer = (await rl.question(`${prompt}\n> `)).trim();
-    if (!required) {
-      return answer || undefined;
-    }
-    if (answer) {
-      return answer;
-    }
-    console.log("This answer cannot be empty.");
-  }
-}
-
-async function promptChoiceWithArrows(
-  rl: ReadlineInterface,
-  prompt: string,
-  choices: SetupChoice[]
-): Promise<string> {
-  const stream = input;
-  if (!stream.isTTY || !output.isTTY) {
-    return promptChoiceByNumber(rl, prompt, choices);
-  }
-
-  const previousRawMode = stream.isRaw;
-  let selectedIndex = 0;
-  let lastRenderLineCount = 0;
-
-  return await new Promise<string>((resolve, reject) => {
-    function draw(first = false): void {
-      const renderedText = renderArrowMenu(prompt, choices, selectedIndex);
-      const rendered = renderedText.split("\n");
-      if (!first && lastRenderLineCount > 0) {
-        output.write(moveCursorUp(lastRenderLineCount));
-      }
-      for (const line of rendered) {
-        output.write(clearLine());
-        output.write(`${line}\n`);
-      }
-      lastRenderLineCount = countRenderedLines(renderedText);
-    }
-
-    function cleanup(): void {
-      stream.off("keypress", onKeypress);
-      if (stream.isTTY) {
-        stream.setRawMode(previousRawMode ?? false);
-      }
-      output.write("\u001B[?25h");
-    }
-
-    async function handleChoice(choice: SetupChoice): Promise<void> {
-      cleanup();
-      if (choice.fallbackToText) {
-        const freeText = await rl.question("Type your custom value: ");
-        if (!freeText.trim()) {
-          resolve(await promptChoiceWithArrows(rl, prompt, choices));
-          return;
-        }
-        resolve(freeText.trim());
-        return;
-      }
-      resolve(choice.id);
-    }
-
-    function onKeypress(_: string, key: { name?: string; ctrl?: boolean }): void {
-      if (key.ctrl && key.name === "c") {
-        cleanup();
-        reject(new Error("Setup cancelled."));
-        return;
-      }
-
-      if (key.name === "up") {
-        selectedIndex = selectedIndex === 0 ? choices.length - 1 : selectedIndex - 1;
-        draw();
-        return;
-      }
-
-      if (key.name === "down") {
-        selectedIndex = selectedIndex === choices.length - 1 ? 0 : selectedIndex + 1;
-        draw();
-        return;
-      }
-
-      if (key.name === "return") {
-        void handleChoice(choices[selectedIndex]);
-      }
-    }
-
-    emitKeypressEvents(stream);
-    stream.setRawMode(true);
-    output.write("\u001B[?25l");
-    draw(true);
-    stream.on("keypress", onKeypress);
-  });
+  return createPromptRenderer().text(prompt, { required });
 }
 
 async function promptChoice(
-  rl: ReadlineInterface,
   prompt: string,
   choices: SetupChoice[]
 ): Promise<string> {
-  return promptChoiceWithArrows(rl, prompt, choices);
+  return createPromptRenderer().select(prompt, choices);
 }
 
 async function promptMultiChoice(
-  rl: ReadlineInterface,
   prompt: string,
   choices: SetupChoice[]
 ): Promise<string[]> {
-  const stream = input;
-  if (!stream.isTTY || !output.isTTY) {
-    const answer = await rl.question(
-      `${prompt}\nType comma-separated ids or leave blank for auto.\n> `
-    );
-    return answer
-      .split(",")
-      .map((part) => part.trim())
-      .filter(Boolean);
-  }
-
-  const previousRawMode = stream.isRaw;
-  let selectedIndex = 0;
-  const selected = new Set<string>();
-  let lastRenderLineCount = 0;
-
-  return await new Promise<string[]>((resolvePromise, reject) => {
-    function draw(first = false): void {
-      const lines = [prompt, "Use ↑/↓, Space to toggle, and Enter to confirm."];
-      for (let index = 0; index < choices.length; index += 1) {
-        const choice = choices[index];
-        const pointer = index === selectedIndex ? ">" : " ";
-        const marker = selected.has(choice.id) ? "[x]" : "[ ]";
-        lines.push(`${pointer} ${marker} ${choice.label} - ${choice.description}`);
-      }
-      const renderedText = lines.join("\n");
-      if (!first && lastRenderLineCount > 0) {
-        output.write(moveCursorUp(lastRenderLineCount));
-      }
-      for (const line of lines) {
-        output.write(clearLine());
-        output.write(`${line}\n`);
-      }
-      lastRenderLineCount = countRenderedLines(renderedText);
-    }
-
-    function cleanup(): void {
-      stream.off("keypress", onKeypress);
-      if (stream.isTTY) {
-        stream.setRawMode(previousRawMode ?? false);
-      }
-      output.write("\u001B[?25h");
-    }
-
-    function onKeypress(_: string, key: { name?: string; ctrl?: boolean }): void {
-      if (key.ctrl && key.name === "c") {
-        cleanup();
-        reject(new Error("Setup cancelled."));
-        return;
-      }
-      if (key.name === "up") {
-        selectedIndex = selectedIndex === 0 ? choices.length - 1 : selectedIndex - 1;
-        draw();
-        return;
-      }
-      if (key.name === "down") {
-        selectedIndex = selectedIndex === choices.length - 1 ? 0 : selectedIndex + 1;
-        draw();
-        return;
-      }
-      if (key.name === "space") {
-        const id = choices[selectedIndex].id;
-        if (selected.has(id)) {
-          selected.delete(id);
-        } else {
-          selected.add(id);
-        }
-        draw();
-        return;
-      }
-      if (key.name === "return") {
-        cleanup();
-        resolvePromise([...selected]);
-      }
-    }
-
-    emitKeypressEvents(stream);
-    stream.setRawMode(true);
-    output.write("\u001B[?25l");
-    draw(true);
-    stream.on("keypress", onKeypress);
-  });
+  return createPromptRenderer().multiselect(prompt, choices);
 }
 
 function hasCompleteFlagInput(args: Record<string, string | boolean>): boolean {
@@ -779,62 +554,56 @@ async function collectInteractiveAnswers(initialFlow?: SetupFlow): Promise<{
   provider: "codex" | "claude";
   answers: SetupAnswers;
 }> {
-  const rl = createInterface({ input, output });
-  try {
-    const flow =
-      initialFlow ??
-      ((await promptChoice(
-        rl,
-        "How would you like to set up LongTable?",
-        buildSetupFlowChoices()
-      )) as SetupFlow);
-    console.log("");
-    console.log(renderSetupHeader(flow));
-    console.log("");
+  const flow =
+    initialFlow ??
+    ((await promptChoice(
+      "How would you like to set up LongTable?",
+      buildSetupFlowChoices()
+    )) as SetupFlow);
+  console.log("");
+  console.log(renderSetupHeader(flow));
+  console.log("");
 
-    const provider = await promptChoice(rl, "Which provider do you want to configure?", buildProviderChoices()) as "codex" | "claude";
-    const answers: Partial<SetupAnswers> = {
-      field: "unspecified",
-      currentProjectType: "unspecified research task"
-    };
-    const questions = buildQuickSetupFlow(flow);
+  const provider = await promptChoice("Which provider do you want to configure?", buildProviderChoices()) as "codex" | "claude";
+  const answers: Partial<SetupAnswers> = {
+    field: "unspecified",
+    currentProjectType: "unspecified research task"
+  };
+  const questions = buildQuickSetupFlow(flow);
 
-    for (let index = 0; index < questions.length; index += 1) {
-      const question = questions[index];
-      const prompt = renderQuestionHeader(index + 1, questions.length, questionSection(question.id), question.prompt);
+  for (let index = 0; index < questions.length; index += 1) {
+    const question = questions[index];
+    const prompt = renderQuestionHeader(index + 1, questions.length, questionSection(question.id), question.prompt);
 
-      let value: string | undefined;
-      if (question.kind === "text") {
-        value = await promptText(rl, prompt, question.required);
-      } else if (question.choices) {
-        value = await promptChoice(rl, prompt, question.choices);
-      }
-
-      if (!value) {
-        continue;
-      }
-
-      if (question.id === "careerStage") answers.careerStage = value;
-      if (question.id === "experienceLevel") answers.experienceLevel = value as SetupAnswers["experienceLevel"];
-      if (question.id === "preferredCheckpointIntensity") {
-        answers.preferredCheckpointIntensity = value as SetupAnswers["preferredCheckpointIntensity"];
-      }
-      if (question.id === "humanAuthorshipSignal" && value !== "other") {
-        answers.humanAuthorshipSignal = value;
-      }
-      if (question.id === "preferredEntryMode") answers.preferredEntryMode = value as SetupAnswers["preferredEntryMode"];
-      if (question.id === "weakestDomain") answers.weakestDomain = value as SetupAnswers["weakestDomain"];
-      if (question.id === "panelPreference") answers.panelPreference = value as SetupAnswers["panelPreference"];
+    let value: string | undefined;
+    if (question.kind === "text") {
+      value = await promptText(prompt, question.required);
+    } else if (question.choices) {
+      value = await promptChoice(prompt, question.choices);
     }
 
-    return {
-      flow,
-      provider,
-      answers: answers as SetupAnswers
-    };
-  } finally {
-    rl.close();
+    if (!value) {
+      continue;
+    }
+
+    if (question.id === "careerStage") answers.careerStage = value;
+    if (question.id === "experienceLevel") answers.experienceLevel = value as SetupAnswers["experienceLevel"];
+    if (question.id === "preferredCheckpointIntensity") {
+      answers.preferredCheckpointIntensity = value as SetupAnswers["preferredCheckpointIntensity"];
+    }
+    if (question.id === "humanAuthorshipSignal" && value !== "other") {
+      answers.humanAuthorshipSignal = value;
+    }
+    if (question.id === "preferredEntryMode") answers.preferredEntryMode = value as SetupAnswers["preferredEntryMode"];
+    if (question.id === "weakestDomain") answers.weakestDomain = value as SetupAnswers["weakestDomain"];
+    if (question.id === "panelPreference") answers.panelPreference = value as SetupAnswers["panelPreference"];
   }
+
+  return {
+    flow,
+    provider,
+    answers: answers as SetupAnswers
+  };
 }
 
 type SetupInstallScopeChoice = "user" | "project" | "none";
@@ -1048,164 +817,154 @@ function checkpointUiIntervention(
 
 async function runSetup(args: Record<string, string | boolean>): Promise<void> {
   const json = args.json === true;
-  const rl = createInterface({ input, output });
-  try {
-    const provider = (typeof args.provider === "string"
-      ? (args.provider === "claude" ? "claude" : "codex")
-      : await promptChoice(rl, "Which provider should LongTable configure?", buildProviderChoices())) as "codex" | "claude";
-    const choices = buildPermissionSetupChoices();
-    const installScope = parseSetupInstallScope(args["install-scope"]) ?? await promptChoice(
-      rl,
-      "Where may LongTable install runtime support?",
-      choices.installScope
-    ) as SetupInstallScopeChoice;
-    const surfaces = parseSetupSurface(args.surfaces) ?? await promptChoice(
-      rl,
-      [
-        "Which LongTable runtime surfaces should be enabled?",
-        "This is a permission choice because skills, MCP, and sentinel support write provider-facing runtime files."
-      ].join("\n"),
-      choices.surfaces
-    ) as SetupSurfaceChoice;
-    const intervention = parseSetupIntervention(args.intervention) ?? await promptChoice(
-      rl,
-      "How strongly may LongTable interrupt research decisions?",
-      choices.intervention
-    ) as SetupInterventionChoice;
-    const parsedCheckpointUi = parseSetupCheckpointUi(args["checkpoint-ui"]);
-    const checkpointUiEligible = provider === "codex" && installScope !== "none" && shouldInstallMcp(installScope, surfaces);
-    if (parsedCheckpointUi && checkpointUiRequiresMcp(parsedCheckpointUi) && !checkpointUiEligible) {
-      throw new Error("`--checkpoint-ui interactive|strong` requires Codex with an MCP runtime surface.");
-    }
-    const checkpointUi = parsedCheckpointUi ?? (
-      checkpointUiEligible
-        ? await promptChoice(
-          rl,
-          [
-            "Should Codex use UI Researcher Checkpoints when MCP elicitation is available?",
-            "This writes Codex MCP elicitation approval only when you choose an interactive mode."
-          ].join("\n"),
-          choices.checkpointUi
-        ) as SetupCheckpointUiChoice
-        : "off"
-    );
-    const workspacePreference = parseSetupWorkspace(args.workspace) ?? await promptChoice(
-      rl,
-      "Should LongTable create a project workspace now?",
-      choices.workspace
-    ) as SetupWorkspaceChoice;
-    const projectRoot = setupProjectRoot(args);
-    const effectiveIntervention = checkpointUiIntervention(intervention, checkpointUi);
+  const provider = (typeof args.provider === "string"
+    ? (args.provider === "claude" ? "claude" : "codex")
+    : await promptChoice("Which provider should LongTable configure?", buildProviderChoices())) as "codex" | "claude";
+  const choices = buildPermissionSetupChoices();
+  const installScope = parseSetupInstallScope(args["install-scope"]) ?? await promptChoice(
+    "Where may LongTable install runtime support?",
+    choices.installScope
+  ) as SetupInstallScopeChoice;
+  const surfaces = parseSetupSurface(args.surfaces) ?? await promptChoice(
+    [
+      "Which LongTable runtime surfaces should be enabled?",
+      "This is a permission choice because skills, MCP, and sentinel support write provider-facing runtime files."
+    ].join("\n"),
+    choices.surfaces
+  ) as SetupSurfaceChoice;
+  const intervention = parseSetupIntervention(args.intervention) ?? await promptChoice(
+    "How strongly may LongTable interrupt research decisions?",
+    choices.intervention
+  ) as SetupInterventionChoice;
+  const parsedCheckpointUi = parseSetupCheckpointUi(args["checkpoint-ui"]);
+  const checkpointUiEligible = provider === "codex" && installScope !== "none" && shouldInstallMcp(installScope, surfaces);
+  if (parsedCheckpointUi && checkpointUiRequiresMcp(parsedCheckpointUi) && !checkpointUiEligible) {
+    throw new Error("`--checkpoint-ui interactive|strong` requires Codex with an MCP runtime surface.");
+  }
+  const checkpointUi = parsedCheckpointUi ?? (
+    checkpointUiEligible
+      ? await promptChoice(
+        [
+          "Should Codex use UI Researcher Checkpoints when MCP elicitation is available?",
+          "This writes Codex MCP elicitation approval only when you choose an interactive mode."
+        ].join("\n"),
+        choices.checkpointUi
+      ) as SetupCheckpointUiChoice
+      : "off"
+  );
+  const workspacePreference = parseSetupWorkspace(args.workspace) ?? await promptChoice(
+    "Should LongTable create a project workspace now?",
+    choices.workspace
+  ) as SetupWorkspaceChoice;
+  const projectRoot = setupProjectRoot(args);
+  const effectiveIntervention = checkpointUiIntervention(intervention, checkpointUi);
 
-    const outputValue = createPersistedSetupOutput(
-      {
-        field: "unspecified",
-        careerStage: "unspecified",
-        experienceLevel: "advanced",
-        preferredCheckpointIntensity: checkpointIntensityFromIntervention(effectiveIntervention),
-        checkpointUiMode: checkpointUi,
-        preferredEntryMode: "explore",
-        panelPreference: "show_on_conflict"
-      },
-      provider,
-      "quickstart"
-    );
-    outputValue.initialState.explicitState = {
-      ...outputValue.initialState.explicitState,
-      installScope,
-      runtimeSurfaces: surfaces,
-      interventionPosture: effectiveIntervention,
+  const outputValue = createPersistedSetupOutput(
+    {
+      field: "unspecified",
+      careerStage: "unspecified",
+      experienceLevel: "advanced",
+      preferredCheckpointIntensity: checkpointIntensityFromIntervention(effectiveIntervention),
       checkpointUiMode: checkpointUi,
-      workspaceCreationPreference: workspacePreference,
-      teamMode: "panel"
-    };
-    if (surfaces === "skills_mcp_sentinel") {
-      outputValue.initialState.inferredHypotheses.push({
-        hypothesis: "Researcher approved advisory Gap/Tacit Sentinel setup.",
-        confidence: 0.95,
-        evidence: ["Selected Skills + MCP + Sentinel during permission-first setup."],
-        status: "confirmed"
-      });
-    }
+      preferredEntryMode: "explore",
+      panelPreference: "show_on_conflict"
+    },
+    provider,
+    "quickstart"
+  );
+  outputValue.initialState.explicitState = {
+    ...outputValue.initialState.explicitState,
+    installScope,
+    runtimeSurfaces: surfaces,
+    interventionPosture: effectiveIntervention,
+    checkpointUiMode: checkpointUi,
+    workspaceCreationPreference: workspacePreference,
+    teamMode: "panel"
+  };
+  if (surfaces === "skills_mcp_sentinel") {
+    outputValue.initialState.inferredHypotheses.push({
+      hypothesis: "Researcher approved advisory Gap/Tacit Sentinel setup.",
+      confidence: 0.95,
+      evidence: ["Selected Skills + MCP + Sentinel during permission-first setup."],
+      status: "confirmed"
+    });
+  }
 
-    const setupPath = setupPathForScope(installScope, args, projectRoot);
-    const runtimePath = runtimePathForScope(provider, installScope, args, projectRoot);
-    const result = installScope === "none"
-      ? {
-          provider,
-          setupTarget: await saveSetupOutput(outputValue, setupPath)
-        }
-      : await saveSetupAndRuntimeConfig(outputValue, {
-          setupPath,
-          runtimePath
-        });
-
-    const scopedInstallDir = setupInstallDir(
-      provider,
-      installScope,
-      typeof args["skills-dir"] === "string" ? args["skills-dir"] : typeof args.dir === "string" ? args.dir : undefined,
-      projectRoot
-    );
-    const installedSkills = !shouldInstallSkills(installScope, surfaces)
-      ? []
-      : provider === "codex"
-        ? await installCodexSkills(listRoleDefinitions(), scopedInstallDir)
-        : await installClaudeSkills(listRoleDefinitions(), scopedInstallDir);
-
-    let mcpInstall: McpInstallResult | undefined;
-    if (shouldInstallMcp(installScope, surfaces)) {
-      mcpInstall = await installMcpForSetup(provider, {
-        ...mcpArgsForScope(provider, installScope, args, projectRoot),
-        ...(provider === "codex" && checkpointUiRequiresMcp(checkpointUi)
-          ? { "checkpoint-ui": checkpointUi }
-          : {})
-      });
-    }
-
-    if (json) {
-      console.log(JSON.stringify({
-        setup: outputValue,
-        runtime: result,
-        installedSkills: installedSkills.map((skill) => skill.name),
-        mcpInstall,
-        workspacePreference
-      }, null, 2));
-      return;
-    }
-
-    console.log("");
-    console.log(renderSetupSummary(outputValue));
-    console.log("");
-    if ("runtimeTarget" in result) {
-      console.log(renderInstallSummary(result));
-    } else {
-      console.log("LongTable setup summary");
-      console.log(`setup path: ${result.setupTarget.path}`);
-      console.log("provider files: not installed by researcher choice");
-    }
-    console.log(`Installed skills: ${installedSkills.length}`);
-    if (mcpInstall) {
-      console.log("");
-      console.log(renderMcpInstallSummary(mcpInstall));
-      if (provider === "codex" && checkpointUiRequiresMcp(checkpointUi)) {
-        console.log("");
-        console.log("Restart Codex after this config change, then run `longtable doctor` in the project workspace.");
+  const setupPath = setupPathForScope(installScope, args, projectRoot);
+  const runtimePath = runtimePathForScope(provider, installScope, args, projectRoot);
+  const result = installScope === "none"
+    ? {
+        provider,
+        setupTarget: await saveSetupOutput(outputValue, setupPath)
       }
-    }
-    if (surfaces === "skills_mcp_sentinel") {
-      console.log("");
-      console.log("Background sentinel approval recorded.");
-      console.log("Hook installation remains opt-in; LongTable will not install hooks without an explicit hook command.");
-    }
-    if (workspacePreference === "create") {
-      console.log("");
-      console.log("Project workspace requested. LongTable will now run `longtable start` with research-object and gap-risk prompts.");
-      await runStart({
-        setup: result.setupTarget.path
+    : await saveSetupAndRuntimeConfig(outputValue, {
+        setupPath,
+        runtimePath
       });
+
+  const scopedInstallDir = setupInstallDir(
+    provider,
+    installScope,
+    typeof args["skills-dir"] === "string" ? args["skills-dir"] : typeof args.dir === "string" ? args.dir : undefined,
+    projectRoot
+  );
+  const installedSkills = !shouldInstallSkills(installScope, surfaces)
+    ? []
+    : provider === "codex"
+      ? await installCodexSkills(listRoleDefinitions(), scopedInstallDir)
+      : await installClaudeSkills(listRoleDefinitions(), scopedInstallDir);
+
+  let mcpInstall: McpInstallResult | undefined;
+  if (shouldInstallMcp(installScope, surfaces)) {
+    mcpInstall = await installMcpForSetup(provider, {
+      ...mcpArgsForScope(provider, installScope, args, projectRoot),
+      ...(provider === "codex" && checkpointUiRequiresMcp(checkpointUi)
+        ? { "checkpoint-ui": checkpointUi }
+        : {})
+    });
+  }
+
+  if (json) {
+    console.log(JSON.stringify({
+      setup: outputValue,
+      runtime: result,
+      installedSkills: installedSkills.map((skill) => skill.name),
+      mcpInstall,
+      workspacePreference
+    }, null, 2));
+    return;
+  }
+
+  console.log("");
+  console.log(renderSetupSummary(outputValue));
+  console.log("");
+  if ("runtimeTarget" in result) {
+    console.log(renderInstallSummary(result));
+  } else {
+    console.log("LongTable setup summary");
+    console.log(`setup path: ${result.setupTarget.path}`);
+    console.log("provider files: not installed by researcher choice");
+  }
+  console.log(`Installed skills: ${installedSkills.length}`);
+  if (mcpInstall) {
+    console.log("");
+    console.log(renderMcpInstallSummary(mcpInstall));
+    if (provider === "codex" && checkpointUiRequiresMcp(checkpointUi)) {
+      console.log("");
+      console.log("Restart Codex after this config change, then run `longtable doctor` in the project workspace.");
     }
-  } finally {
-    rl.close();
+  }
+  if (surfaces === "skills_mcp_sentinel") {
+    console.log("");
+    console.log("Background sentinel approval recorded.");
+    console.log("Hook installation remains opt-in; LongTable will not install hooks without an explicit hook command.");
+  }
+  if (workspacePreference === "create") {
+    console.log("");
+    console.log("Project workspace requested. LongTable will now run `longtable start` with an adaptive start interview.");
+    await runStart({
+      setup: result.setupTarget.path
+    });
   }
 }
 
@@ -1247,6 +1006,209 @@ function protectedDecisionChoices(): SetupChoice[] {
   ];
 }
 
+function compactAnswer(value: string, maxLength = 180): string {
+  const firstLine = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean) ?? "";
+  return firstLine.length > maxLength ? `${firstLine.slice(0, maxLength - 1)}…` : firstLine;
+}
+
+function answerIncludes(answer: string, patterns: RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(answer));
+}
+
+function classifyStartInterviewSignal(answer: string): StartInterviewSignal {
+  const normalized = answer.toLowerCase();
+  if (answerIncludes(normalized, [/\bvoice\b/, /\bauthor(ship)?\b/, /\bwriting\b/, /저자|목소리|문체|글쓰기/])) {
+    return "voice";
+  }
+  if (answerIncludes(normalized, [/\breader\b/, /\breviewer\b/, /\bvenue\b/, /\bjournal\b/, /\baudience\b/, /독자|심사자|저널|학회|대상/])) {
+    return "audience";
+  }
+  if (answerIncludes(normalized, [/\bpaper\b/, /\bproposal\b/, /\bmanuscript\b/, /\bdraft\b/, /\bdeliverable\b/, /논문|제안서|원고|초안|산출물/])) {
+    return "artifact";
+  }
+  if (answerIncludes(normalized, [/\bevidence\b/, /\bdata\b/, /\bsource\b/, /\bcitation\b/, /\bliterature\b/, /\bmeasure\b/, /\bscale\b/, /\binstrument\b/, /근거|자료|데이터|문헌|인용|측정|척도|도구/])) {
+    return "evidence";
+  }
+  if (answerIncludes(normalized, [/\bassum/, /\btacit\b/, /\bimplicit\b/, /\bpremise\b/, /전제|암묵|가정|숨겨진/])) {
+    return "assumption";
+  }
+  if (answerIncludes(normalized, [/\bdecid/, /\bchoose\b/, /\bcommit\b/, /\bsettle\b/, /\block\b/, /결정|선택|확정|고정/])) {
+    return "decision_risk";
+  }
+  return "phenomenon";
+}
+
+function inferResearchObjectFromAnswers(answers: string[]): string | undefined {
+  const joined = answers.join("\n").toLowerCase();
+  if (answerIncludes(joined, [/\bmeasure\b/, /\bscale\b/, /\binstrument\b/, /\bvariable\b/, /\bconstruct\b/, /측정|척도|변수|구성개념|도구/])) {
+    return "measurement_instrument";
+  }
+  if (answerIncludes(joined, [/\bmethod\b/, /\bdesign\b/, /\bsample\b/, /\binterview\b/, /\bexperiment\b/, /\bparticipant\b/, /방법|설계|표본|인터뷰|실험|참여자/])) {
+    return "study_design";
+  }
+  if (answerIncludes(joined, [/\btheory\b/, /\bframework\b/, /\bmodel\b/, /\bconcept\b/, /이론|프레임워크|모형|개념/])) {
+    return "theory_framework";
+  }
+  if (answerIncludes(joined, [/\banalysis\b/, /\bmodel\b/, /\bcoding\b/, /\bstatistic\b/, /분석|모델|코딩|통계/])) {
+    return "analysis_plan";
+  }
+  if (answerIncludes(joined, [/\bpaper\b/, /\bmanuscript\b/, /\bdraft\b/, /\bwriting\b/, /논문|원고|초안|글쓰기/])) {
+    return "manuscript";
+  }
+  return "research_question";
+}
+
+function inferGapRiskFromSignals(signals: StartInterviewSignal[]): string | undefined {
+  if (signals.includes("assumption") || signals.includes("decision_risk")) {
+    return "suspected_tacit_assumptions";
+  }
+  if (signals.includes("evidence")) {
+    return "known_gap";
+  }
+  return "diagnose";
+}
+
+function inferProtectedDecisionFromAnswers(answers: string[]): string | undefined {
+  const joined = answers.join("\n").toLowerCase();
+  if (answerIncludes(joined, [/\bmeasure\b/, /\bscale\b/, /\binstrument\b/, /\bvariable\b/, /측정|척도|변수|도구/])) {
+    return "measurement";
+  }
+  if (answerIncludes(joined, [/\bmethod\b/, /\bdesign\b/, /\bsample\b/, /\binterview\b/, /\bexperiment\b/, /방법|설계|표본|인터뷰|실험/])) {
+    return "method";
+  }
+  if (answerIncludes(joined, [/\bevidence\b/, /\bsource\b/, /\bcitation\b/, /\bliterature\b/, /근거|출처|인용|문헌/])) {
+    return "evidence_citation";
+  }
+  if (answerIncludes(joined, [/\bvoice\b/, /\bauthor(ship)?\b/, /\bwriting\b/, /저자|목소리|문체|글쓰기/])) {
+    return "authorship_voice";
+  }
+  if (answerIncludes(joined, [/\bsubmit\b/, /\bpublication\b/, /\bjournal\b/, /\bvenue\b/, /투고|출판|저널|학회|공개/])) {
+    return "submission_public_sharing";
+  }
+  if (answerIncludes(joined, [/\btheory\b/, /\bframework\b/, /\bconstruct\b/, /이론|프레임워크|구성개념/])) {
+    return "theory";
+  }
+  return undefined;
+}
+
+function uniqueSignals(turns: StartInterviewTurn[]): StartInterviewSignal[] {
+  return [...new Set(turns.map((turn) => turn.signal))];
+}
+
+function renderStartInterviewPrompt(
+  turn: number,
+  total: number,
+  question: string,
+  context?: string
+): string {
+  return [
+    `LongTable Start Interview  Turn ${turn}/${total}`,
+    context ? `Context: ${context}` : undefined,
+    question
+  ].filter(Boolean).join("\n");
+}
+
+async function collectAdaptiveStartInterview(args: {
+  currentGoal?: string;
+  currentBlocker?: string;
+  needsResearchSeed: boolean;
+}): Promise<{
+  currentGoal?: string;
+  currentBlocker?: string;
+  startInterview?: StartInterviewSession;
+  inferredResearchObject?: string;
+  inferredGapRisk?: string;
+  inferredProtectedDecision?: string;
+}> {
+  if (!args.needsResearchSeed) {
+    return {};
+  }
+
+  const createdAt = new Date().toISOString();
+  const turns: StartInterviewTurn[] = [];
+
+  async function ask(question: string, purpose: string, context?: string): Promise<string | undefined> {
+    const answer = await promptText(
+      renderStartInterviewPrompt(turns.length + 1, 5, question, context),
+      true
+    );
+    if (!answer?.trim()) {
+      return undefined;
+    }
+    turns.push({
+      index: turns.length + 1,
+      question,
+      answer: answer.trim(),
+      signal: classifyStartInterviewSignal(answer),
+      purpose
+    });
+    return answer.trim();
+  }
+
+  let currentGoal = args.currentGoal;
+  let currentBlocker = args.currentBlocker;
+
+  if (!currentGoal) {
+    const opening = await ask(
+      "What scene, problem, or moment made you want to start this research?",
+      "Open from the researcher's lived entry point instead of a taxonomy."
+    );
+    currentGoal = opening ? compactAnswer(opening) : undefined;
+  }
+
+  const openingContext = currentGoal ? compactAnswer(currentGoal, 120) : undefined;
+  if (!currentBlocker) {
+    const blocker = await ask(
+      "In that scene, what still feels least explained or hardest to justify?",
+      "Name the first uncertainty without asking the researcher to classify it as theory, method, or measurement.",
+      openingContext
+    );
+    currentBlocker = blocker ? compactAnswer(blocker) : undefined;
+  }
+
+  const readerContext = currentBlocker ? compactAnswer(currentBlocker, 120) : openingContext;
+  await ask(
+    "If this research succeeds, what should a reader or reviewer understand differently?",
+    "Locate the audience-facing contribution before proposing a direction.",
+    readerContext
+  );
+
+  await ask(
+    "What material would you inspect first to make this research concrete: a case, dataset, text, instrument, draft, or literature trail?",
+    "Convert the opening story into a first inspectable research move.",
+    readerContext
+  );
+
+  const answers = turns.map((turn) => turn.answer);
+  const inferredSignals = uniqueSignals(turns);
+  const summary = [
+    currentGoal ? `Opening: ${compactAnswer(currentGoal, 120)}.` : "",
+    currentBlocker ? `First uncertainty: ${compactAnswer(currentBlocker, 120)}.` : "",
+    inferredSignals.length > 0 ? `Early lenses: ${inferredSignals.join(", ")}.` : ""
+  ].filter(Boolean).join(" ");
+
+  return {
+    currentGoal,
+    currentBlocker,
+    startInterview: {
+      mode: "adaptive",
+      openingStyle: "scene_problem",
+      createdAt,
+      completedAt: new Date().toISOString(),
+      turnCount: turns.length,
+      turns,
+      inferredSignals,
+      summary: summary || "Adaptive start interview completed."
+    },
+    inferredResearchObject: inferResearchObjectFromAnswers(answers),
+    inferredGapRisk: inferGapRiskFromSignals(inferredSignals),
+    inferredProtectedDecision: inferProtectedDecisionFromAnswers(answers)
+  };
+}
+
 function normalizePerspectiveList(value?: string): string[] {
   if (!value?.trim()) {
     return [];
@@ -1261,163 +1223,110 @@ async function collectProjectInterview(
   setup: Awaited<ReturnType<typeof loadSetupOutput>>,
   args: Record<string, string | boolean>
 ): Promise<ProjectInterviewAnswers> {
+  const providedPerspectives = normalizePerspectiveList(typeof args.perspectives === "string" ? args.perspectives : undefined);
+  const providedGoal = typeof args.goal === "string" && args.goal.trim() ? args.goal.trim() : undefined;
+  const providedBlocker = typeof args.blocker === "string" && args.blocker.trim() ? args.blocker.trim() : undefined;
+  const providedResearchObject =
+    typeof args["research-object"] === "string" && args["research-object"].trim()
+      ? args["research-object"].trim()
+      : undefined;
+  const providedGapRisk =
+    typeof args["gap-risk"] === "string" && args["gap-risk"].trim()
+      ? args["gap-risk"].trim()
+      : undefined;
+  const providedProtectedDecision =
+    typeof args["protected-decision"] === "string" && args["protected-decision"].trim()
+      ? args["protected-decision"].trim()
+      : undefined;
   const needsInteractivePrompts =
     !(typeof args.name === "string" && args.name.trim()) ||
     !(typeof args.path === "string" && args.path.trim()) ||
-    !(typeof args.goal === "string" && args.goal.trim()) ||
-    typeof args.blocker !== "string" ||
-    !(typeof args["research-object"] === "string" && args["research-object"].trim()) ||
-    !(typeof args["gap-risk"] === "string" && args["gap-risk"].trim()) ||
-    !(typeof args["protected-decision"] === "string" && args["protected-decision"].trim()) ||
-    normalizePerspectiveList(typeof args.perspectives === "string" ? args.perspectives : undefined).length === 0 ||
-    !(typeof args.disagreement === "string" && args.disagreement.trim());
-  const rl = createInterface({ input, output });
-  try {
-    if (needsInteractivePrompts) {
-      console.log("");
-      console.log(renderBrandBanner("LongTable", "Project workspace interview"));
-      console.log("");
-      console.log(renderSectionCard("LongTable Project Start", [
-        "We will create a project workspace and a session memory seed for today's work.",
-        "At the end, LongTable will tell you exactly which directory to open in Codex."
-      ]));
-      console.log("");
-    }
+    !providedGoal ||
+    !providedBlocker ||
+    !providedResearchObject ||
+    !providedGapRisk ||
+    !providedProtectedDecision;
 
-    const projectName =
-      (typeof args.name === "string" && args.name.trim()) ||
-      (await promptText(
-        rl,
-        renderQuestionHeader(1, 9, "Project interview", "What should this project be called?"),
-        true
-      ))!;
-
-    const suggestedParentDir =
-      typeof args.path === "string" && args.path.trim()
-        ? normalizeUserPath(args.path.trim())
-        : homedir();
-    const suggestedPath = resolveInteractiveProjectPath(suggestedParentDir, projectName);
-
-    const projectPath =
-      (typeof args.path === "string" && args.path.trim()
-        ? normalizeUserPath(args.path.trim())
-        : resolveInteractiveProjectPath(
-            (
-              await promptText(
-                rl,
-                renderQuestionHeader(
-                  2,
-                  9,
-                  "Project interview",
-                  `Which parent directory should contain this project?\nLongTable will create this folder:\n${suggestedPath}`
-                ),
-                true
-              )
-            )!,
-            projectName
-          ))!;
-
-    const currentGoal =
-      (typeof args.goal === "string" && args.goal.trim()) ||
-      (
-        await promptText(
-          rl,
-          renderQuestionHeader(3, 9, "Current session", "What are you trying to accomplish in this session?"),
-          true
-        )
-      )!;
-
-    const currentBlocker =
-      (typeof args.blocker === "string" && args.blocker.trim()) ||
-      (
-        await promptText(
-          rl,
-          renderQuestionHeader(4, 9, "Current session", "What is the main blocker or uncertainty right now?"),
-          false
-        )
-      );
-
-    const researchObject =
-      (typeof args["research-object"] === "string" && args["research-object"].trim()) ||
-      await promptChoice(
-        rl,
-        renderQuestionHeader(5, 9, "Research object", "What kind of research object are we protecting right now?"),
-        researchObjectChoices()
-      );
-
-    const gapRisk =
-      (typeof args["gap-risk"] === "string" && args["gap-risk"].trim()) ||
-      await promptChoice(
-        rl,
-        renderQuestionHeader(6, 9, "Gap/tacit risk", "What is the most likely gap risk at the start of this workspace?"),
-        gapRiskChoices()
-      );
-
-    const protectedDecision =
-      (typeof args["protected-decision"] === "string" && args["protected-decision"].trim()) ||
-      await promptChoice(
-        rl,
-        renderQuestionHeader(7, 9, "Protected decision", "Which decision should LongTable not let you settle quietly?"),
-        protectedDecisionChoices()
-      );
-
-    const requestedPerspectives =
-      normalizePerspectiveList(typeof args.perspectives === "string" ? args.perspectives : undefined).length > 0
-        ? normalizePerspectiveList(typeof args.perspectives === "string" ? args.perspectives : undefined)
-        : await promptMultiChoice(
-            rl,
-            renderQuestionHeader(
-              8,
-              9,
-              "Perspectives",
-              "Which perspectives do you already know you want at the table? Leave everything unchecked for auto."
-            ),
-            perspectiveChoices()
-          );
-
-    const disagreementPreference =
-      (typeof args.disagreement === "string" && args.disagreement.trim()) ||
-      (await promptChoice(
-        rl,
-        renderQuestionHeader(
-          9,
-          9,
-          "Disagreement",
-          "How visible should disagreement between perspectives be in this project by default?"
-        ),
-        [
-          {
-            id: "synthesis_only",
-            label: "Synthesis only",
-            description: "Show one LongTable answer unless I ask for more."
-          },
-          {
-            id: "show_on_conflict",
-            label: "Show on conflict",
-            description: "Surface disagreement when the perspectives materially diverge."
-          },
-          {
-            id: "always_visible",
-            label: "Always visible",
-            description: "Keep panel opinions visible by default."
-          }
-        ]
-      ));
-
-    return {
-      projectName: projectName.trim(),
-      projectPath: projectPath.trim(),
-      currentGoal: currentGoal.trim(),
-      ...(currentBlocker?.trim() ? { currentBlocker: currentBlocker.trim() } : {}),
-      researchObject: researchObject.trim(),
-      gapRisk: gapRisk.trim(),
-      protectedDecision: protectedDecision.trim(),
-      requestedPerspectives,
-      disagreementPreference: disagreementPreference as ProjectDisagreementPreference
-    };
-  } finally {
-    rl.close();
+  if (needsInteractivePrompts) {
+    console.log("");
+    console.log(renderBrandBanner("LongTable", "Project workspace interview"));
+    console.log("");
+    console.log(renderSectionCard("LongTable Project Start", [
+      "LongTable will create a workspace and seed today's research memory.",
+      "The start interview begins from the scene or problem, then LongTable quietly infers the research shape."
+    ]));
+    console.log("");
   }
+
+  const projectName =
+    (typeof args.name === "string" && args.name.trim()) ||
+    (await promptText(
+      renderQuestionHeader(1, 2, "Workspace", "What should this project be called?"),
+      true
+    ))!;
+
+  const suggestedParentDir =
+    typeof args.path === "string" && args.path.trim()
+      ? normalizeUserPath(args.path.trim())
+      : homedir();
+  const suggestedPath = resolveInteractiveProjectPath(suggestedParentDir, projectName);
+
+  const projectPath =
+    (typeof args.path === "string" && args.path.trim()
+      ? normalizeUserPath(args.path.trim())
+      : resolveInteractiveProjectPath(
+          (
+            await promptText(
+              renderQuestionHeader(
+                2,
+                2,
+                "Workspace",
+                `Which parent directory should contain this project?\nLongTable will create this folder:\n${suggestedPath}`
+              ),
+              true
+            )
+          )!,
+          projectName
+        ))!;
+
+  const adaptive = await collectAdaptiveStartInterview({
+    currentGoal: providedGoal,
+    currentBlocker: providedBlocker,
+    needsResearchSeed:
+      !providedGoal ||
+      !providedBlocker ||
+      !providedResearchObject ||
+      !providedGapRisk ||
+      !providedProtectedDecision
+  });
+
+  const currentGoal = providedGoal ?? adaptive.currentGoal;
+  if (!currentGoal?.trim()) {
+    throw new Error("LongTable start needs a current research goal or an opening interview answer.");
+  }
+
+  const currentBlocker = providedBlocker ?? adaptive.currentBlocker;
+  const researchObject = providedResearchObject ?? adaptive.inferredResearchObject;
+  const gapRisk = providedGapRisk ?? adaptive.inferredGapRisk;
+  const protectedDecision = providedProtectedDecision ?? adaptive.inferredProtectedDecision;
+  const disagreementPreference = (
+    typeof args.disagreement === "string" && args.disagreement.trim()
+      ? args.disagreement.trim()
+      : setup.profileSeed.panelPreference ?? "show_on_conflict"
+  ) as ProjectDisagreementPreference;
+
+  return {
+    projectName: projectName.trim(),
+    projectPath: projectPath.trim(),
+    currentGoal: currentGoal.trim(),
+    ...(currentBlocker?.trim() ? { currentBlocker: currentBlocker.trim() } : {}),
+    ...(researchObject?.trim() ? { researchObject: researchObject.trim() } : {}),
+    ...(gapRisk?.trim() ? { gapRisk: gapRisk.trim() } : {}),
+    ...(protectedDecision?.trim() ? { protectedDecision: protectedDecision.trim() } : {}),
+    ...(adaptive.startInterview ? { startInterview: adaptive.startInterview } : {}),
+    requestedPerspectives: providedPerspectives,
+    disagreementPreference
+  };
 }
 
 function normalizePersistAnswers(raw: CodexPersistAnswers): {
@@ -3021,38 +2930,32 @@ async function runQuestion(args: Record<string, string | boolean>): Promise<void
   }
 
   if (isInteractiveTerminal()) {
-    const rl = createInterface({ input, output });
-    try {
-      console.log(renderBrandBanner("LongTable", "Researcher Checkpoint"));
-      console.log("");
-      const answer = await promptChoice(
-        rl,
-        renderQuestionHeader(
-          1,
-          1,
-          result.question.prompt.title,
-          result.question.prompt.question
-        ),
-        questionRecordToChoices(result.question)
-      );
-      const decision = await answerWorkspaceQuestion({
-        context,
-        questionId: result.question.id,
-        answer,
-        provider,
-        surface: "terminal_selector"
-      });
-      console.log("");
-      console.log("LongTable checkpoint decision recorded");
-      console.log(`- question: ${decision.question.id}`);
-      console.log(`- decision: ${decision.decision.id}`);
-      console.log(`- answer: ${decision.decision.selectedOption ?? answer}`);
-      console.log(`- state: ${context.stateFilePath}`);
-      console.log(`- current: ${context.currentFilePath}`);
-      return;
-    } finally {
-      rl.close();
-    }
+    console.log(renderBrandBanner("LongTable", "Researcher Checkpoint"));
+    console.log("");
+    const answer = await promptChoice(
+      renderQuestionHeader(
+        1,
+        1,
+        result.question.prompt.title,
+        result.question.prompt.question
+      ),
+      questionRecordToChoices(result.question)
+    );
+    const decision = await answerWorkspaceQuestion({
+      context,
+      questionId: result.question.id,
+      answer,
+      provider,
+      surface: "terminal_selector"
+    });
+    console.log("");
+    console.log("LongTable checkpoint decision recorded");
+    console.log(`- question: ${decision.question.id}`);
+    console.log(`- decision: ${decision.decision.id}`);
+    console.log(`- answer: ${decision.decision.selectedOption ?? answer}`);
+    console.log(`- state: ${context.stateFilePath}`);
+    console.log(`- current: ${context.currentFilePath}`);
+    return;
   }
 
   const optionValues = [
@@ -3157,24 +3060,19 @@ async function answerFollowUpQuestionsInTerminal(
     return;
   }
 
-  const rl = createInterface({ input, output });
-  try {
-    console.log(renderBrandBanner("LongTable", "Follow-up Questions"));
-    console.log("");
-    for (let index = 0; index < questions.length; index += 1) {
-      const question = questions[index];
-      const prompt = renderQuestionHeader(index + 1, questions.length, question.prompt.title, question.prompt.question);
-      const answer = await promptChoice(rl, prompt, questionRecordToChoices(question));
-      await answerWorkspaceQuestion({
-        context,
-        questionId: question.id,
-        answer,
-        provider,
-        surface: "terminal_selector"
-      });
-    }
-  } finally {
-    rl.close();
+  console.log(renderBrandBanner("LongTable", "Follow-up Questions"));
+  console.log("");
+  for (let index = 0; index < questions.length; index += 1) {
+    const question = questions[index];
+    const prompt = renderQuestionHeader(index + 1, questions.length, question.prompt.title, question.prompt.question);
+    const answer = await promptChoice(prompt, questionRecordToChoices(question));
+    await answerWorkspaceQuestion({
+      context,
+      questionId: question.id,
+      answer,
+      provider,
+      surface: "terminal_selector"
+    });
   }
 }
 
@@ -3643,6 +3541,7 @@ async function runStart(args: Record<string, string | boolean>): Promise<void> {
     researchObject: interview.researchObject,
     gapRisk: interview.gapRisk,
     protectedDecision: interview.protectedDecision,
+    startInterview: interview.startInterview,
     requestedPerspectives: interview.requestedPerspectives,
     disagreementPreference: interview.disagreementPreference,
     setup: existingSetup

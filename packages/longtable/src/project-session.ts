@@ -26,6 +26,34 @@ export type ProjectDisagreementPreference =
   | "show_on_conflict"
   | "always_visible";
 
+export type StartInterviewSignal =
+  | "phenomenon"
+  | "audience"
+  | "artifact"
+  | "evidence"
+  | "assumption"
+  | "decision_risk"
+  | "voice";
+
+export interface StartInterviewTurn {
+  index: number;
+  question: string;
+  answer: string;
+  signal: StartInterviewSignal;
+  purpose: string;
+}
+
+export interface StartInterviewSession {
+  mode: "adaptive";
+  openingStyle: "scene_problem";
+  createdAt: string;
+  completedAt: string;
+  turnCount: number;
+  turns: StartInterviewTurn[];
+  inferredSignals: StartInterviewSignal[];
+  summary: string;
+}
+
 export interface LongTableProjectRecord {
   schemaVersion: 1;
   product: "LongTable";
@@ -59,6 +87,7 @@ export interface LongTableSessionRecord {
   protectedDecision?: string;
   nextAction?: string;
   openQuestions?: string[];
+  startInterview?: StartInterviewSession;
   requestedPerspectives: string[];
   disagreementPreference: ProjectDisagreementPreference;
   activeModes?: string[];
@@ -200,17 +229,24 @@ function resolveUserLocale(): "ko" | "en" {
 
 function buildFirstQuestion(session: LongTableSessionRecord): string {
   return session.currentBlocker
-    ? `What would reduce the uncertainty around "${session.currentBlocker}" first?`
-    : `What is the first concrete question that would move "${session.currentGoal}" forward?`;
+    ? `Where does "${session.currentBlocker}" show up most concretely in the scene, material, or evidence?`
+    : `What scene, case, text, data, or draft would make "${session.currentGoal}" easiest to inspect first?`;
 }
 
 function buildOpenQuestions(session: LongTableSessionRecord): string[] {
   const firstQuestion = buildFirstQuestion(session);
 
+  if (session.startInterview) {
+    return [
+      firstQuestion,
+      `What would a reader need to understand differently if "${session.currentGoal}" becomes a strong research project?`
+    ];
+  }
+
   return session.currentBlocker
     ? [
         firstQuestion,
-        `What evidence would let you decide whether "${session.currentBlocker}" is a knowledge gap, a coding rule gap, or a data gap?`
+        `What would a reader need to understand differently if "${session.currentBlocker}" becomes a strong research problem?`
       ]
     : [
         firstQuestion,
@@ -219,12 +255,24 @@ function buildOpenQuestions(session: LongTableSessionRecord): string[] {
 }
 
 function buildNextAction(session: LongTableSessionRecord): string {
+  if (session.startInterview) {
+    return session.currentBlocker
+      ? `Begin from the start-interview brief, then make "${session.currentBlocker}" concrete with one scene, source, case, or dataset.`
+      : "Begin from the start-interview brief, then choose one concrete scene, source, case, or dataset to inspect first.";
+  }
+
   return session.currentBlocker
-    ? `Open with the blocker, then ask LongTable to surface the first high-leverage uncertainty around "${session.currentBlocker}".`
+    ? `Open with the blocker, then make "${session.currentBlocker}" concrete with one scene, source, case, or dataset.`
     : "Open with your current goal in one sentence, then ask LongTable for the first concrete research move.";
 }
 
 function buildResumeHint(session: LongTableSessionRecord): string {
+  if (session.startInterview) {
+    return session.currentBlocker
+      ? `I want to continue from the LongTable start interview. The first unresolved issue is ${session.currentBlocker}.`
+      : `I want to continue from the LongTable start interview for ${session.currentGoal}.`;
+  }
+
   return session.currentBlocker
     ? `I want to continue ${session.currentGoal}. The unresolved blocker is ${session.currentBlocker}.`
     : `I want to continue ${session.currentGoal}.`;
@@ -258,6 +306,7 @@ function buildCurrentGuide(
       ...(session.researchObject ? [`- 연구 객체: ${session.researchObject}`] : []),
       ...(session.gapRisk ? [`- 공백/암묵지 위험: ${session.gapRisk}`] : []),
       ...(session.protectedDecision ? [`- 보호할 결정: ${session.protectedDecision}`] : []),
+      ...(session.startInterview ? [`- start interview: ${session.startInterview.summary}`] : []),
       `- 다음 액션: ${nextAction}`,
       `- 관점: ${session.requestedPerspectives.length > 0 ? session.requestedPerspectives.join(", ") : "auto"}`,
       `- disagreement: ${session.disagreementPreference}`,
@@ -311,6 +360,7 @@ function buildCurrentGuide(
     ...(session.researchObject ? [`- Research object: ${session.researchObject}`] : []),
     ...(session.gapRisk ? [`- Gap/tacit risk: ${session.gapRisk}`] : []),
     ...(session.protectedDecision ? [`- Protected decision: ${session.protectedDecision}`] : []),
+    ...(session.startInterview ? [`- Start interview: ${session.startInterview.summary}`] : []),
     `- Next action: ${nextAction}`,
     `- Perspectives: ${session.requestedPerspectives.length > 0 ? session.requestedPerspectives.join(", ") : "auto"}`,
     `- Disagreement: ${session.disagreementPreference}`,
@@ -516,6 +566,7 @@ function buildProjectAgentsMd(
     ...(session.researchObject ? [`- Research object: ${session.researchObject}`] : []),
     ...(session.gapRisk ? [`- Gap/tacit risk: ${session.gapRisk}`] : []),
     ...(session.protectedDecision ? [`- Protected decision: ${session.protectedDecision}`] : []),
+    ...(session.startInterview ? [`- Start interview summary: ${session.startInterview.summary}`] : []),
     `- Requested perspectives: ${session.requestedPerspectives.length > 0 ? session.requestedPerspectives.join(", ") : "auto"}`,
     `- Disagreement visibility: ${session.disagreementPreference}`,
     "- These instructions apply to this directory and its children."
@@ -545,6 +596,7 @@ function buildStateSeed(
     ...(session.nextAction ? { nextAction: session.nextAction } : {}),
     openQuestions: session.openQuestions ?? [],
     activeModes: session.activeModes ?? [],
+    ...(session.startInterview ? { startInterview: session.startInterview } : {}),
     ...(session.resumeHint ? { resumeHint: session.resumeHint } : {})
   };
   if (session.currentBlocker) {
@@ -590,6 +642,25 @@ function buildStateSeed(
       visibility: "explicit",
       importance: "high"
     });
+  }
+  if (session.startInterview) {
+    state.narrativeTraces.push({
+      id: "project-session-start-interview",
+      timestamp: nowIso(),
+      source: "longtable-start",
+      traceType: "experience",
+      summary: session.startInterview.summary,
+      visibility: "explicit",
+      importance: "high"
+    });
+    if (session.startInterview.inferredSignals.length > 0) {
+      state.inferredHypotheses.push({
+        hypothesis: `Start interview suggests these early lenses: ${session.startInterview.inferredSignals.join(", ")}.`,
+        confidence: 0.65,
+        evidence: session.startInterview.turns.map((turn) => turn.answer).filter(Boolean),
+        status: "unconfirmed"
+      });
+    }
   }
   return JSON.stringify(state, null, 2);
 }
@@ -1318,6 +1389,7 @@ export async function createOrUpdateProjectWorkspace(options: {
   researchObject?: string;
   gapRisk?: string;
   protectedDecision?: string;
+  startInterview?: StartInterviewSession;
   requestedPerspectives: string[];
   disagreementPreference: ProjectDisagreementPreference;
   setup: SetupPersistedOutput;
@@ -1381,6 +1453,7 @@ export async function createOrUpdateProjectWorkspace(options: {
     ...(options.researchObject ? { researchObject: options.researchObject } : {}),
     ...(options.gapRisk ? { gapRisk: options.gapRisk } : {}),
     ...(options.protectedDecision ? { protectedDecision: options.protectedDecision } : {}),
+    ...(options.startInterview ? { startInterview: options.startInterview } : {}),
     nextAction: buildNextAction({
       schemaVersion: 1,
       id: sessionId,
@@ -1392,6 +1465,7 @@ export async function createOrUpdateProjectWorkspace(options: {
       ...(options.researchObject ? { researchObject: options.researchObject } : {}),
       ...(options.gapRisk ? { gapRisk: options.gapRisk } : {}),
       ...(options.protectedDecision ? { protectedDecision: options.protectedDecision } : {}),
+      ...(options.startInterview ? { startInterview: options.startInterview } : {}),
       requestedPerspectives: options.requestedPerspectives,
       disagreementPreference: options.disagreementPreference
     }),
@@ -1406,6 +1480,7 @@ export async function createOrUpdateProjectWorkspace(options: {
       ...(options.researchObject ? { researchObject: options.researchObject } : {}),
       ...(options.gapRisk ? { gapRisk: options.gapRisk } : {}),
       ...(options.protectedDecision ? { protectedDecision: options.protectedDecision } : {}),
+      ...(options.startInterview ? { startInterview: options.startInterview } : {}),
       requestedPerspectives: options.requestedPerspectives,
       disagreementPreference: options.disagreementPreference
     }),
@@ -1423,6 +1498,7 @@ export async function createOrUpdateProjectWorkspace(options: {
       ...(options.researchObject ? { researchObject: options.researchObject } : {}),
       ...(options.gapRisk ? { gapRisk: options.gapRisk } : {}),
       ...(options.protectedDecision ? { protectedDecision: options.protectedDecision } : {}),
+      ...(options.startInterview ? { startInterview: options.startInterview } : {}),
       requestedPerspectives: options.requestedPerspectives,
       disagreementPreference: options.disagreementPreference
     }),
@@ -1511,13 +1587,18 @@ export async function inspectProjectWorkspace(
 
 export function renderProjectWorkspaceSummary(context: LongTableProjectContext): string {
   return [
-    "┌──────────────────────────────────────────────┐",
-    "│ LongTable Project Workspace               │",
-    "└──────────────────────────────────────────────┘",
+    "┌─ LongTable Project Workspace ─────────────────────────┐",
+    "└───────────────────────────────────────────────────────┘",
     `Project: ${context.project.projectName}`,
     `Path: ${context.project.projectPath}`,
+    "",
+    "┌─ Current Research Shape ──────────────────────────────┐",
     `Goal: ${context.session.currentGoal}`,
     ...(context.session.currentBlocker ? [`Blocker: ${context.session.currentBlocker}`] : []),
+    ...(context.session.researchObject ? [`Working object: ${context.session.researchObject}`] : []),
+    ...(context.session.startInterview ? [`Start interview: ${context.session.startInterview.summary}`] : []),
+    "└───────────────────────────────────────────────────────┘",
+    "",
     `Perspectives: ${context.session.requestedPerspectives.length > 0 ? context.session.requestedPerspectives.join(", ") : "auto"}`,
     `Disagreement: ${context.session.disagreementPreference}`,
     "",

@@ -112,6 +112,12 @@ const current = readFileSync(join(projectPath, "CURRENT.md"), "utf8");
 if (!current.includes("Research object: measurement_instrument")) {
   throw new Error("CURRENT.md does not show the research object.");
 }
+if (current.includes("knowledge gap, a coding rule gap, or a data gap")) {
+  throw new Error("CURRENT.md still uses the deprecated taxonomy-style start question.");
+}
+if (!current.includes("show up most concretely")) {
+  throw new Error("CURRENT.md does not use the scene/material/evidence start question.");
+}
 
 const activeText = [
   readFileSync(join(repoRoot, "packages", "longtable-setup", "src", "onboarding.ts"), "utf8"),
@@ -119,6 +125,35 @@ const activeText = [
 ].join("\n");
 if (activeText.includes("Before we begin, which research field")) {
   throw new Error("Deprecated research-field setup prompt is still present.");
+}
+
+const adaptiveInput = [
+  "Adaptive Project",
+  tmp,
+  "A classroom trust judgment made me want to study this",
+  "Why trust judgments shift without clear evidence",
+  "Readers should understand where trust calibration fails",
+  "Interview transcripts and prior literature"
+].join("\n") + "\n";
+runCli([
+  "start",
+  "--setup", setupPath
+], {
+  input: adaptiveInput,
+  stdio: ["pipe", "pipe", "pipe"]
+});
+const adaptiveSession = JSON.parse(readFileSync(
+  join(tmp, "Adaptive-Project", ".longtable", "current-session.json"),
+  "utf8"
+));
+if (!adaptiveSession.startInterview) {
+  throw new Error("Adaptive start did not persist startInterview.");
+}
+if (adaptiveSession.startInterview.turnCount < 3) {
+  throw new Error("Adaptive start interview should collect several research turns.");
+}
+if (adaptiveSession.openQuestions.join("\n").includes("knowledge gap, a coding rule gap")) {
+  throw new Error("Adaptive start persisted a deprecated taxonomy-style open question.");
 }
 
 console.log("setup/start smoke passed");
