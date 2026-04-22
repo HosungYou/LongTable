@@ -194,13 +194,19 @@ LongTable should not behave like a generic web scraper. Research search should
 start from scholarly routes when the user needs literature discovery, citation
 verification, publication metadata, or evidence-backed research decisions.
 
-Planned scholarly routes include arXiv, Crossref, OpenAlex, Semantic Scholar,
-PubMed/NCBI, ERIC, DOAJ, and Unpaywall. They have different setup requirements:
-some work without keys, some require a contact email, and some need API keys for
-reliable use.
+`longtable search` routes research queries through arXiv, Crossref, OpenAlex,
+Semantic Scholar, PubMed/NCBI, ERIC, DOAJ, and Unpaywall, then normalizes,
+deduplicates, ranks, and labels results as evidence cards. Some sources work
+without keys, some require a contact email, and some need API keys for reliable
+use.
 
 Citation support should be checked explicitly. A reference can be useful as
 background while still failing to support the specific claim attached to it.
+
+```bash
+longtable search --query "trust calibration measurement" --intent measurement
+longtable search --query "trust calibration citation support" --intent citation --record
+```
 
 See:
 

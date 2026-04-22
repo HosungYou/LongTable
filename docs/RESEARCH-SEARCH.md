@@ -227,15 +227,33 @@ LongTable should not copy its goal wholesale.
 
 For research use, LongTable should avoid becoming a paywall or WAF bypass tool. It should prioritize legal, reproducible, scholarly routes and clearly label when full text is not available.
 
+## Current V1 Implementation
+
+`longtable search` is the explicit search entry point. It uses
+`@longtable/cli` to build a deterministic `ResearchSearchIntent`, route to
+Crossref, arXiv, OpenAlex, Semantic Scholar, PubMed/NCBI, ERIC, DOAJ, and
+Unpaywall, then normalize results as `EvidenceCard` records.
+
+V1 behavior:
+
+- environment-variable credentials only; project files do not store API keys
+- partial-search confirmation when requested sources are unavailable
+- DOI/PMID/arXiv/OpenAlex/Semantic Scholar/title deduplication
+- relevance ranking from keyword overlap, recency, citation count, source
+  signal, and full-text availability
+- metadata/abstract-based citation support labels only
+- optional `--record` storage under `.longtable/evidence/<run-id>.json`
+
 ## Implementation Sequence
 
-1. Update setup model with optional contact email and API key fields.
-2. Add `ResearchSearchIntent` and `EvidenceCard` types.
-3. Add a source router that chooses scholarly sources only when needed.
-4. Add no-key metadata search for Crossref and arXiv first.
-5. Add OpenAlex, Semantic Scholar, PubMed, ERIC, DOAJ, and Unpaywall routes behind capability checks.
-6. Add citation verification for claim-citation pairs.
-7. Connect search outputs to panel results and decision records.
+1. Done: add `ResearchSearchIntent` and `EvidenceCard` types.
+2. Done: add a source router and explicit `longtable search` entry point.
+3. Done: add Crossref, arXiv, OpenAlex, Semantic Scholar, PubMed, ERIC, DOAJ,
+   and Unpaywall routes behind capability checks.
+4. Done: add metadata/abstract-based citation support labels.
+5. Done: record search outputs as evidence artifacts.
+6. Next: connect evidence cards directly into panel results and decision records.
+7. Later: add setup/doctor helpers for search credentials.
 
 ## Non-Goals
 

@@ -46,6 +46,7 @@ Supporting surfaces:
 - `longtable question`
 - `longtable decide`
 - `longtable panel`
+- `longtable search`
 - `longtable codex install-skills`
 - `longtable claude install-skills`
 
@@ -212,6 +213,23 @@ longtable team --debate --prompt "debate this study design" --role theory_critic
 `team --debate` adds rebuttal and convergence rounds. See
 `docs/AGENT-TEAM-README.md` for user-facing guidance and
 `docs/TEAM-DEBATE-ORCHESTRATION.md` for the artifact contract.
+
+### `longtable search`
+
+Scholar-first evidence search for literature discovery, citation checking,
+publication metadata, and research decisions that need external support.
+
+Examples:
+
+```bash
+longtable search --query "trust calibration measurement" --intent measurement
+longtable search --query "trust calibration citation support" --intent citation --record
+```
+
+The command routes to scholarly metadata sources, normalizes results as
+evidence cards, deduplicates and ranks them, and optionally records the run
+under `.longtable/evidence/`. Missing credentials block non-interactive full
+router runs unless `--allow-partial` is supplied.
 
 ### `longtable roles`
 

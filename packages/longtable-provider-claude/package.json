@@ -1,6 +1,6 @@
 {
   "name": "@longtable/provider-claude",
-  "version": "0.1.26",
+  "version": "0.1.29",
   "private": false,
   "description": "Claude adapter surface for LongTable",
   "type": "module",
@@ -21,9 +21,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@longtable/checkpoints": "0.1.26",
-    "@longtable/core": "0.1.26",
-    "@longtable/setup": "0.1.26"
+    "@longtable/checkpoints": "0.1.29",
+    "@longtable/core": "0.1.29",
+    "@longtable/setup": "0.1.29"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

@@ -21,7 +21,7 @@ import {
 } from "@longtable/cli";
 
 const SERVER_NAME = "longtable-state";
-const SERVER_VERSION = "0.1.26";
+const SERVER_VERSION = "0.1.29";
 
 const TOOL_NAMES = [
   "read_project",

@@ -473,7 +473,7 @@ Default config targets:
 Run the server directly:
 
 ```bash
-npx -y @longtable/mcp@0.1.26
+npx -y @longtable/mcp@0.1.29
 longtable-state --self-test
 ```
 
@@ -515,23 +515,34 @@ clients that cannot show, accept, or approve MCP elicitation.
 
 ## Evidence And Scholarly Search
 
-LongTable should not behave like a generic web scraper. When research claims,
-literature discovery, citation verification, or publication metadata matter,
-LongTable should prefer scholarly routes.
+LongTable does not treat research search as generic web scraping. When research
+claims, literature discovery, citation verification, or publication metadata
+matter, `longtable search` routes the query through scholarly metadata sources,
+normalizes results into evidence cards, deduplicates overlapping records, ranks
+them, and labels citation-support depth.
 
-Planned or intended scholarly sources include:
+Implemented scholarly routes include:
 
 - Crossref
+- arXiv
 - OpenAlex
 - Semantic Scholar
 - PubMed/NCBI
 - ERIC
-- arXiv
 - DOAJ
 - Unpaywall
 
+Some sources require local environment configuration. OpenAlex uses
+`OPENALEX_API_KEY`; Unpaywall uses `LONGTABLE_CONTACT_EMAIL`; Semantic Scholar
+and NCBI can use optional keys for more reliable or higher-rate access.
+
 The important policy is claim-level support. A source can be useful background
 while still failing to support the specific sentence attached to it.
+
+```bash
+longtable search --query "trust calibration measurement" --intent measurement --record
+longtable search --query "does this citation support my claim?" --intent citation --source all --json
+```
 
 ## Health Checks
 
@@ -580,6 +591,7 @@ longtable draft --prompt "..."
 longtable commit --prompt "..."
 longtable panel --prompt "..."
 longtable sentinel --prompt "..."
+longtable search --query "..."
 ```
 
 Natural-language and provider-skill use should usually come before these shell
@@ -633,6 +645,7 @@ provider skills are the preferred adapter surface.
 | `.longtable/current-session.json` | Current session cursor |
 | `.longtable/state.json` | Layered working memory, tensions, questions, decisions, and invocations |
 | `.longtable/sessions/` | Historical session snapshots |
+| `.longtable/evidence/` | Recorded evidence search runs and evidence cards |
 | `.longtable/team/<id>/` | Team or debate artifacts when team mode is used |
 
 ## Design Principles

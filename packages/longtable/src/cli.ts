@@ -6,11 +6,18 @@ import { execSync } from "node:child_process";
 import { emitKeypressEvents } from "node:readline";
 import { createInterface } from "node:readline/promises";
 import type { Interface as ReadlineInterface } from "node:readline/promises";
-import { stdin as input, stdout as output, cwd, exit } from "node:process";
+import { stdin as input, stdout as output, cwd, env, exit } from "node:process";
 import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import type { InteractionMode, PanelVisibility, ProviderKind, QuestionRecord, ResearchStage } from "@longtable/core";
 import { classifyCheckpointTrigger } from "@longtable/checkpoints";
+import {
+  assessSearchSourceCapabilities,
+  buildResearchSearchIntent,
+  runResearchSearch,
+  type EvidenceRun,
+  type SearchSourceCapability
+} from "./search/index.js";
 import {
   buildProviderChoices,
   buildQuickSetupFlow,
@@ -200,7 +207,7 @@ const ANSI = {
 };
 
 const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
-const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.26";
+const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.29";
 const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
 const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 
@@ -251,6 +258,7 @@ function usage(): string {
     "  longtable show [--json] [--path <file>]",
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
     "  longtable mcp install [--provider codex|claude|all] [--write] [--checkpoint-ui off|interactive|strong] [--json] [--codex-config <path>] [--claude-settings <path>] [--package <spec>]",
+    "  longtable search --query <text> [--intent literature|theory|measurement|citation|metadata|venue] [--field <text>] [--source all|crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj,unpaywall] [--must <term[,term]>] [--exclude <term[,term]>] [--limit <n>] [--allow-partial] [--record] [--cwd <path>] [--json]",
     "  longtable sentinel --prompt <text> [--cwd <path>] [--json] [--record]",
     "  longtable team --prompt <text> [--role <role[,role]>] [--debate] [--rounds 3|5] [--cwd <path>] [--json]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
@@ -291,7 +299,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "setup", "start", "resume", "doctor", "status", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "panel", "decide", "sentinel", "team"].includes(command);
+    command && ["init", "setup", "start", "resume", "doctor", "status", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "panel", "decide", "sentinel", "team", "search"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -2589,6 +2597,167 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
   exit(exitCode);
 }
 
+function parseLimit(value: string | boolean | undefined): number | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Invalid search limit: ${value}`);
+  }
+  return parsed;
+}
+
+async function confirmPartialSearch(skippedSources: SearchSourceCapability[]): Promise<boolean> {
+  if (!input.isTTY || !output.isTTY) {
+    return false;
+  }
+
+  const rl = createInterface({ input, output });
+  try {
+    console.log("Some scholarly sources are unavailable:");
+    for (const source of skippedSources) {
+      console.log(`- ${source.source}: ${source.reason ?? "unavailable"}`);
+    }
+    const answer = await rl.question("Continue with the available sources? [y/N] ");
+    return /^y(es)?$/i.test(answer.trim());
+  } finally {
+    rl.close();
+  }
+}
+
+function renderEvidenceRunSummary(run: EvidenceRun, recordedPath?: string): string {
+  const lines = [
+    "LongTable Search",
+    `- status: ${run.status}`,
+    `- query: ${run.intent.query}`,
+    `- intent: ${run.intent.kind}`,
+    `- sources: ${run.sourceReports.map((report) => `${report.source}:${report.status}`).join(", ")}`
+  ];
+
+  if (run.blockedReason) {
+    lines.push(`- blocked: ${run.blockedReason}`);
+  }
+  if (recordedPath) {
+    lines.push(`- recorded: ${recordedPath}`);
+  }
+  if (run.warnings.length > 0) {
+    lines.push("- warnings:");
+    for (const warning of run.warnings) {
+      lines.push(`  - ${warning}`);
+    }
+  }
+  if (run.cards.length === 0) {
+    lines.push("- cards: none");
+    return lines.join("\n");
+  }
+
+  lines.push("- top evidence cards:");
+  for (const card of run.cards.slice(0, 8)) {
+    const identifiers = [
+      card.doi ? `doi:${card.doi}` : "",
+      card.pmid ? `pmid:${card.pmid}` : "",
+      card.arxivId ? `arxiv:${card.arxivId}` : ""
+    ].filter(Boolean).join(", ");
+    lines.push(`  - ${card.title}`);
+    lines.push(`    score: ${card.relevanceScore}; support: ${card.citationSupportStatus}; depth: ${card.evidenceDepth}; sources: ${card.sourceRoutes.join(", ")}`);
+    if (identifiers) {
+      lines.push(`    ids: ${identifiers}`);
+    }
+    if (card.url) {
+      lines.push(`    url: ${card.url}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+async function recordEvidenceRun(run: EvidenceRun, workingDirectory: string): Promise<string> {
+  const context = await loadProjectContextFromDirectory(workingDirectory);
+  if (!context) {
+    throw new Error("`longtable search --record` requires a LongTable project workspace. Run inside a project or pass --cwd.");
+  }
+
+  const evidenceDir = join(context.project.projectPath, ".longtable", "evidence");
+  await mkdir(evidenceDir, { recursive: true });
+  const evidencePath = join(evidenceDir, `${run.id}.json`);
+  await writeJsonFile(evidencePath, run);
+
+  const state = await loadWorkspaceState(context);
+  state.workingState = {
+    ...state.workingState,
+    recentEvidenceRun: {
+      id: run.id,
+      query: run.intent.query,
+      intent: run.intent.kind,
+      status: run.status,
+      cardCount: run.cards.length,
+      path: evidencePath
+    }
+  };
+  state.artifactRecords.push({
+    id: `artifact_${run.id}`,
+    timestamp: run.createdAt,
+    artifactType: "evidence_search",
+    stakes: "internal_draft",
+    source: "longtable search",
+    location: evidencePath,
+    provenanceSummary: `Scholar-first search for "${run.intent.query}" using ${run.intent.requestedSources.join(", ")}.`
+  });
+  await writeFile(context.stateFilePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+  await syncCurrentWorkspaceView(context);
+
+  return evidencePath;
+}
+
+async function runSearch(args: Record<string, string | boolean>): Promise<void> {
+  const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+  const projectContext = await loadProjectContextFromDirectory(workingDirectory);
+  const searchInput = {
+    query: typeof args.query === "string" ? args.query : undefined,
+    prompt: typeof args.prompt === "string" ? args.prompt : undefined,
+    projectGoal: projectContext?.session.currentGoal,
+    projectBlocker: projectContext?.session.currentBlocker,
+    intent: typeof args.intent === "string" ? args.intent : undefined,
+    field: typeof args.field === "string" ? args.field : undefined,
+    must: typeof args.must === "string" ? args.must : undefined,
+    exclude: typeof args.exclude === "string" ? args.exclude : undefined,
+    sources: typeof args.source === "string" ? args.source : undefined,
+    limit: parseLimit(args.limit),
+    source: "cli" as const
+  };
+
+  const plannedIntent = buildResearchSearchIntent(searchInput);
+  const skippedSources = assessSearchSourceCapabilities(plannedIntent.requestedSources, env)
+    .filter((capability) => !capability.enabled);
+  let allowPartial = args["allow-partial"] === true;
+
+  if (skippedSources.length > 0 && !allowPartial) {
+    allowPartial = await confirmPartialSearch(skippedSources);
+  }
+
+  const run = await runResearchSearch({
+    ...searchInput,
+    env,
+    allowPartial
+  });
+
+  let recordedPath: string | undefined;
+  if (args.record === true && run.status !== "blocked") {
+    recordedPath = await recordEvidenceRun(run, workingDirectory);
+  }
+
+  if (args.json === true) {
+    console.log(JSON.stringify({
+      run,
+      files: recordedPath ? { evidence: recordedPath } : undefined
+    }, null, 2));
+    return;
+  }
+
+  console.log(renderEvidenceRunSummary(run, recordedPath));
+}
+
 async function runQuestion(args: Record<string, string | boolean>): Promise<void> {
   const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
   const prompt = await resolvePrompt(typeof args.prompt === "string" ? args.prompt : undefined);
@@ -3554,6 +3723,11 @@ async function main(): Promise<void> {
 
   if (command === "mcp") {
     await runMcpSubcommand(subcommand, values);
+    return;
+  }
+
+  if (command === "search") {
+    await runSearch(values);
     return;
   }
 
