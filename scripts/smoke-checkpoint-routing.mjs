@@ -46,6 +46,8 @@ assertEqual(draft.signal.checkpointKey, "evidence_claim", "draft evidence key");
 assertEqual(draft.advisoryOnly, true, "draft remains advisory");
 
 const tmp = mkdtempSync(join(tmpdir(), "longtable-checkpoint-routing-"));
+const setupPath = join(tmp, "setup.json");
+const runtimePath = join(tmp, "runtime.toml");
 
 function runCli(args) {
   return execFileSync("node", [cli, ...args], {
@@ -55,7 +57,20 @@ function runCli(args) {
 }
 
 runCli([
+  "setup",
+  "--provider", "codex",
+  "--install-scope", "none",
+  "--surfaces", "cli_only",
+  "--intervention", "balanced",
+  "--workspace", "later",
+  "--setup-path", setupPath,
+  "--runtime-path", runtimePath,
+  "--json"
+]);
+
+runCli([
   "start",
+  "--setup", setupPath,
   "--path", tmp,
   "--name", "Checkpoint Routing Smoke",
   "--goal", "Test checkpoint routing",
