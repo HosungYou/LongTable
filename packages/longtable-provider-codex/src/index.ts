@@ -62,12 +62,13 @@ export const CODEX_PROVIDER_CAPABILITIES: ProviderCapabilities = {
   promptAliases: "unavailable",
   nativeParallelSubagents: "session_dependent",
   sequentialFallback: true,
-  mcpTransport: "planned",
+  mcpTransport: "available",
   notes: [
     "Codex generated skills are the preferred native surface.",
     "Installed prompt files are not guaranteed to become slash commands in current Codex builds.",
     "Native parallel subagents may exist in an interactive session, but the npm CLI must not require them.",
-    "Sequential panel fallback is the stable provider-neutral path."
+    "Sequential panel fallback is the stable provider-neutral path.",
+    "MCP elicitation can present Researcher Checkpoints when the Codex client exposes granular MCP elicitations; numbered prompts remain the fallback."
   ]
 };
 

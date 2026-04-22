@@ -2,7 +2,8 @@
 
 ## Position
 
-Codex adapter는 provider-native question widget에 의존하지 않는다.
+Codex adapter는 provider-native question widget에 의존하지 않는다. LongTable
+QuestionRecord가 canonical state이고, Codex UI는 가능한 transport 중 하나다.
 
 ## Baseline
 
@@ -11,9 +12,38 @@ Codex adapter는 provider-native question widget에 의존하지 않는다.
 - invalid input reprompt
 - mode-aware blocking
 
+## Structured UI Transport
+
+Codex can surface MCP elicitation prompts when the client exposes granular MCP
+elicitations. LongTable uses that only as a presentation layer:
+
+1. create a durable QuestionRecord first
+2. request MCP form elicitation from the client
+3. append a DecisionRecord when the user accepts the form
+4. return the same numbered checkpoint fallback when elicitation is unavailable,
+   declined, canceled, or unsupported
+
+`supportsStructuredQuestions` must not be set to `true` merely because LongTable
+can render a structured schema. It should reflect a verified provider/client
+capability. For Codex, the stable contract remains numbered fallback plus
+optional MCP elicitation.
+
+Codex UI checkpoints are opt-in. Setup may enable them only when the researcher
+chooses `--checkpoint-ui interactive` or `--checkpoint-ui strong` with an MCP
+runtime surface. The config change is explicit because it writes:
+
+```toml
+approval_policy = { granular = { mcp_elicitations = true } }
+```
+
+If the client rejects, cancels, or does not support elicitation, LongTable keeps
+the pending `QuestionRecord` and returns the numbered fallback plus the
+`longtable decide` next action.
+
 ## Responsibilities
 
 - checkpoint policy 결과를 Codex-friendly prompt surface로 변환
+- optional MCP elicitation을 LongTable QuestionRecord/DecisionRecord에 연결
 - epistemic mode와 question policy를 runtime guidance header로 변환
 - numbered response parsing
 - blocking checkpoint wrapper 제공

@@ -174,6 +174,42 @@ const RULES: CueRule[] = [
   },
   {
     family: "exploration",
+    checkpointKey: "knowledge_gap_probe",
+    stage: "problem_framing",
+    mode: "explore",
+    level: "adaptive_required",
+    cues: [
+      /\bknowledge gap\b/i,
+      /\bgap in (my|our|the) knowledge\b/i,
+      /\bunknown\b/i,
+      /\buncertain\b/i,
+      /\bnot sure\b/i,
+      /\bdon'?t know\b/i,
+      /\bwhat am i missing\b/i,
+      /\bwhat are we missing\b/i,
+      /지식의 공백|지식 공백|모르겠|불확실|놓치고 있|빠뜨리고 있/
+    ],
+    rationale: "A named knowledge gap should be surfaced before LongTable narrows or closes the problem."
+  },
+  {
+    family: "review",
+    checkpointKey: "tacit_assumption_probe",
+    stage: "problem_framing",
+    mode: "review",
+    level: "adaptive_required",
+    cues: [
+      /\btacit\b/i,
+      /\bimplicit\b/i,
+      /\bassumption\b/i,
+      /\bpremise\b/i,
+      /\bblind spot\b/i,
+      /\bhidden constraint\b/i,
+      /암묵지|암묵적|전제|가정|사각지대|숨은 제약|암묵/
+    ],
+    rationale: "Tacit assumptions can silently shift research responsibility and need an explicit researcher-facing check."
+  },
+  {
+    family: "exploration",
     checkpointKey: "problem_exploration",
     stage: "problem_framing",
     mode: "explore",

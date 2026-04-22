@@ -124,6 +124,10 @@ interface ProviderSkillHealth {
 interface CodexSkillHealth extends ProviderSkillHealth {
   promptsDir: string;
   legacyPromptFilesInstalled: string[];
+  mcpConfigPath: string;
+  mcpConfigExists: boolean;
+  longtableMcpConfigured: boolean;
+  mcpElicitationsAllowed: boolean;
 }
 
 interface LongTableDoctorStatus {
@@ -163,6 +167,7 @@ interface McpInstallResult {
   command: string;
   args: string[];
   write: boolean;
+  checkpointUi?: SetupCheckpointUiChoice;
   targets: McpInstallTarget[];
 }
 
@@ -194,7 +199,7 @@ const ANSI = {
 };
 
 const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
-const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.21";
+const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.22";
 const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
 const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 
@@ -235,17 +240,16 @@ function usage(): string {
     "  Run `longtable ...` in your terminal, not inside the Codex chat box.",
     "  After `longtable start`, move into the created project directory and open `codex` there.",
     "",
-    "  longtable setup [--provider codex|claude] [--install-scope user|project|none] [--surfaces cli_only|skills|skills_mcp|skills_mcp_sentinel] [--intervention advisory|balanced|strong] [--workspace create|later] [--project-dir <path>] [--json] [--dir <path>] [--skills-dir <path>] [--runtime-path <file>] [--setup-path <file>]",
+    "  longtable setup [--provider codex|claude] [--install-scope user|project|none] [--surfaces cli_only|skills|skills_mcp|skills_mcp_sentinel] [--intervention advisory|balanced|strong] [--checkpoint-ui off|interactive|strong] [--workspace create|later] [--project-dir <path>] [--json] [--dir <path>] [--skills-dir <path>] [--runtime-path <file>] [--setup-path <file>]",
     "  longtable init [deprecated alias for setup; full legacy flags still supported for automation]",
     "  longtable start [--path <dir>] [--name <project>] [--goal <text>] [--blocker <text>] [--research-object research_question|theory_framework|measurement_instrument|study_design|analysis_plan|manuscript] [--gap-risk known_gap|suspected_tacit_assumptions|diagnose] [--protected-decision theory|measurement|method|evidence_citation|authorship_voice|submission_public_sharing] [--perspectives <role[,role]>] [--disagreement synthesis_only|show_on_conflict|always_visible] [--setup <path>] [--json]",
     "  longtable resume [--cwd <path>] [--json]",
-    "  longtable doctor [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
-    "  longtable status [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
+    "  longtable doctor [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--codex-config <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
+    "  longtable status [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--codex-config <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
     "  longtable roles [--json]",
     "  longtable show [--json] [--path <file>]",
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
-    "  longtable mcp install [--provider codex|claude|all] [--write] [--json] [--codex-config <path>] [--claude-settings <path>] [--package <spec>]",
-    "  longtable hud [--watch] [--tmux] [--preset minimal|full] [--cwd <path>] [--json]",
+    "  longtable mcp install [--provider codex|claude|all] [--write] [--checkpoint-ui off|interactive|strong] [--json] [--codex-config <path>] [--claude-settings <path>] [--package <spec>]",
     "  longtable sentinel --prompt <text> [--cwd <path>] [--json] [--record]",
     "  longtable team --prompt <text> [--role <role[,role]>] [--tmux] [--debate] [--rounds 5] [--cwd <path>] [--json]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
@@ -286,7 +290,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "setup", "start", "resume", "doctor", "status", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "panel", "decide", "hud", "sentinel", "team"].includes(command);
+    command && ["init", "setup", "start", "resume", "doctor", "status", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "panel", "decide", "sentinel", "team"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -815,11 +819,13 @@ type SetupInstallScopeChoice = "user" | "project" | "none";
 type SetupSurfaceChoice = "cli_only" | "skills" | "skills_mcp" | "skills_mcp_sentinel";
 type SetupInterventionChoice = "advisory" | "balanced" | "strong";
 type SetupWorkspaceChoice = "create" | "later";
+type SetupCheckpointUiChoice = NonNullable<SetupAnswers["checkpointUiMode"]>;
 
 function buildPermissionSetupChoices(): {
   installScope: SetupChoice[];
   surfaces: SetupChoice[];
   intervention: SetupChoice[];
+  checkpointUi: SetupChoice[];
   workspace: SetupChoice[];
 } {
   return {
@@ -877,6 +883,23 @@ function buildPermissionSetupChoices(): {
         id: "strong",
         label: "Strong",
         description: "Why: maximizes judgment protection. What you get: stricter checkpoints. Tradeoff: more interruption before closure."
+      }
+    ],
+    checkpointUi: [
+      {
+        id: "strong",
+        label: "Strong Researcher Checkpoint UI",
+        description: "Why: uses Codex MCP elicitation for high-responsibility research decisions. What you get: clickable checkpoints with other/rationale. Tradeoff: requires Codex MCP elicitation approval."
+      },
+      {
+        id: "interactive",
+        label: "Interactive checkpoint UI",
+        description: "Why: keeps UI prompts available for required checkpoints. What you get: MCP form checkpoints when supported. Tradeoff: requires Codex MCP elicitation approval."
+      },
+      {
+        id: "off",
+        label: "Text fallback only",
+        description: "Why: safest transport boundary. What you get: numbered checkpoints and terminal selectors only. Tradeoff: no Codex UI form prompts."
       }
     ],
     workspace: [
@@ -982,8 +1005,23 @@ function parseSetupIntervention(value: string | boolean | undefined): SetupInter
   return value === "advisory" || value === "balanced" || value === "strong" ? value : undefined;
 }
 
+function parseSetupCheckpointUi(value: string | boolean | undefined): SetupCheckpointUiChoice | undefined {
+  return value === "off" || value === "interactive" || value === "strong" ? value : undefined;
+}
+
 function parseSetupWorkspace(value: string | boolean | undefined): SetupWorkspaceChoice | undefined {
   return value === "create" || value === "later" ? value : undefined;
+}
+
+function checkpointUiRequiresMcp(choice: SetupCheckpointUiChoice): boolean {
+  return choice === "interactive" || choice === "strong";
+}
+
+function checkpointUiIntervention(
+  intervention: SetupInterventionChoice,
+  checkpointUi: SetupCheckpointUiChoice
+): SetupInterventionChoice {
+  return checkpointUi === "strong" ? "strong" : intervention;
 }
 
 async function runSetup(args: Record<string, string | boolean>): Promise<void> {
@@ -1012,19 +1050,38 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
       "How strongly may LongTable interrupt research decisions?",
       choices.intervention
     ) as SetupInterventionChoice;
+    const parsedCheckpointUi = parseSetupCheckpointUi(args["checkpoint-ui"]);
+    const checkpointUiEligible = provider === "codex" && installScope !== "none" && shouldInstallMcp(installScope, surfaces);
+    if (parsedCheckpointUi && checkpointUiRequiresMcp(parsedCheckpointUi) && !checkpointUiEligible) {
+      throw new Error("`--checkpoint-ui interactive|strong` requires Codex with an MCP runtime surface.");
+    }
+    const checkpointUi = parsedCheckpointUi ?? (
+      checkpointUiEligible
+        ? await promptChoice(
+          rl,
+          [
+            "Should Codex use UI Researcher Checkpoints when MCP elicitation is available?",
+            "This writes Codex MCP elicitation approval only when you choose an interactive mode."
+          ].join("\n"),
+          choices.checkpointUi
+        ) as SetupCheckpointUiChoice
+        : "off"
+    );
     const workspacePreference = parseSetupWorkspace(args.workspace) ?? await promptChoice(
       rl,
       "Should LongTable create a project workspace now?",
       choices.workspace
     ) as SetupWorkspaceChoice;
     const projectRoot = setupProjectRoot(args);
+    const effectiveIntervention = checkpointUiIntervention(intervention, checkpointUi);
 
     const outputValue = createPersistedSetupOutput(
       {
         field: "unspecified",
         careerStage: "unspecified",
         experienceLevel: "advanced",
-        preferredCheckpointIntensity: checkpointIntensityFromIntervention(intervention),
+        preferredCheckpointIntensity: checkpointIntensityFromIntervention(effectiveIntervention),
+        checkpointUiMode: checkpointUi,
         preferredEntryMode: "explore",
         panelPreference: "show_on_conflict"
       },
@@ -1035,7 +1092,8 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
       ...outputValue.initialState.explicitState,
       installScope,
       runtimeSurfaces: surfaces,
-      interventionPosture: intervention,
+      interventionPosture: effectiveIntervention,
+      checkpointUiMode: checkpointUi,
       workspaceCreationPreference: workspacePreference,
       tmuxMode: "standard",
       teamMode: "panel"
@@ -1075,7 +1133,12 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
 
     let mcpInstall: McpInstallResult | undefined;
     if (shouldInstallMcp(installScope, surfaces)) {
-      mcpInstall = await installMcpForSetup(provider, mcpArgsForScope(provider, installScope, args, projectRoot));
+      mcpInstall = await installMcpForSetup(provider, {
+        ...mcpArgsForScope(provider, installScope, args, projectRoot),
+        ...(provider === "codex" && checkpointUiRequiresMcp(checkpointUi)
+          ? { "checkpoint-ui": checkpointUi }
+          : {})
+      });
     }
 
     if (json) {
@@ -1103,6 +1166,10 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
     if (mcpInstall) {
       console.log("");
       console.log(renderMcpInstallSummary(mcpInstall));
+      if (provider === "codex" && checkpointUiRequiresMcp(checkpointUi)) {
+        console.log("");
+        console.log("Restart Codex after this config change, then run `longtable doctor` in the project workspace.");
+      }
     }
     if (surfaces === "skills_mcp_sentinel") {
       console.log("");
@@ -1563,6 +1630,30 @@ function renderCodexMcpBlock(serverName: string, command: string, mcpArgs: strin
   ].join("\n");
 }
 
+function codexElicitationApprovalLine(): string {
+  return "approval_policy = { granular = { mcp_elicitations = true } }";
+}
+
+function enableCodexMcpElicitations(existing: string): string {
+  const line = codexElicitationApprovalLine();
+  if (/approval_policy\s*=\s*\{[^\n]*mcp_elicitations\s*=\s*true[^\n]*\}/m.test(existing)) {
+    return existing;
+  }
+  if (/^approval_policy\s*=.*$/m.test(existing)) {
+    return existing.replace(/^approval_policy\s*=.*$/m, line);
+  }
+  const trimmed = existing.trimEnd();
+  return trimmed ? `${line}\n${trimmed}\n` : `${line}\n`;
+}
+
+function codexMcpElicitationsAllowed(config: string): boolean {
+  return /approval_policy\s*=\s*\{[^\n]*mcp_elicitations\s*=\s*true[^\n]*\}/m.test(config);
+}
+
+function codexLongTableMcpConfigured(config: string): boolean {
+  return new RegExp(`\\[mcp_servers\\.${LONGTABLE_MCP_SERVER_NAME.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]`).test(config);
+}
+
 function replaceMarkedCodexMcpBlock(existing: string, block: string, serverName: string): string {
   const markerPattern = new RegExp(
     `${LONGTABLE_MCP_MARKER_START.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*?${LONGTABLE_MCP_MARKER_END.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n?`,
@@ -1576,9 +1667,15 @@ function replaceMarkedCodexMcpBlock(existing: string, block: string, serverName:
   return trimmed ? `${trimmed}\n\n${block}\n` : `${block}\n`;
 }
 
-async function writeCodexMcpConfig(path: string, block: string, serverName: string): Promise<string> {
+async function writeCodexMcpConfig(
+  path: string,
+  block: string,
+  serverName: string,
+  options: { enableElicitations?: boolean } = {}
+): Promise<string> {
   const existing = existsSync(path) ? await readFile(path, "utf8") : "";
-  const updated = replaceMarkedCodexMcpBlock(existing, block, serverName);
+  const withMcp = replaceMarkedCodexMcpBlock(existing, block, serverName);
+  const updated = options.enableElicitations ? enableCodexMcpElicitations(withMcp) : withMcp;
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, updated, "utf8");
   return updated;
@@ -1629,6 +1726,9 @@ function renderMcpInstallSummary(result: McpInstallResult): string {
     `- package: ${result.packageSpec}`,
     `- command: ${result.command} ${result.args.join(" ")}`,
     `- mode: ${result.write ? "wrote provider config" : "printed config only"}`,
+    ...(result.checkpointUi && checkpointUiRequiresMcp(result.checkpointUi)
+      ? [`- Codex checkpoint UI: ${result.checkpointUi} (MCP elicitations allowed)`]
+      : []),
     ""
   ];
 
@@ -1642,6 +1742,9 @@ function renderMcpInstallSummary(result: McpInstallResult): string {
 
   if (!result.write) {
     lines.push("Run again with `--write` to update these provider config files.");
+  }
+  if (result.checkpointUi && checkpointUiRequiresMcp(result.checkpointUi)) {
+    lines.push("Restart Codex after changing MCP elicitation approval, then run `longtable doctor`.");
   }
   return lines.join("\n").trimEnd();
 }
@@ -1657,12 +1760,15 @@ async function installMcpForSetup(
   const packageSpec = resolveMcpPackageSpec(args);
   const command = typeof args.command === "string" && args.command.trim() ? args.command.trim() : "npx";
   const mcpArgs = command === "npx" ? ["-y", packageSpec] : [packageSpec];
+  const checkpointUi = parseSetupCheckpointUi(args["checkpoint-ui"]) ?? "off";
   const targets: McpInstallTarget[] = [];
 
   if (provider === "codex") {
     const path = resolveCodexMcpConfigPath(args);
     const block = renderCodexMcpBlock(serverName, command, mcpArgs);
-    const content = await writeCodexMcpConfig(path, block, serverName);
+    const content = await writeCodexMcpConfig(path, block, serverName, {
+      enableElicitations: checkpointUiRequiresMcp(checkpointUi)
+    });
     targets.push({ provider, path, format: "toml", content });
   }
 
@@ -1678,6 +1784,7 @@ async function installMcpForSetup(
     command,
     args: mcpArgs,
     write: true,
+    checkpointUi,
     targets
   };
 }
@@ -1696,13 +1803,23 @@ async function runMcpSubcommand(
     const mcpArgs = command === "npx" ? ["-y", packageSpec] : [packageSpec];
     const providers = resolveMcpProviders(args.provider);
     const write = args.write === true;
+    const checkpointUi = parseSetupCheckpointUi(args["checkpoint-ui"]) ?? "off";
+    if (checkpointUiRequiresMcp(checkpointUi) && !providers.includes("codex")) {
+      throw new Error("`--checkpoint-ui interactive|strong` applies only to the Codex MCP provider.");
+    }
     const targets: McpInstallTarget[] = [];
 
     for (const provider of providers) {
       if (provider === "codex") {
         const path = resolveCodexMcpConfigPath(args);
         const block = renderCodexMcpBlock(serverName, command, mcpArgs);
-        const content = write ? await writeCodexMcpConfig(path, block, serverName) : block;
+        const content = write
+          ? await writeCodexMcpConfig(path, block, serverName, {
+            enableElicitations: checkpointUiRequiresMcp(checkpointUi)
+          })
+          : checkpointUiRequiresMcp(checkpointUi)
+            ? enableCodexMcpElicitations(block)
+            : block;
         targets.push({ provider, path, format: "toml", content });
       }
       if (provider === "claude") {
@@ -1720,6 +1837,7 @@ async function runMcpSubcommand(
       command,
       args: mcpArgs,
       write,
+      checkpointUi,
       targets
     };
 
@@ -1747,6 +1865,14 @@ function commandOnPath(command: "codex" | "claude"): boolean {
 function missingNames(expected: string[], installed: string[]): string[] {
   const installedSet = new Set(installed);
   return expected.filter((name) => !installedSet.has(name));
+}
+
+function resolveDoctorCodexMcpConfigPath(args: Record<string, string | boolean>): string {
+  if (typeof args["codex-config"] === "string" && args["codex-config"].trim()) {
+    return resolve(normalizeUserPath(args["codex-config"].trim()));
+  }
+  const projectScoped = join(typeof args.cwd === "string" ? resolve(args.cwd) : cwd(), ".codex", "config.toml");
+  return existsSync(projectScoped) ? projectScoped : resolveCodexMcpConfigPath(args);
 }
 
 function setupForProvider(
@@ -1802,6 +1928,10 @@ async function collectDoctorStatus(args: Record<string, string | boolean>): Prom
       : undefined;
   const codexRuntimePath = resolveDefaultRuntimeConfigPath("codex", codexRuntimeOverride).path;
   const claudeRuntimePath = resolveDefaultRuntimeConfigPath("claude", claudeRuntimeOverride).path;
+  const codexMcpConfigPath = resolveDoctorCodexMcpConfigPath(args);
+  const codexMcpConfig = existsSync(codexMcpConfigPath)
+    ? await readFile(codexMcpConfigPath, "utf8")
+    : "";
   const expectedCodexSkills = buildCodexSkillSpecs(roles).map((skill) => skill.name);
   const expectedClaudeSkills = buildClaudeSkillSpecs(roles).map((skill) => skill.name);
   const [codexSkills, claudeSkills, codexAliases, workspace] = await Promise.all([
@@ -1827,7 +1957,11 @@ async function collectDoctorStatus(args: Record<string, string | boolean>): Prom
         installedSkills: installedCodexSkills,
         missingSkills: missingNames(expectedCodexSkills, installedCodexSkills),
         promptsDir: resolveCodexPromptsDir(codexPromptsDir),
-        legacyPromptFilesInstalled: codexAliases.map((alias) => alias.name)
+        legacyPromptFilesInstalled: codexAliases.map((alias) => alias.name),
+        mcpConfigPath: codexMcpConfigPath,
+        mcpConfigExists: existsSync(codexMcpConfigPath),
+        longtableMcpConfigured: codexLongTableMcpConfigured(codexMcpConfig),
+        mcpElicitationsAllowed: codexMcpElicitationsAllowed(codexMcpConfig)
       },
       claude: {
         command: "claude",
@@ -1868,6 +2002,9 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
     ...(status.providers.codex.legacyPromptFilesInstalled.length > 0
       ? [`- legacy prompt names: ${status.providers.codex.legacyPromptFilesInstalled.join(", ")}`]
       : []),
+    `- MCP config: ${status.providers.codex.mcpConfigExists ? "present" : "missing"} (${status.providers.codex.mcpConfigPath})`,
+    `- LongTable MCP: ${status.providers.codex.longtableMcpConfigured ? "configured" : "missing"}`,
+    `- MCP elicitation approval: ${status.providers.codex.mcpElicitationsAllowed ? "allowed" : "not allowed"}`,
     "",
     ...renderProviderDoctorBlock("Claude", status.providers.claude),
     "",
@@ -2782,6 +2919,9 @@ function sentinelSummary(prompt: string, workingDirectory: string) {
   if (/method|design|sample|participant|방법|설계|표본|참여자/.test(normalized)) {
     signals.push("method/design gap");
   }
+  if (/knowledge gap|unknown|uncertain|not sure|don't know|dont know|지식의 공백|지식 공백|모르겠|불확실/.test(normalized)) {
+    signals.push("knowledge gap");
+  }
   if (/citation|reference|source|evidence|doi|문헌|인용|근거|출처/.test(normalized)) {
     signals.push("evidence gap");
   }
@@ -2843,66 +2983,6 @@ async function runSentinel(args: Record<string, string | boolean>): Promise<void
   }
   if (args.record === true) {
     console.log(context ? `- recorded in: ${context.stateFilePath}` : "- record skipped: no LongTable workspace found");
-  }
-}
-
-function renderHudText(inspection: LongTableWorkspaceInspection, preset: string): string {
-  if (!inspection.found) {
-    return [
-      "LongTable HUD",
-      "- workspace: not found",
-      "- run `longtable start` for durable research state"
-    ].join("\n");
-  }
-  const lines = [
-    "LongTable HUD",
-    `- project: ${inspection.project?.name}`,
-    `- goal: ${inspection.session?.currentGoal}`,
-    ...(inspection.session?.currentBlocker ? [`- blocker: ${inspection.session.currentBlocker}`] : []),
-    `- questions: ${inspection.counts?.pendingQuestions ?? 0} pending / ${inspection.counts?.questions ?? 0} total`,
-    `- decisions: ${inspection.counts?.decisions ?? 0}`,
-    `- invocations: ${inspection.counts?.invocations ?? 0}`
-  ];
-  if (preset !== "minimal") {
-    lines.push("- pending checkpoints:");
-    for (const question of inspection.pendingQuestions ?? []) {
-      lines.push(`  - ${question.required ? "required" : "advisory"}: ${question.question}`);
-    }
-    lines.push("- recent decisions:");
-    for (const decision of inspection.recentDecisions ?? []) {
-      lines.push(`  - ${decision.summary}`);
-    }
-  }
-  return lines.join("\n");
-}
-
-async function runHud(args: Record<string, string | boolean>): Promise<void> {
-  const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
-  const preset = typeof args.preset === "string" ? args.preset : "full";
-  if (args.tmux === true) {
-    if (!process.env.TMUX) {
-      throw new Error("`longtable hud --tmux` must be run inside an existing tmux session.");
-    }
-    const launcher = process.argv[1] ?? "longtable";
-    const command = `node ${shellEscape(launcher)} hud --watch --preset ${shellEscape(preset)} --cwd ${shellEscape(workingDirectory)}`;
-    execFileSync("tmux", ["split-window", "-v", "-l", "10", command], { stdio: "inherit" });
-    return;
-  }
-
-  while (true) {
-    const inspection = await inspectProjectWorkspace(workingDirectory);
-    if (args.json === true) {
-      console.log(JSON.stringify(inspection, null, 2));
-      return;
-    }
-    if (args.watch === true) {
-      process.stdout.write("\u001Bc");
-    }
-    console.log(renderHudText(inspection, preset));
-    if (args.watch !== true) {
-      return;
-    }
-    await new Promise((resolvePromise) => setTimeout(resolvePromise, 1500));
   }
 }
 
@@ -3472,11 +3552,6 @@ async function main(): Promise<void> {
 
   if (command === "panel") {
     await runPanelCommand(values);
-    return;
-  }
-
-  if (command === "hud") {
-    await runHud(values);
     return;
   }
 

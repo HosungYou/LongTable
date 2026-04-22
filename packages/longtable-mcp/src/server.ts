@@ -5,7 +5,7 @@ import { cwd, exit } from "node:process";
 import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, ElicitRequestFormParams, ElicitResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { classifyCheckpointTrigger } from "@longtable/checkpoints";
 import { renderQuestionRecordInput } from "@longtable/provider-claude";
@@ -21,7 +21,7 @@ import {
 } from "@longtable/cli";
 
 const SERVER_NAME = "longtable-state";
-const SERVER_VERSION = "0.1.14";
+const SERVER_VERSION = "0.1.22";
 
 const TOOL_NAMES = [
   "read_project",
@@ -30,6 +30,7 @@ const TOOL_NAMES = [
   "pending_questions",
   "evaluate_checkpoint",
   "create_question",
+  "elicit_question",
   "render_question",
   "append_decision",
   "regenerate_current"
@@ -80,6 +81,71 @@ function findQuestion(records: QuestionRecord[], questionId?: string): QuestionR
     return records.find((record) => record.id === questionId) ?? null;
   }
   return records.filter((record) => record.status === "pending").at(-1) ?? null;
+}
+
+function renderQuestionFallback(record: QuestionRecord, provider: ProviderKind = "codex") {
+  return provider === "claude"
+    ? renderQuestionRecordInput(record)
+    : renderQuestionRecordPrompt(record);
+}
+
+function buildElicitationParams(record: QuestionRecord): ElicitRequestFormParams {
+  const choices = [
+    ...record.prompt.options.map((option) => ({
+      const: option.value,
+      title: [
+        option.label,
+        option.recommended ? "(Recommended)" : ""
+      ].filter(Boolean).join(" ")
+    })),
+    ...(record.prompt.allowOther
+      ? [{
+          const: "other",
+          title: record.prompt.otherLabel ?? "Other"
+        }]
+      : [])
+  ];
+
+  return {
+    mode: "form",
+    message: [
+      record.prompt.title,
+      record.prompt.question,
+      ...record.prompt.rationale.slice(0, 2).map((entry) => `Why now: ${entry}`)
+    ].join("\n"),
+    requestedSchema: {
+      type: "object",
+      properties: {
+        answer: {
+          type: "string",
+          title: "Decision",
+          oneOf: choices,
+          default: choices[0]?.const
+        },
+        rationale: {
+          type: "string",
+          title: "Rationale",
+          description: "Optional short note for the LongTable decision log."
+        }
+      },
+      required: ["answer"]
+    }
+  };
+}
+
+function acceptedAnswer(result: ElicitResult): { answer: string; rationale?: string } | null {
+  if (result.action !== "accept") {
+    return null;
+  }
+  const answer = result.content?.answer;
+  if (typeof answer !== "string" || answer.length === 0) {
+    return null;
+  }
+  const rationale = result.content?.rationale;
+  return {
+    answer,
+    ...(typeof rationale === "string" && rationale.length > 0 ? { rationale } : {})
+  };
 }
 
 async function readAllowedProjectFiles(context: Awaited<ReturnType<typeof requireContext>>) {
@@ -265,6 +331,82 @@ export function createLongTableMcpServer(): McpServer {
   );
 
   server.registerTool(
+    "elicit_question",
+    {
+      title: "Elicit Researcher Checkpoint",
+      description: "Create a QuestionRecord, then try MCP form elicitation for a provider-native UI checkpoint. Falls back to rendered LongTable transport when unsupported.",
+      inputSchema: cwdSchema.extend({
+        prompt: z.string().min(1),
+        title: z.string().optional(),
+        question: z.string().optional(),
+        provider: z.enum(["codex", "claude"]).default("codex"),
+        required: z.boolean().optional(),
+        fallbackOnly: z.boolean().default(false).describe("Create and render the checkpoint without calling MCP elicitation.")
+      })
+    },
+    async ({ cwd: inputCwd, prompt, title, question, provider, required, fallbackOnly }) => {
+      try {
+        const context = await requireContext(inputCwd);
+        const created = await createWorkspaceQuestion({
+          context,
+          prompt,
+          title,
+          question,
+          provider,
+          required
+        });
+        const fallback = renderQuestionFallback(created.question, provider as ProviderKind);
+        if (fallbackOnly) {
+          return textResult({
+            question: created.question,
+            elicitation: { attempted: false, reason: "fallbackOnly" },
+            fallback,
+            nextAction: `longtable decide --question ${created.question.id} --answer <value>`
+          });
+        }
+
+        try {
+          const elicited = await server.server.elicitInput(buildElicitationParams(created.question));
+          const accepted = acceptedAnswer(elicited);
+          if (!accepted) {
+            return textResult({
+              question: created.question,
+              elicitation: { attempted: true, action: elicited.action },
+              fallback,
+              nextAction: `longtable decide --question ${created.question.id} --answer <value>`
+            });
+          }
+          const decided = await answerWorkspaceQuestion({
+            context,
+            questionId: created.question.id,
+            answer: accepted.answer,
+            rationale: accepted.rationale,
+            provider: provider as ProviderKind
+          });
+          return textResult({
+            question: decided.question,
+            decision: decided.decision,
+            elicitation: { attempted: true, action: elicited.action }
+          });
+        } catch (elicitationError) {
+          return textResult({
+            question: created.question,
+            elicitation: {
+              attempted: true,
+              supported: false,
+              error: elicitationError instanceof Error ? elicitationError.message : String(elicitationError)
+            },
+            fallback,
+            nextAction: `longtable decide --question ${created.question.id} --answer <value>`
+          });
+        }
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
+      }
+    }
+  );
+
+  server.registerTool(
     "render_question",
     {
       title: "Render Researcher Checkpoint",
@@ -283,9 +425,7 @@ export function createLongTableMcpServer(): McpServer {
         if (!question) {
           return errorResult("No matching pending LongTable question was found.");
         }
-        const transport = provider === "claude"
-          ? renderQuestionRecordInput(question)
-          : renderQuestionRecordPrompt(question);
+        const transport = renderQuestionFallback(question, provider as ProviderKind);
         return textResult({ provider, question, transport });
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));

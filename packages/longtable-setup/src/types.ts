@@ -23,6 +23,7 @@ export interface SetupQuestion {
 }
 
 export type SetupFlow = "quickstart" | "interview";
+export type CheckpointUiMode = "off" | "interactive" | "strong";
 
 export interface SetupAnswers {
   field?: string;
@@ -34,6 +35,7 @@ export interface SetupAnswers {
   preferredEntryMode?: Exclude<InteractionMode, "submit">;
   weakestDomain?: Extract<keyof ResearcherConfidenceByDomain, string>;
   panelPreference?: "synthesis_only" | "show_on_conflict" | "always_visible";
+  checkpointUiMode?: CheckpointUiMode;
 }
 
 export interface ResearcherProfileSeed extends SetupAnswers {

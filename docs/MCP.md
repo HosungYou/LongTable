@@ -23,6 +23,7 @@ The main benefits are:
 - avoid Markdown scraping when reading project state
 - expose checkpoint evaluation as a callable tool
 - create pending `QuestionRecord` objects from provider runtimes
+- request provider/client elicitation when the runtime supports it
 - render a question for the current provider transport
 - append normalized `DecisionRecord` objects
 - regenerate `CURRENT.md` after state changes
@@ -44,7 +45,7 @@ longtable-state
 Direct run:
 
 ```bash
-npx -y @longtable/mcp@0.1.21
+npx -y @longtable/mcp@0.1.22
 longtable-state --self-test
 ```
 
@@ -63,6 +64,17 @@ longtable mcp install --provider codex --write
 longtable mcp install --provider claude --write
 ```
 
+Codex UI Researcher Checkpoints require an additional explicit opt-in because
+MCP elicitation lets the server surface user-input prompts:
+
+```bash
+longtable mcp install --provider codex --checkpoint-ui strong --write
+```
+
+That writes Codex's granular MCP elicitation approval alongside the LongTable
+MCP server block. Without that approval, `elicit_question` still creates the
+same durable `QuestionRecord` and returns a numbered fallback.
+
 Default paths:
 
 - Codex: `~/.codex/config.toml`
@@ -80,6 +92,9 @@ The first tool set is intentionally narrow:
 - `evaluate_checkpoint`: classify natural-language context without writing
   state
 - `create_question`: create a pending `QuestionRecord`
+- `elicit_question`: create a `QuestionRecord`, request MCP form elicitation,
+  and append a decision when accepted; returns provider fallback transport when
+  elicitation is unavailable, declined, or canceled
 - `render_question`: render the selected question for Codex or Claude transport
 - `append_decision`: answer a pending question and append a `DecisionRecord`
 - `regenerate_current`: rebuild `CURRENT.md` from machine-readable state
@@ -118,6 +133,8 @@ The MCP layer is a transport hardening step, not the final runtime:
 - it does not yet provide OAuth or remote deployment
 - it does not own scholarly search connectors
 - it does not replace provider skills
+- it does not guarantee UI elicitation; clients must advertise and allow that
+  capability
 - it does not guarantee that a provider will automatically call the tools
   without runtime guidance
 

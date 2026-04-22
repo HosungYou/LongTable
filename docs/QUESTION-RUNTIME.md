@@ -53,8 +53,8 @@ natural language
 
 This protects LongTable from depending only on explicit commands such as
 `lt commit:`. A request about submission, measurement validity, evidence
-verification, authorship, or LongTable platform-language changes can still
-activate the right checkpoint posture.
+verification, authorship, named knowledge gaps, tacit assumptions, or LongTable
+platform-language changes can still activate the right checkpoint posture.
 
 ## Direct Command Surface
 
@@ -110,9 +110,10 @@ Codex should use LongTable-owned numbered checkpoints unless a reliable structur
 Flow:
 
 1. checkpoint engine resolves `blocking` and runtime guidance
-2. Codex adapter renders numbered options with strict parsing
-3. invalid answers re-prompt
-4. the selected answer is normalized into LongTable state
+2. MCP transport may request Codex/client elicitation when the client advertises support
+3. Codex adapter renders numbered options with strict parsing as the fallback
+4. invalid numbered answers re-prompt
+5. the selected answer is normalized into LongTable state
 
 ## What Must Stay Shared
 
@@ -156,8 +157,13 @@ Current MCP tools can:
 - inspect pending questions
 - evaluate checkpoint triggers without writing state
 - write normalized question records
+- elicit a Researcher Checkpoint through MCP form elicitation when the client supports it
 - render provider-specific question transport
 - append decision records
 - regenerate `CURRENT.md`
 
-MCP should not become the source of truth for checkpoint semantics. It should be a transport and integration layer over `@longtable/core` and `@longtable/checkpoints`.
+MCP should not become the source of truth for checkpoint semantics. It should be
+a transport and integration layer over `@longtable/core` and
+`@longtable/checkpoints`. If elicitation is unavailable, the same pending
+QuestionRecord must be rendered as a numbered fallback and answered with
+`longtable decide`.

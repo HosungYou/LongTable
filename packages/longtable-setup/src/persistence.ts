@@ -55,6 +55,9 @@ export function renderSetupSummary(output: SetupPersistedOutput): string {
   if (output.profileSeed.panelPreference) {
     lines.push(`panel preference: ${output.profileSeed.panelPreference}`);
   }
+  if (output.profileSeed.checkpointUiMode) {
+    lines.push(`checkpoint UI: ${output.profileSeed.checkpointUiMode}`);
+  }
 
   return lines.join("\n");
 }
@@ -155,6 +158,9 @@ function renderCodexRuntimeConfig(
     ...(output.profileSeed.panelPreference
       ? [`panel_preference = "${output.profileSeed.panelPreference}"`]
       : []),
+    ...(output.profileSeed.checkpointUiMode
+      ? [`checkpoint_ui = "${output.profileSeed.checkpointUiMode}"`]
+      : []),
     "",
     "[longtable.runtime_guidance]",
     `ask_at_least_two_questions_in_explore = ${runtimeGuidance.askAtLeastTwoQuestionsInExplore}`,
@@ -186,7 +192,8 @@ function renderClaudeRuntimeConfig(
             ? output.profileSeed.currentProjectType
             : undefined,
         weakestDomain: output.profileSeed.weakestDomain,
-        panelPreference: output.profileSeed.panelPreference
+        panelPreference: output.profileSeed.panelPreference,
+        checkpointUiMode: output.profileSeed.checkpointUiMode
       },
       runtimeGuidance
     },

@@ -673,7 +673,13 @@ export async function assertWorkspaceNotBlocked(context: LongTableProjectContext
   );
 }
 
-function questionTitleForCheckpoint(family: string): string {
+function questionTitleForCheckpoint(family: string, checkpointKey?: string): string {
+  if (checkpointKey === "knowledge_gap_probe") {
+    return "Knowledge-gap checkpoint";
+  }
+  if (checkpointKey === "tacit_assumption_probe") {
+    return "Tacit-assumption checkpoint";
+  }
   switch (family) {
     case "meta_decision":
       return "Meta-decision checkpoint";
@@ -694,7 +700,13 @@ function questionTitleForCheckpoint(family: string): string {
   }
 }
 
-function questionTextForCheckpoint(family: string, prompt: string): string {
+function questionTextForCheckpoint(family: string, prompt: string, checkpointKey?: string): string {
+  if (checkpointKey === "knowledge_gap_probe") {
+    return "What knowledge gap should LongTable make explicit before narrowing or recommending a direction?";
+  }
+  if (checkpointKey === "tacit_assumption_probe") {
+    return "What tacit assumption should LongTable surface before treating this direction as acceptable?";
+  }
   switch (family) {
     case "meta_decision":
       return "What should LongTable do before treating this platform decision as settled?";
@@ -714,6 +726,24 @@ function questionTextForCheckpoint(family: string, prompt: string): string {
 }
 
 function optionsForCheckpointTrigger(family: string, checkpointKey?: string): QuestionOption[] {
+  if (checkpointKey === "knowledge_gap_probe") {
+    return [
+      { value: "ask_first", label: "Ask the gap question first", description: "Pause synthesis and make the missing knowledge explicit." },
+      { value: "gather_context", label: "Gather context first", description: "Inspect sources, files, or constraints before narrowing." },
+      { value: "proceed_tentatively", label: "Proceed tentatively", description: "Continue, but keep the knowledge gap visible as an open tension." },
+      { value: "defer", label: "Keep the gap open", description: "Do not convert the uncertainty into a recommendation yet." }
+    ];
+  }
+
+  if (checkpointKey === "tacit_assumption_probe") {
+    return [
+      { value: "surface_assumption", label: "Surface the assumption first", description: "Name the implicit premise before accepting the direction." },
+      { value: "test_assumption", label: "Test the assumption first", description: "Look for evidence or counterexamples before proceeding." },
+      { value: "proceed_with_risk", label: "Proceed while logging the risk", description: "Continue, but record the assumption as unresolved." },
+      { value: "defer", label: "Keep the assumption open", description: "Do not treat this framing as settled yet." }
+    ];
+  }
+
   if (family === "evidence") {
     return [
       { value: "verify", label: "Verify evidence first", description: "Check whether the source supports the specific claim." },
@@ -1045,8 +1075,8 @@ export async function createWorkspaceQuestion(options: {
     prompt: {
       id: createId("question_prompt"),
       checkpointKey: trigger.signal.checkpointKey,
-      title: options.title ?? questionTitleForCheckpoint(trigger.family),
-      question: options.question ?? questionTextForCheckpoint(trigger.family, options.prompt),
+      title: options.title ?? questionTitleForCheckpoint(trigger.family, trigger.signal.checkpointKey),
+      question: options.question ?? questionTextForCheckpoint(trigger.family, options.prompt, trigger.signal.checkpointKey),
       type: "single_choice",
       options: optionsForCheckpointTrigger(trigger.family, trigger.signal.checkpointKey),
       allowOther: true,

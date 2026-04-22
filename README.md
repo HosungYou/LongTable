@@ -72,7 +72,7 @@ In one sentence:
   voice keeper
 - Panel and debate modes that preserve visible disagreement before synthesis
 - Optional MCP access to LongTable state for provider runtimes
-- Optional tmux HUD and research console for persistent visibility
+- Optional tmux-backed team discussion for long research reviews
 - `doctor` and `status` commands for checking installation and workspace health
 
 ## Install
@@ -378,10 +378,10 @@ Debate mode records a fixed five-round protocol:
 The result is written under `.longtable/team/<id>/`. The debate can surface
 conflict, but the researcher still answers the final decision.
 
-## Tmux HUD And Research Console
+## Tmux Team Console
 
 Tmux is optional. LongTable should work without it. When tmux is available, it
-can make research state more visible during long sessions.
+can host role panes for longer research reviews.
 
 Install tmux:
 
@@ -396,22 +396,12 @@ sudo apt install tmux
 Useful commands:
 
 ```bash
-longtable hud --watch
-longtable hud --tmux
 longtable team --tmux --prompt "Review this measurement plan before I commit it."
 ```
 
-The HUD can show:
-
-- current goal
-- current blocker
-- pending checkpoints
-- detected gaps or tacit assumptions
-- recent decisions
-- recent perspective or panel invocations
-
-Think of tmux as an enhanced research console, not as the LongTable core. The
-core contract remains `.longtable/` state, checkpoints, and decisions.
+Think of tmux as an optional review console, not as the LongTable core. The
+core contract remains `.longtable/` state, `CURRENT.md`, Researcher
+Checkpoints, and DecisionRecords.
 
 ## Provider Adapters And Skills
 
@@ -478,7 +468,7 @@ Default config targets:
 Run the server directly:
 
 ```bash
-npx -y @longtable/mcp@0.1.21
+npx -y @longtable/mcp@0.1.22
 longtable-state --self-test
 ```
 
@@ -490,9 +480,29 @@ Current MCP tools include:
 - `pending_questions`
 - `evaluate_checkpoint`
 - `create_question`
+- `elicit_question`
 - `render_question`
 - `append_decision`
 - `regenerate_current`
+
+Codex UI Researcher Checkpoints are opt-in. To allow LongTable's MCP server to
+surface form-style checkpoint prompts in Codex, use setup with MCP plus
+checkpoint UI:
+
+```bash
+longtable setup --provider codex --surfaces skills_mcp --checkpoint-ui strong
+```
+
+For direct MCP configuration:
+
+```bash
+longtable mcp install --provider codex --checkpoint-ui strong --write
+```
+
+This enables Codex MCP elicitation approval in the selected Codex config. If
+Codex does not support or allow elicitation, LongTable keeps the same
+`QuestionRecord` pending and falls back to numbered checkpoint text plus
+`longtable decide`.
 
 ## Evidence And Scholarly Search
 
@@ -578,13 +588,12 @@ longtable decide --answer <value> --rationale "..."
 Runtime and provider commands:
 
 ```bash
-longtable hud --watch
-longtable hud --tmux
 longtable team --tmux --prompt "..."
 longtable team --debate --prompt "..."
 longtable codex install-skills
 longtable claude install-skills
 longtable mcp install --provider all
+longtable mcp install --provider codex --checkpoint-ui strong --write
 ```
 
 Advanced and inspection commands:

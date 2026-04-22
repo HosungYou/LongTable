@@ -29,8 +29,9 @@ The first trigger classifier lives in `@longtable/checkpoints`:
 
 The Codex thin wrapper now uses the classifier before generating runtime
 guidance. This means prompt cues such as submission, method design, measurement,
-evidence verification, or LongTable product-language changes can strengthen the
-checkpoint even when the user does not use an explicit `lt commit:` command.
+evidence verification, named knowledge gaps, tacit assumptions, or LongTable
+product-language changes can strengthen the checkpoint even when the user does
+not use an explicit `lt commit:` command.
 
 `longtable question` uses the same classifier to write a durable
 `QuestionRecord`. When that record is required, normal CLI progression is
@@ -41,21 +42,23 @@ Provider adapters render the same `QuestionRecord` through their own transport:
 - Codex renders a numbered prompt with `other` visible when allowed.
 - Claude renders a structured question payload that can be passed to a native
   structured question surface when available.
-- MCP exposes `evaluate_checkpoint`, `create_question`, and `render_question`
-  so provider runtimes can use the same checkpoint classifier and durable
-  question records without scraping `CURRENT.md`.
+- MCP exposes `evaluate_checkpoint`, `create_question`, `elicit_question`, and
+  `render_question` so provider runtimes can use the same checkpoint classifier
+  and durable question records without scraping `CURRENT.md`.
 
 ## Trigger Families
 
 LongTable currently recognizes these trigger families:
 
 - `exploration`: problem framing, narrowing, brainstorming
-- `review`: critique, audit, objection finding
+- `review`: critique, audit, objection finding, tacit assumption probing
 - `commitment`: research question, theory, method, measurement, or analysis decisions
 - `submission`: journal, public release, preregistration, IRB, external sharing
 - `meta_decision`: LongTable naming, README positioning, checkpoint policy, provider behavior
 - `evidence`: citation, reference, source, hallucination, claim support
 - `authorship`: researcher voice, narrative trace, authorship preservation
+- knowledge gaps are represented as exploration checkpoints because they should
+  interrupt premature narrowing before they become commitments
 - `advisory`: low-confidence or low-stakes guidance
 
 ## Blocking Meaning

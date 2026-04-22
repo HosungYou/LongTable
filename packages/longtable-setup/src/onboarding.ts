@@ -128,6 +128,9 @@ export function createPersistedSetupOutput(
       : {}),
     ...(profileSeed.panelPreference
       ? { panelPreference: profileSeed.panelPreference }
+      : {}),
+    ...(profileSeed.checkpointUiMode
+      ? { checkpointUiMode: profileSeed.checkpointUiMode }
       : {})
   };
 

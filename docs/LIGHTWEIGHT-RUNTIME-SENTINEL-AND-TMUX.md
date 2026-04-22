@@ -1,4 +1,4 @@
-# Lightweight Runtime Sentinel and Tmux Console
+# Lightweight Runtime Sentinel and Tmux Team Console
 
 ## Decision
 
@@ -39,11 +39,11 @@ questions.
    - `strong`: ask more often at theory, measurement, method, evidence, and
      authorship boundaries
 
-4. Tmux experience
-   - `standard`: no tmux
-   - `hud`: status/checkpoint/gap pane when tmux is available
-   - `console`: research console with main pane, HUD pane, and team discussion
-     support
+4. Codex checkpoint UI
+   - `off`: numbered checkpoints and terminal selectors only
+   - `interactive`: use MCP elicitation UI for required Researcher Checkpoints
+     when Codex supports it
+   - `strong`: same UI transport, with high checkpoint intensity
 
 5. Team discussion mode
    - `off`: no team runtime
@@ -75,32 +75,20 @@ no action -> silent state note -> advisory nudge -> one clarifying question -> b
 The default setup recommendation is `advisory`. Blocking behavior should require
 either project checkpoint intensity or an explicit setup choice.
 
-## Tmux Console Model
+## Tmux Team Console Model
 
-Tmux is an enhanced research console, not the LongTable engine.
+Tmux is an optional team review console, not the LongTable engine.
 
 ### Standard Chat Mode
 
 Use provider-native chat and LongTable CLI commands. This is the default and the
 most portable mode.
 
-### Research HUD Mode
-
-Open a small tmux pane with:
-
-- project goal
-- current blocker
-- pending checkpoint count
-- recent inferred hypotheses
-- open tensions
-- recent decision tail
-
 ### Research Console Mode
 
 Open a tmux session with:
 
 - main researcher pane
-- HUD pane
 - optional role panes for panel/team discussion
 - coordinator pane that tells the researcher how to synthesize or continue
 
@@ -109,10 +97,35 @@ The first implementation launches role-specific panes and writes logs under
 protocol so synthesis and Researcher Checkpoints are durable even when tmux is
 not available.
 
+## Researcher Checkpoint Trigger Points
+
+LongTable should interrupt only at research-responsibility boundaries, not on a
+generic keyword timer. The default trigger points are:
+
+- a named knowledge gap before narrowing, recommending, or closing exploration
+- a tacit or implicit assumption before accepting a framing, critique, or plan
+- a theory, method, measurement, or analysis-plan commitment
+- a claim whose evidence or citation support is uncertain
+- a draft operation that may erase the researcher's authorship trace
+- submission, release, public sharing, IRB, or preregistration
+- product/checkpoint-policy changes that affect future LongTable behavior
+
+The transport policy is layered:
+
+```text
+state note -> advisory nudge -> rendered question -> MCP/UI elicitation -> blocking decision
+```
+
+MCP/UI elicitation is allowed only when the provider exposes that capability and
+the researcher has opted in to Codex MCP elicitation approval. Otherwise the
+same QuestionRecord must remain visible through numbered fallback and
+`longtable decide`.
+
 ## Non-Goals
 
 - Do not make tmux mandatory.
 - Do not make team mode the default.
+- Do not keep a persistent HUD as a default or recommended research surface.
 - Do not hide provider config writes inside npm installation.
 - Do not treat role/agent identity as the checkpoint source. Checkpoints remain
   tied to research commitment semantics.
@@ -125,9 +138,12 @@ For the next patch release:
    existing setup/install surfaces.
 2. Add `longtable sentinel --prompt ...` for explicit classifier checks and
    state notes.
-3. Add `longtable hud --watch` and `longtable hud --tmux`.
-4. Add `longtable team --tmux --prompt ...` to open role-specific research
+3. Add `--checkpoint-ui off|interactive|strong` so Codex users can opt in to
+   MCP elicitation UI for Researcher Checkpoints.
+4. Remove the persistent HUD command surface; use `status`, `doctor`,
+   `CURRENT.md`, and pending checkpoint tools for visibility.
+5. Add `longtable team --tmux --prompt ...` to open role-specific research
    discussion panes.
-5. Add `longtable team --debate --prompt ...` for file-backed five-round debate.
-6. Update README and release notes to clarify that npm install does not alter
+6. Add `longtable team --debate --prompt ...` for file-backed five-round debate.
+7. Update README and release notes to clarify that npm install does not alter
    provider runtime state.
