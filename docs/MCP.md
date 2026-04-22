@@ -45,7 +45,7 @@ longtable-state
 Direct run:
 
 ```bash
-npx -y @longtable/mcp@0.1.23
+npx -y @longtable/mcp@0.1.24
 longtable-state --self-test
 ```
 
@@ -75,6 +75,11 @@ That writes Codex's granular MCP elicitation approval alongside the LongTable
 MCP server block. Without that approval, `elicit_question` still creates the
 same durable `QuestionRecord` and returns a numbered fallback.
 
+Provider guidance should route checkpoint UI through MCP first when
+`elicit_question` is available. The CLI command `longtable question --print` is
+only the fallback transport for clients that cannot show or accept MCP
+elicitation.
+
 Default paths:
 
 - Codex: `~/.codex/config.toml`
@@ -93,8 +98,9 @@ The first tool set is intentionally narrow:
   state
 - `create_question`: create a pending `QuestionRecord`
 - `elicit_question`: create a `QuestionRecord`, request MCP form elicitation,
-  and append a decision when accepted; returns provider fallback transport when
-  elicitation is unavailable, declined, or canceled
+  and append a decision with surface `mcp_elicitation` when accepted; returns
+  provider fallback transport when elicitation is unavailable, declined, or
+  canceled
 - `render_question`: render the selected question for Codex or Claude transport
 - `append_decision`: answer a pending question and append a `DecisionRecord`
 - `regenerate_current`: rebuild `CURRENT.md` from machine-readable state

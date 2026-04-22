@@ -21,7 +21,7 @@ import {
 } from "@longtable/cli";
 
 const SERVER_NAME = "longtable-state";
-const SERVER_VERSION = "0.1.22";
+const SERVER_VERSION = "0.1.24";
 
 const TOOL_NAMES = [
   "read_project",
@@ -381,7 +381,8 @@ export function createLongTableMcpServer(): McpServer {
             questionId: created.question.id,
             answer: accepted.answer,
             rationale: accepted.rationale,
-            provider: provider as ProviderKind
+            provider: provider as ProviderKind,
+            surface: "mcp_elicitation"
           });
           return textResult({
             question: decided.question,

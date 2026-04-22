@@ -1,6 +1,6 @@
 {
   "name": "longtable-monorepo",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "private": true,
   "description": "Monorepo for the LongTable product surface and provider-neutral runtime packages",
   "workspaces": [
@@ -10,7 +10,8 @@
     "build": "npm run build --workspace @longtable/core && npm run build --workspace @longtable/memory && npm run build --workspace @longtable/checkpoints && npm run build --workspace @longtable/setup && npm run build --workspace @longtable/provider-codex && npm run build --workspace @longtable/provider-claude && npm run build --workspace @longtable/cli && npm run build --workspace @longtable/mcp",
     "typecheck": "npm run typecheck --workspace @longtable/core && npm run typecheck --workspace @longtable/memory && npm run typecheck --workspace @longtable/checkpoints && npm run typecheck --workspace @longtable/setup && npm run typecheck --workspace @longtable/provider-codex && npm run typecheck --workspace @longtable/provider-claude && npm run typecheck --workspace @longtable/cli && npm run typecheck --workspace @longtable/mcp",
     "smoke:setup": "node scripts/smoke-setup-flow.mjs",
-    "test": "npm run build && npm run smoke:setup && npm run typecheck",
+    "smoke:checkpoints": "node scripts/smoke-checkpoint-routing.mjs",
+    "test": "npm run build && npm run smoke:setup && npm run smoke:checkpoints && npm run typecheck",
     "pack:check": "npm pack --workspaces --dry-run",
     "release:check": "npm run test && npm run pack:check"
   },

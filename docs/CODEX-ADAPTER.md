@@ -28,6 +28,12 @@ can render a structured schema. It should reflect a verified provider/client
 capability. For Codex, the stable contract remains numbered fallback plus
 optional MCP elicitation.
 
+Routing rule: if the `mcp__longtable_state__.elicit_question` tool is visible
+in the current Codex session, the adapter guidance should use it first for a
+Researcher Checkpoint. `longtable question --print --provider codex` is the
+fallback only when MCP elicitation is unavailable, unsupported, declined,
+canceled, or blocked by client policy.
+
 Codex UI checkpoints are opt-in. Setup may enable them only when the researcher
 chooses `--checkpoint-ui interactive` or `--checkpoint-ui strong` with an MCP
 runtime surface. The config change is explicit because it writes:

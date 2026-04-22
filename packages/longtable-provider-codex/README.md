@@ -2,7 +2,10 @@
 
 Codex-specific adapter logic for LongTable.
 
-This package implements numbered checkpoint interaction and thin runtime-guidance injection rather than depending on a provider-native question widget.
+This package implements thin runtime-guidance injection for Codex. When the
+LongTable MCP tool surface is available, Researcher Checkpoints should route
+through MCP elicitation first; numbered checkpoint interaction remains the
+fallback transport.
 
 ## Role
 

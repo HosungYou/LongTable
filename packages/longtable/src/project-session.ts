@@ -680,6 +680,9 @@ function questionTitleForCheckpoint(family: string, checkpointKey?: string): str
   if (checkpointKey === "tacit_assumption_probe") {
     return "Tacit-assumption checkpoint";
   }
+  if (checkpointKey === "panel_disagreement_resolution") {
+    return "Panel-disagreement checkpoint";
+  }
   switch (family) {
     case "meta_decision":
       return "Meta-decision checkpoint";
@@ -706,6 +709,9 @@ function questionTextForCheckpoint(family: string, prompt: string, checkpointKey
   }
   if (checkpointKey === "tacit_assumption_probe") {
     return "What tacit assumption should LongTable surface before treating this direction as acceptable?";
+  }
+  if (checkpointKey === "panel_disagreement_resolution") {
+    return "How should LongTable handle the unresolved panel disagreement before turning it into one synthesis?";
   }
   switch (family) {
     case "meta_decision":
@@ -741,6 +747,15 @@ function optionsForCheckpointTrigger(family: string, checkpointKey?: string): Qu
       { value: "test_assumption", label: "Test the assumption first", description: "Look for evidence or counterexamples before proceeding." },
       { value: "proceed_with_risk", label: "Proceed while logging the risk", description: "Continue, but record the assumption as unresolved." },
       { value: "defer", label: "Keep the assumption open", description: "Do not treat this framing as settled yet." }
+    ];
+  }
+
+  if (checkpointKey === "panel_disagreement_resolution") {
+    return [
+      { value: "surface_disagreement", label: "Surface disagreement first", description: "Show the role conflict before choosing a synthesis." },
+      { value: "compare_frames", label: "Compare candidate framings", description: "Keep alternatives visible before selecting one frame." },
+      { value: "proceed_with_trace", label: "Proceed with an explicit trace", description: "Choose a synthesis, but record the unresolved disagreement." },
+      { value: "defer", label: "Keep disagreement open", description: "Do not collapse the disagreement into one conclusion yet." }
     ];
   }
 
@@ -1018,7 +1033,7 @@ export async function createWorkspaceClarificationCard(options: {
   const createdAt = nowIso();
   const preferredSurfaces = options.provider === "claude"
     ? ["native_structured", "terminal_selector", "numbered"]
-    : ["terminal_selector", "numbered", "native_structured"];
+    : ["mcp_elicitation", "terminal_selector", "numbered"];
   const questions: QuestionRecord[] = buildClarificationQuestionSpecs(options.prompt).map((spec) => ({
     id: createId("question_record"),
     createdAt,
@@ -1091,7 +1106,7 @@ export async function createWorkspaceQuestion(options: {
       ],
       preferredSurfaces: options.provider === "claude"
         ? ["native_structured", "numbered"]
-        : ["numbered", "native_structured"]
+        : ["mcp_elicitation", "numbered"]
     }
   };
 

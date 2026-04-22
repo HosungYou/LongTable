@@ -14,7 +14,7 @@ longtable-state
 Run:
 
 ```bash
-npx -y @longtable/mcp@0.1.22
+npx -y @longtable/mcp@0.1.24
 ```
 
 Self-test:
@@ -31,3 +31,6 @@ longtable mcp install --provider codex --checkpoint-ui strong --write
 
 If MCP elicitation is unavailable or not approved, the server returns the same
 pending `QuestionRecord` as a numbered fallback.
+
+Provider guidance should use `elicit_question` first when the MCP tool is
+available. `longtable question --print` is only the CLI fallback transport.

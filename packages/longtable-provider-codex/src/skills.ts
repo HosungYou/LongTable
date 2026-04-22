@@ -87,7 +87,8 @@ function baseSkillSpecs(): CodexSkillSpec[] {
         "- If a Researcher Checkpoint is needed, ask a concise question with meaningful options and wait for the researcher.",
         "- If a checkpoint allows `other`, make `other` visible instead of hiding it in state.",
         "- Treat provider-native question UI as transport; LongTable state records are the source of truth.",
-        "- When the `longtable` CLI is available in a workspace, use `longtable question --print --provider codex --prompt \"...\"` to create and render a canonical checkpoint before proceeding.",
+        "- When the `mcp__longtable_state__.elicit_question` tool is available, use it first for researcher checkpoints so Codex can show the MCP elicitation UI and LongTable can record the answer as `mcp_elicitation`.",
+        "- Use `longtable question --print --provider codex --prompt \"...\"` only as a fallback when the MCP tool is unavailable, unsupported, declined, canceled, or blocked by the client.",
         "- If `CURRENT.md` shows a pending required checkpoint, do not proceed until `longtable decide --question <id> --answer <value>` records the researcher's choice.",
         "- Preserve open tensions and authorship instead of forcing closure.",
         "- Label unsupported external claims as inference or estimate."
@@ -122,7 +123,8 @@ function baseSkillSpecs(): CodexSkillSpec[] {
         "",
         "- Do not collapse disagreement too early.",
         "- Use a Researcher Checkpoint before treating a high-stakes research decision as settled.",
-        "- If the CLI is available, prefer `longtable question --print --provider codex --prompt \"...\"` for canonical numbered checkpoint rendering.",
+        "- If the `mcp__longtable_state__.elicit_question` tool is available, prefer it for the panel checkpoint before synthesizing or revising.",
+        "- Use `longtable question --print --provider codex --prompt \"...\"` only as the numbered fallback when MCP elicitation is unavailable or not accepted.",
         "- Use `longtable panel --print --prompt \"...\"` only as an optional canonical prompt aid, not as the user's primary interface."
       ]
     },

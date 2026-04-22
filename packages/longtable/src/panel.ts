@@ -215,7 +215,7 @@ export function createPlannedPanelQuestionRecord(
       ],
       preferredSurfaces: provider === "claude"
         ? ["native_structured", "numbered"]
-        : ["numbered", "native_structured"]
+        : ["mcp_elicitation", "numbered"]
     }
   };
 }

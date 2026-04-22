@@ -17,7 +17,7 @@ This means the core system decides:
 Provider adapters decide:
 
 - whether Claude Code should use `AskUserQuestion`
-- whether Codex should use numbered checkpoint text
+- whether Codex should use MCP elicitation or numbered checkpoint text
 - whether a future UI should use a form, modal, or terminal selector
 
 ## Contract
@@ -84,7 +84,8 @@ the system does not silently proceed through a required checkpoint.
 
 Provider adapters expose the same record differently:
 
-- Codex uses `renderQuestionRecordPrompt(record)` to produce a numbered prompt.
+- Codex uses MCP `elicit_question` when available, and
+  `renderQuestionRecordPrompt(record)` as the numbered fallback.
 - Claude uses `renderQuestionRecordInput(record)` to produce a structured
   AskUserQuestion-compatible payload.
 
@@ -105,12 +106,13 @@ LongTable should not replace Claude Code's native question surface with a custom
 
 ### Codex
 
-Codex should use LongTable-owned numbered checkpoints unless a reliable structured question surface is available.
+Codex should use LongTable-owned MCP elicitation when that tool surface is
+available and fall back to numbered checkpoints otherwise.
 
 Flow:
 
 1. checkpoint engine resolves `blocking` and runtime guidance
-2. MCP transport may request Codex/client elicitation when the client advertises support
+2. MCP transport requests Codex/client elicitation when `elicit_question` is available
 3. Codex adapter renders numbered options with strict parsing as the fallback
 4. invalid numbered answers re-prompt
 5. the selected answer is normalized into LongTable state
@@ -157,7 +159,7 @@ Current MCP tools can:
 - inspect pending questions
 - evaluate checkpoint triggers without writing state
 - write normalized question records
-- elicit a Researcher Checkpoint through MCP form elicitation when the client supports it
+- elicit a Researcher Checkpoint through MCP form elicitation when the client supports it, recording accepted answers with surface `mcp_elicitation`
 - render provider-specific question transport
 - append decision records
 - regenerate `CURRENT.md`

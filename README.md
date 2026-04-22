@@ -468,7 +468,7 @@ Default config targets:
 Run the server directly:
 
 ```bash
-npx -y @longtable/mcp@0.1.23
+npx -y @longtable/mcp@0.1.24
 longtable-state --self-test
 ```
 
@@ -503,6 +503,10 @@ This enables Codex MCP elicitation approval in the selected Codex config. If
 Codex does not support or allow elicitation, LongTable keeps the same
 `QuestionRecord` pending and falls back to numbered checkpoint text plus
 `longtable decide`.
+
+When the MCP tool surface is available, LongTable skills should call
+`elicit_question` first. `longtable question --print` is the CLI fallback for
+clients that cannot show, accept, or approve MCP elicitation.
 
 ## Evidence And Scholarly Search
 

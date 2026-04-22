@@ -45,18 +45,18 @@ npm run pack:check
 For the `0.1.x` line:
 
 ```bash
-git tag -a v0.1.23 -m "Release LongTable 0.1.23
+git tag -a v0.1.24 -m "Release LongTable 0.1.24
 
 Technical changes:
-- fix Codex granular approval policy emitted for checkpoint UI
-- keep MCP elicitation checkpoint transport opt-in
+- route Codex checkpoints through MCP elicitation first when available
 - preserve numbered checkpoint fallback when elicitation is unavailable
+- harden checkpoint triggers for knowledge gaps and panel disagreement collapse
 
 Verification:
 - npm run test
 - npm run pack:check
-- codex debug prompt-input with generated granular approval policy"
-git push origin v0.1.23
+- classifier simulation for MCP-first checkpoint cases"
+git push origin v0.1.24
 ```
 
 Annotated tag messages and GitHub Release notes should be technical and

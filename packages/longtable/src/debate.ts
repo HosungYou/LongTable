@@ -301,7 +301,7 @@ export function createTeamDebateQuestionRecord(run: TeamDebateRun, provider?: Pr
       ],
       preferredSurfaces: provider === "claude"
         ? ["native_structured", "numbered"]
-        : ["numbered", "native_structured"]
+        : ["mcp_elicitation", "numbered"]
     }
   };
 }
@@ -472,4 +472,3 @@ export function renderTeamDebateSummary(run: TeamDebateRun): string {
     `- ${run.synthesis.recommendedCheckpoint}`
   ].join("\n");
 }
-

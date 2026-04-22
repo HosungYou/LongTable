@@ -29,9 +29,9 @@ The first trigger classifier lives in `@longtable/checkpoints`:
 
 The Codex thin wrapper now uses the classifier before generating runtime
 guidance. This means prompt cues such as submission, method design, measurement,
-evidence verification, named knowledge gaps, tacit assumptions, or LongTable
-product-language changes can strengthen the checkpoint even when the user does
-not use an explicit `lt commit:` command.
+evidence verification, named knowledge gaps, tacit assumptions, panel
+disagreement collapse, or LongTable product-language changes can strengthen the
+checkpoint even when the user does not use an explicit `lt commit:` command.
 
 `longtable question` uses the same classifier to write a durable
 `QuestionRecord`. When that record is required, normal CLI progression is
@@ -45,6 +45,8 @@ Provider adapters render the same `QuestionRecord` through their own transport:
 - MCP exposes `evaluate_checkpoint`, `create_question`, `elicit_question`, and
   `render_question` so provider runtimes can use the same checkpoint classifier
   and durable question records without scraping `CURRENT.md`.
+- When MCP `elicit_question` is available, provider guidance should try it
+  before falling back to `longtable question --print`.
 
 ## Trigger Families
 

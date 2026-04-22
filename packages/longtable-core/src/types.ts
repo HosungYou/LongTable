@@ -74,6 +74,7 @@ export type PromptStyle =
 
 export type QuestionSurface =
   | "native_structured"
+  | "mcp_elicitation"
   | "numbered"
   | "terminal_selector"
   | "web_form";

@@ -181,12 +181,15 @@ const RULES: CueRule[] = [
     cues: [
       /\bknowledge gap\b/i,
       /\bgap in (my|our|the) knowledge\b/i,
+      /\bthe gap\b/i,
       /\bunknown\b/i,
       /\buncertain\b/i,
       /\bnot sure\b/i,
+      /\bnot sure whether\b/i,
       /\bdon'?t know\b/i,
       /\bwhat am i missing\b/i,
       /\bwhat are we missing\b/i,
+      /\bhelp me narrow\b/i,
       /지식의 공백|지식 공백|모르겠|불확실|놓치고 있|빠뜨리고 있/
     ],
     rationale: "A named knowledge gap should be surfaced before LongTable narrows or closes the problem."
@@ -222,6 +225,25 @@ const RULES: CueRule[] = [
       /탐색|좁혀|브레인스토밍|프레이밍/
     ],
     rationale: "Exploration should ask tension questions before recommendation."
+  },
+  {
+    family: "review",
+    checkpointKey: "panel_disagreement_resolution",
+    stage: "analysis_planning",
+    mode: "review",
+    level: "adaptive_required",
+    cues: [
+      /\bpanel disagrees?\b/i,
+      /\brole disagreement\b/i,
+      /\bpanel disagreement\b/i,
+      /\bdisagreement\b/i,
+      /\bconflict\b/i,
+      /\bsynthesi[sz]e and choose\b/i,
+      /\bchoose .*framing\b/i,
+      /\bbest framing\b/i,
+      /패널.*불일치|역할.*불일치|불일치|충돌|종합.*선택|프레이밍.*선택/
+    ],
+    rationale: "Panel disagreement should not be collapsed into one synthesis without an explicit researcher decision."
   },
   {
     family: "review",

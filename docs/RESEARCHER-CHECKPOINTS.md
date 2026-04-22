@@ -9,7 +9,8 @@ The LongTable name is **Researcher Checkpoint**.
 Provider-native tools can still be used:
 
 - Claude Code may expose a structured AskUserQuestion-style surface.
-- Codex may expose a numbered-choice or terminal-style fallback.
+- Codex may expose MCP elicitation when available, with numbered-choice or
+  terminal-style fallback.
 - A future web app may render the same prompt as a form.
 
 But the product-level concept is not the provider tool. The concept is the
@@ -157,7 +158,7 @@ Bad checkpoint patterns:
 
 | LongTable concept | Claude Code | Codex | Future MCP/Web |
 | --- | --- | --- | --- |
-| Researcher Checkpoint | native structured question when available | numbered choice fallback | structured transport |
+| Researcher Checkpoint | native structured question when available | MCP elicitation when available, numbered fallback otherwise | structured transport |
 | QuestionRecord | shared state | shared state | shared state |
 | DecisionRecord | shared state | shared state | shared state |
 | CURRENT.md pending view | regenerated file | regenerated file | regenerated file |

@@ -67,7 +67,11 @@ Researcher Checkpoint는 아래 순서를 지켜야 한다.
 
 ## Codex Note
 
-Codex checkpoints must work without native structured question UI. Numbered choice plus strict parsing is the baseline interaction contract. CLI paths that render numbered options must normalize the same numbers back to stable decision values when `longtable decide` records the answer.
+Codex checkpoints should use MCP elicitation first when the `elicit_question`
+tool is available and approved. Numbered choice plus strict parsing remains the
+fallback interaction contract. CLI paths that render numbered options must
+normalize the same numbers back to stable decision values when `longtable
+decide` records the answer.
 
 ## Claude Note
 
