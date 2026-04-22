@@ -11,20 +11,35 @@ they do not make the final decision. The durable contract remains:
 role work -> synthesis -> Researcher Checkpoint -> DecisionRecord
 ```
 
+## Natural-Language First
+
+Most researchers should not start by learning shell commands. Ask for the
+interaction you need inside the provider:
+
+```text
+Use a LongTable panel to review this methods section before I commit it.
+Use an agent team so the editor and measurement auditor inspect each other's concerns.
+Debate this theory framework and keep unresolved disagreement visible.
+```
+
+LongTable should route that request to the appropriate surface and create a
+Researcher Checkpoint when the next step depends on the researcher's judgment.
+
 ## Which Surface To Use
 
-| Need | Command | Interaction depth |
-| --- | --- | --- |
-| Quick multi-role review | `longtable panel --prompt "..."` | independent |
-| Agent team with role cross-review | `longtable team --prompt "..."` | cross_reviewed |
-| Longer structured disagreement | `longtable team --debate --prompt "..."` | debated |
-| Live role panes for long reviews | `longtable team --tmux --prompt "..."` | cross_reviewed plus tmux console |
+| Need | Natural request | CLI equivalent | Interaction depth |
+| --- | --- | --- | --- |
+| Quick multi-role review | Use a LongTable panel to review this before I commit it. | `longtable panel --prompt "..."` | independent |
+| Agent team with role cross-review | Use an agent team so the roles inspect each other's concerns. | `longtable team --prompt "..."` | cross_reviewed |
+| Longer structured disagreement | Debate this and keep unresolved disagreement visible. | `longtable team --debate --prompt "..."` | debated |
 
 Use `panel` when you need role opinions quickly. Use `team` when you want roles
 to inspect each other's claims before synthesis. Use `team --debate` when the
 disagreement itself is the work.
 
-## Basic Team Review
+## Scriptable Team Review
+
+Use the shell form when you need JSON, tests, or reproducible artifacts:
 
 ```bash
 longtable team \
@@ -43,7 +58,7 @@ Cross-review means each role responds to another role's independent contribution
 If the record does not show those references, it should not be called a team
 review.
 
-## Debate Mode
+## Scriptable Debate Mode
 
 ```bash
 longtable team --debate \
@@ -61,17 +76,6 @@ Debate mode has five fixed steps:
 
 Use debate mode when the researcher needs to see what each role can accept, what
 it rejects, and what should remain open.
-
-## Tmux Mode
-
-```bash
-longtable team --tmux --prompt "Review this methods section."
-longtable team --debate --tmux --prompt "Debate this submission plan."
-```
-
-Tmux is a live console, not the source of truth. LongTable still writes the
-canonical files under `.longtable/team/<teamId>/`. Tmux panes can add live logs,
-but the artifact directory and `.longtable/state.json` are the durable record.
 
 ## What Gets Written
 
@@ -97,7 +101,9 @@ Debate runs also write:
 ```
 
 Inside a LongTable workspace, the run is linked to `.longtable/state.json` as an
-`InvocationRecord` and a pending `QuestionRecord`. Answer the checkpoint with:
+`InvocationRecord` and a pending `QuestionRecord`. The preferred researcher path
+is the provider's checkpoint UI. If UI elicitation is unavailable, answer the
+same pending question with the CLI fallback:
 
 ```bash
 longtable decide --question <question-id> --answer <value>
@@ -109,11 +115,11 @@ Add `--rationale "..."` only when you want that note in the decision log.
 
 Check these fields first:
 
-- `execution.surface`: whether this used file-backed artifacts, tmux, or another provider surface
+- `execution.surface`: whether this used file-backed artifacts or another provider surface
 - `run.interactionDepth`: `independent`, `cross_reviewed`, or `debated`
 - `run.rounds`: the role contributions by round
 - `respondsToContributionId`: proof that a cross-review responded to a prior role contribution
-- `questionRecord`: the decision the researcher must answer before closure
+- `questionRecord`: the decision shown in UI or kept pending for fallback before closure
 
 ## Good Prompts
 

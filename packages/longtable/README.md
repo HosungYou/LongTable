@@ -20,8 +20,7 @@ npm install -g @longtable/cli
 ```
 
 The npm install only installs the CLI. It does not write Codex skills, MCP
-config, hooks, tmux state, or provider runtime files without explicit setup
-approval.
+config, hooks, or provider runtime files without explicit setup approval.
 
 ## Primary Flow
 
@@ -91,9 +90,7 @@ longtable roles
 longtable ask --cwd "<project-path>" --prompt "..."
 longtable panel --prompt "..."
 longtable sentinel --prompt "Should I define a new measurement construct?"
-longtable hud --watch
 longtable team --prompt "Review this measurement plan." --role editor,measurement_auditor --json
-longtable team --tmux --prompt "Review this measurement plan."
 longtable team --debate --prompt "Review this measurement plan." --role editor,measurement_auditor --json
 longtable codex install-skills
 longtable claude install-skills
@@ -110,6 +107,16 @@ longtable ask --prompt "lt panel: show the disagreement before I commit" --json
 ## Inside Codex
 
 Natural language should be the default.
+
+Codex UI Researcher Checkpoints are a core LongTable feature when enabled:
+
+```bash
+longtable setup --provider codex --surfaces skills_mcp --checkpoint-ui strong
+```
+
+That setup writes the MCP configuration and Codex elicitation approval needed
+for form-style checkpoint prompts. Without it, LongTable keeps the same
+`QuestionRecord` pending and falls back to numbered text.
 
 Explicit short forms are available when needed:
 
@@ -152,10 +159,6 @@ Inside a LongTable project workspace, panel planning also appends an
 `InvocationRecord` to `.longtable/state.json`, creates a pending follow-up
 `QuestionRecord`, and refreshes `CURRENT.md`.
 
-```bash
-longtable decide --answer evidence --rationale "Need citation support before continuing."
-```
-
 Default panel roles include:
 
 - `reviewer`
@@ -165,32 +168,25 @@ Default panel roles include:
 
 Use `--role` to constrain the panel when the research problem is already clear.
 
-## Sentinel, HUD, And Agent Team
+## Sentinel And Agent Team
 
 `longtable sentinel` is an explicit gap/tacit check for prompts that may contain
 measurement, theory, method, evidence, authorship, or tacit-assumption risks.
 Use `--record` inside a LongTable workspace to store the finding as an
 unconfirmed inferred hypothesis.
 
-`longtable hud --watch` renders a compact view of the current project goal,
-blocker, pending checkpoints, recent decisions, and invocation counts.
-`longtable hud --tmux` opens that view in a tmux pane.
-
 `longtable team` creates a file-backed agent-team review under
 `.longtable/team/<id>/`: independent review, cross-review, and
 synthesis/checkpoint. Use it when roles should inspect each other's concerns
 before LongTable proposes a researcher decision.
 
-`longtable team --tmux` opens role-specific panes for live discussion. The panes
-can add logs, but the file-backed team artifact remains the source of truth.
-
 `longtable team --debate` creates a fixed five-round debate record under
 `.longtable/team/<id>/`: independent review, cross-review, rebuttal,
-convergence, and synthesis/checkpoint. Tmux can show live role panes, but the
-file-backed artifact directory is the source of truth.
+convergence, and synthesis/checkpoint. The file-backed artifact directory is
+the source of truth.
 
 See `docs/AGENT-TEAM-README.md` in the repository for a user-facing guide to
-panel, team, debate, and tmux surfaces.
+panel, team, and debate surfaces.
 
 ## Evidence And Search Direction
 

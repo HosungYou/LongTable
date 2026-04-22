@@ -1,8 +1,8 @@
-# Lightweight Runtime Sentinel and Tmux Team Console
+# Lightweight Runtime Sentinel
 
 ## Decision
 
-LongTable should work without tmux, native hooks, MCP, or a team runtime. Those
+LongTable should work without native hooks, MCP, or a team runtime. Those
 surfaces are optional upgrades over the same research contract:
 
 - protect research judgment
@@ -11,9 +11,10 @@ surfaces are optional upgrades over the same research contract:
 - ask only when a research commitment is being made
 
 `npm install -g @longtable/cli` should install the CLI only. It should not write
-provider files, Codex skills, MCP config, hooks, or tmux state without explicit
-researcher approval. Skills are also runtime files under provider-owned
-directories, so they belong in setup approval rather than npm postinstall.
+provider files, Codex skills, MCP config, hooks, or provider runtime files
+without explicit researcher approval. Skills are also runtime files under
+provider-owned directories, so they belong in setup approval rather than npm
+postinstall.
 
 ## Setup Model
 
@@ -45,11 +46,6 @@ questions.
      when Codex supports it
    - `strong`: same UI transport, with high checkpoint intensity
 
-5. Team discussion mode
-   - `off`: no team runtime
-   - `panel`: structured single-session panel only
-   - `tmux_team`: role panes plus coordinator pane for research debate
-
 Each setup option must show why it matters and what tradeoff it introduces.
 
 ## Sentinel Model
@@ -74,28 +70,6 @@ no action -> silent state note -> advisory nudge -> one clarifying question -> b
 
 The default setup recommendation is `advisory`. Blocking behavior should require
 either project checkpoint intensity or an explicit setup choice.
-
-## Tmux Team Console Model
-
-Tmux is an optional team review console, not the LongTable engine.
-
-### Standard Chat Mode
-
-Use provider-native chat and LongTable CLI commands. This is the default and the
-most portable mode.
-
-### Research Console Mode
-
-Open a tmux session with:
-
-- main researcher pane
-- optional role panes for panel/team discussion
-- coordinator pane that tells the researcher how to synthesize or continue
-
-The first implementation launches role-specific panes and writes logs under
-`.longtable/team/<id>/`. The debate implementation adds a file-backed five-round
-protocol so synthesis and Researcher Checkpoints are durable even when tmux is
-not available.
 
 ## Researcher Checkpoint Trigger Points
 
@@ -123,7 +97,6 @@ same QuestionRecord must remain visible through numbered fallback and
 
 ## Non-Goals
 
-- Do not make tmux mandatory.
 - Do not make team mode the default.
 - Do not keep a persistent HUD as a default or recommended research surface.
 - Do not hide provider config writes inside npm installation.
@@ -142,8 +115,6 @@ For the next patch release:
    MCP elicitation UI for Researcher Checkpoints.
 4. Remove the persistent HUD command surface; use `status`, `doctor`,
    `CURRENT.md`, and pending checkpoint tools for visibility.
-5. Add `longtable team --tmux --prompt ...` to open role-specific research
-   discussion panes.
-6. Add `longtable team --debate --prompt ...` for file-backed five-round debate.
-7. Update README and release notes to clarify that npm install does not alter
+5. Add `longtable team --debate --prompt ...` for file-backed five-round debate.
+6. Update README and release notes to clarify that npm install does not alter
    provider runtime state.

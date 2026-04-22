@@ -1,7 +1,7 @@
 # Team Debate Orchestration
 
-For user-facing guidance on choosing `panel`, `team`, `team --debate`, or
-`team --tmux`, see `docs/AGENT-TEAM-README.md`.
+For user-facing guidance on choosing `panel`, `team`, or `team --debate`, see
+`docs/AGENT-TEAM-README.md`.
 
 ## Decision
 
@@ -10,15 +10,14 @@ general worker-team runtime. It exists to slow closure by making role
 disagreement visible before a researcher commits to a claim, design, draft, or
 submission path.
 
-The v1 execution model is file-backed by default. Tmux is an optional display
-and live-note surface; it is not the source of truth.
+The v1 execution model is file-backed. The artifact directory and workspace
+state are the source of truth.
 
 ## Command Surface
 
 ```bash
 longtable team --prompt "Review this measurement plan." --role editor,measurement_auditor
 longtable team --debate --prompt "Review this measurement plan." --role editor,measurement_auditor,theory_critic
-longtable team --debate --tmux --prompt "Review this measurement plan."
 longtable team --debate --json --prompt "Review this measurement plan."
 ```
 
@@ -100,12 +99,6 @@ The checkpoint asks whether to revise, gather evidence, proceed with risk, keep
 the issue open, or enter another decision. This preserves LongTable's
 researcher-centered contract while still allowing autonomous role disagreement
 to surface.
-
-## Tmux Behavior
-
-When `--tmux` is passed, LongTable opens a tmux session with a coordinator pane
-and role panes. The panes can add live role logs, but the file-backed run remains
-the durable record. Tmux should never become mandatory for team debate.
 
 ## Non-Goals
 

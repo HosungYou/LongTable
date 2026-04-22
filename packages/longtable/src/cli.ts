@@ -2,7 +2,7 @@
 
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { execFileSync, execSync } from "node:child_process";
+import { execSync } from "node:child_process";
 import { emitKeypressEvents } from "node:readline";
 import { createInterface } from "node:readline/promises";
 import type { Interface as ReadlineInterface } from "node:readline/promises";
@@ -61,7 +61,7 @@ import {
   appendInvocationRecordToWorkspace,
   assertWorkspaceNotBlocked,
   answerWorkspaceQuestion,
-  createWorkspaceClarificationCard,
+  createWorkspaceFollowUpQuestions,
   createWorkspaceQuestion,
   createOrUpdateProjectWorkspace,
   inspectProjectWorkspace,
@@ -200,7 +200,7 @@ const ANSI = {
 };
 
 const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
-const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.25";
+const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.26";
 const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
 const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 
@@ -252,7 +252,7 @@ function usage(): string {
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
     "  longtable mcp install [--provider codex|claude|all] [--write] [--checkpoint-ui off|interactive|strong] [--json] [--codex-config <path>] [--claude-settings <path>] [--package <spec>]",
     "  longtable sentinel --prompt <text> [--cwd <path>] [--json] [--record]",
-    "  longtable team --prompt <text> [--role <role[,role]>] [--tmux] [--debate] [--rounds 3|5] [--cwd <path>] [--json]",
+    "  longtable team --prompt <text> [--role <role[,role]>] [--debate] [--rounds 3|5] [--cwd <path>] [--json]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable clarify --prompt <task-context> [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json] [--force]",
     "  longtable question --prompt <decision-context> [--title <text>] [--text <question>] [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json]",
@@ -890,12 +890,12 @@ function buildPermissionSetupChoices(): {
       {
         id: "strong",
         label: "Strong Researcher Checkpoint UI",
-        description: "Why: uses Codex MCP elicitation for high-responsibility research decisions. What you get: clickable checkpoints with other/rationale. Tradeoff: requires Codex MCP elicitation approval."
+        description: "Why: makes Codex UI checkpoints the default for high-responsibility research decisions. What you get: MCP form checkpoints with a single decision field. Tradeoff: requires Codex MCP elicitation approval."
       },
       {
         id: "interactive",
         label: "Interactive checkpoint UI",
-        description: "Why: keeps UI prompts available for required checkpoints. What you get: MCP form checkpoints when supported. Tradeoff: requires Codex MCP elicitation approval."
+        description: "Why: keeps Codex UI prompts available for required checkpoints. What you get: MCP form checkpoints when supported. Tradeoff: requires Codex MCP elicitation approval."
       },
       {
         id: "off",
@@ -1096,7 +1096,6 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
       interventionPosture: effectiveIntervention,
       checkpointUiMode: checkpointUi,
       workspaceCreationPreference: workspacePreference,
-      tmuxMode: "standard",
       teamMode: "panel"
     };
     if (surfaces === "skills_mcp_sentinel") {
@@ -2358,6 +2357,54 @@ function inferModeFromPrompt(prompt: string): InteractionMode | "panel" | "statu
   return "explore";
 }
 
+type CollaborationRoute = "panel" | "team" | "debate";
+
+function inferCollaborationRoute(prompt: string): CollaborationRoute | null {
+  const normalized = prompt.toLowerCase();
+  const explicitDebate =
+    /\bdebate\b|\bdebated\b|\brebuttal\b|\bconvergence\b|\bargue both sides\b/i.test(prompt) ||
+    /토론|논쟁|반박|재반박|수렴/.test(prompt);
+  if (explicitDebate) {
+    return "debate";
+  }
+
+  const explicitTeam =
+    /\bagent team\b|\bresearch team\b|\bteam review\b|\bteam-style\b|\buse a team\b/i.test(prompt) ||
+    /에이전트\s*팀|연구\s*팀|팀\s*(리뷰|검토)|팀으로/.test(prompt);
+  if (explicitTeam) {
+    return "team";
+  }
+
+  const panelCue =
+    /\bpanel\b|\bmulti[- ]?role\b|\bmultiple perspectives\b|\brole disagreement\b|\bdisagreement\b|\bconflict\b/i.test(prompt) ||
+    /패널|여러\s*관점|복수\s*관점|역할.*불일치|불일치|충돌/.test(prompt);
+
+  const multiPerspectiveCue =
+    panelCue ||
+    /\bperspectives?\b|\broles?\b|\breviewer and editor\b|\beditor and reviewer\b|\bmethods and measurement\b/i.test(prompt) ||
+    /관점|역할|리뷰어.*에디터|에디터.*리뷰어|방법.*측정|측정.*방법/.test(prompt);
+
+  if (!multiPerspectiveCue) {
+    return null;
+  }
+
+  const trigger = classifyCheckpointTrigger(prompt, {});
+  const highStakes =
+    trigger.signal.artifactStakes === "external_submission" ||
+    trigger.signal.artifactStakes === "study_protocol" ||
+    trigger.requiresQuestionBeforeClosure;
+
+  if (panelCue && trigger.signal.artifactStakes === "external_submission") {
+    return "debate";
+  }
+
+  if (highStakes) {
+    return "team";
+  }
+
+  return "panel";
+}
+
 function parsePanelVisibility(value?: string): PanelVisibility | undefined {
   if (
     value === "synthesis_only" ||
@@ -2424,6 +2471,9 @@ async function runModeCommand(
 
   const setup = await loadOptionalSetup(typeof args.setup === "string" ? args.setup : undefined);
   const projectContext = await loadProjectContextFromDirectory(workingDirectory);
+  if (projectContext) {
+    await assertWorkspaceNotBlocked(projectContext);
+  }
   const projectAware = await buildProjectAwarePrompt(prompt, workingDirectory);
   const panelPreference = setup?.profileSeed.panelPreference;
   const panelRequested =
@@ -2663,9 +2713,9 @@ function questionRecordToChoices(record: QuestionRecord): SetupChoice[] {
   ];
 }
 
-function renderClarificationCard(questions: QuestionRecord[]): string {
+function renderFollowUpQuestions(questions: QuestionRecord[]): string {
   if (questions.length === 0) {
-    return "No new clarification questions are pending for this prompt.";
+    return "No new follow-up questions are pending for this prompt.";
   }
 
   const width = 44;
@@ -2721,7 +2771,7 @@ function renderClarificationCard(questions: QuestionRecord[]): string {
   return lines.join("\n");
 }
 
-async function answerClarificationCardInTerminal(
+async function answerFollowUpQuestionsInTerminal(
   context: LongTableProjectContext,
   questions: QuestionRecord[],
   provider?: ProviderKind
@@ -2732,7 +2782,7 @@ async function answerClarificationCardInTerminal(
 
   const rl = createInterface({ input, output });
   try {
-    console.log(renderBrandBanner("LongTable", "Clarification Card"));
+    console.log(renderBrandBanner("LongTable", "Follow-up Questions"));
     console.log("");
     for (let index = 0; index < questions.length; index += 1) {
       const question = questions[index];
@@ -2765,7 +2815,7 @@ async function runClarify(args: Record<string, string | boolean>): Promise<void>
 
   const provider = args.provider === "claude" ? "claude" : args.provider === "codex" ? "codex" : undefined;
   const required = args.required === true ? true : args.advisory === true ? false : undefined;
-  const result = await createWorkspaceClarificationCard({
+  const result = await createWorkspaceFollowUpQuestions({
     context,
     prompt,
     provider,
@@ -2793,19 +2843,19 @@ async function runClarify(args: Record<string, string | boolean>): Promise<void>
   }
 
   if (args.print === true || !isInteractiveTerminal()) {
-    console.log(renderClarificationCard(result.questions));
+    console.log(renderFollowUpQuestions(result.questions));
     return;
   }
 
-  await answerClarificationCardInTerminal(context, result.questions, provider);
+  await answerFollowUpQuestionsInTerminal(context, result.questions, provider);
   console.log("");
-  console.log("LongTable clarification decisions recorded");
+  console.log("LongTable follow-up decisions recorded");
   console.log(`- answered: ${result.questions.length}`);
   console.log(`- state: ${context.stateFilePath}`);
   console.log(`- current: ${context.currentFilePath}`);
 }
 
-async function runAutomaticClarificationIfNeeded(
+async function runAutomaticFollowUpIfNeeded(
   prompt: string,
   args: Record<string, string | boolean>
 ): Promise<boolean> {
@@ -2820,7 +2870,7 @@ async function runAutomaticClarificationIfNeeded(
   }
 
   const provider = args.provider === "claude" ? "claude" : args.provider === "codex" ? "codex" : undefined;
-  const result = await createWorkspaceClarificationCard({
+  const result = await createWorkspaceFollowUpQuestions({
     context,
     prompt,
     provider,
@@ -2832,18 +2882,24 @@ async function runAutomaticClarificationIfNeeded(
   }
 
   if (!isInteractiveTerminal()) {
-    console.log(renderClarificationCard(result.questions));
+    console.log(renderFollowUpQuestions(result.questions));
     return true;
   }
 
-  await answerClarificationCardInTerminal(context, result.questions, provider);
+  await answerFollowUpQuestionsInTerminal(context, result.questions, provider);
   return false;
 }
 
 async function runAsk(args: Record<string, string | boolean>): Promise<void> {
+  const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
   const prompt = await resolvePrompt(typeof args.prompt === "string" ? args.prompt : undefined);
   if (!prompt) {
     throw new Error("A prompt is required.");
+  }
+
+  const projectContext = await loadProjectContextFromDirectory(workingDirectory);
+  if (projectContext) {
+    await assertWorkspaceNotBlocked(projectContext);
   }
 
   const directive = parseInvocationDirective(prompt);
@@ -2855,7 +2911,7 @@ async function runAsk(args: Record<string, string | boolean>): Promise<void> {
   }
 
   const mode = inferred === "panel" ? "review" : inferred;
-  if (await runAutomaticClarificationIfNeeded(effectivePrompt, args)) {
+  if (await runAutomaticFollowUpIfNeeded(effectivePrompt, args)) {
     return;
   }
   const delegatedArgs: Record<string, string | boolean> = {
@@ -2865,7 +2921,22 @@ async function runAsk(args: Record<string, string | boolean>): Promise<void> {
   if (directive.roles.length > 0 && typeof delegatedArgs.role !== "string") {
     delegatedArgs.role = directive.roles.join(",");
   }
-  if (inferred === "panel" || directive.panel || delegatedArgs.panel === true) {
+
+  const collaborationRoute =
+    directive.collaboration ??
+    (directive.panel || delegatedArgs.panel === true
+      ? "panel"
+      : inferCollaborationRoute(effectivePrompt) ?? (inferred === "panel" ? "panel" : null));
+
+  if (collaborationRoute === "team" || collaborationRoute === "debate") {
+    await runTeam({
+      ...delegatedArgs,
+      debate: collaborationRoute === "debate"
+    });
+    return;
+  }
+
+  if (collaborationRoute === "panel") {
     await runPanelCommand({
       ...delegatedArgs,
       visibility: "always_visible"
@@ -2877,10 +2948,6 @@ async function runAsk(args: Record<string, string | boolean>): Promise<void> {
 
 function localId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function shellEscape(value: string): string {
-  return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
 async function writeJsonFile(path: string, value: unknown): Promise<void> {
@@ -3018,8 +3085,7 @@ async function runTeam(args: Record<string, string | boolean>): Promise<void> {
       roleFlag: typeof args.role === "string" ? args.role : undefined,
       provider: setup?.providerSelection.provider as ProviderKind | undefined,
       visibility: "always_visible",
-      roundCount: rounds,
-      tmux: args.tmux === true
+      roundCount: rounds
     });
     await writeTeamDebateArtifacts(debate, teamDir, prompt);
 
@@ -3052,43 +3118,6 @@ async function runTeam(args: Record<string, string | boolean>): Promise<void> {
       return;
     }
 
-    if (args.tmux === true) {
-      const sessionName = `longtable-${teamId.replaceAll("_", "-")}`;
-      const shell = process.env.SHELL || "/bin/sh";
-      const launcher = process.argv[1] ?? "longtable";
-      const leaderCommand = [
-        `echo ${shellEscape(`LongTable debate ${teamId}`)}`,
-        `echo ${shellEscape(`Artifacts: ${teamDir}`)}`,
-        `echo ${shellEscape("Fixed rounds are recorded. Role panes can add live review logs.")}`,
-        `echo ${shellEscape(`Checkpoint: ${debate.questionRecord.id}`)}`,
-        `exec ${shellEscape(shell)}`
-      ].join("; ");
-      execFileSync("tmux", ["new-session", "-d", "-s", sessionName, "-c", workingDirectory, leaderCommand], { stdio: "inherit" });
-
-      for (const member of debate.plan.members) {
-        const rolePrompt = [
-          `LongTable autonomous debate role: ${member.label} (${member.role}).`,
-          "Use the fixed debate artifacts as the shared record. Add live notes only; do not answer the researcher checkpoint.",
-          `Artifacts: ${teamDir}`,
-          "",
-          projectAware.prompt
-        ].join("\n");
-        const logPath = join(teamDir, `${member.role}.debate.log`);
-        const command = [
-          `node ${shellEscape(launcher)} review --role ${shellEscape(member.role)} --prompt ${shellEscape(rolePrompt)} --cwd ${shellEscape(workingDirectory)} 2>&1 | tee ${shellEscape(logPath)}`,
-          `echo ${shellEscape(`Debate role log written to ${logPath}`)}`,
-          `exec ${shellEscape(shell)}`
-        ].join("; ");
-        execFileSync("tmux", ["split-window", "-t", sessionName, "-c", workingDirectory, command], { stdio: "inherit" });
-        execFileSync("tmux", ["select-layout", "-t", sessionName, "tiled"], { stdio: "ignore" });
-      }
-
-      console.log(`LongTable tmux debate launched: ${sessionName}`);
-      console.log(`Attach with: tmux attach -t ${sessionName}`);
-      console.log(`Artifacts: ${teamDir}`);
-      return;
-    }
-
     console.log(renderTeamDebateSummary(debate.run));
     console.log(`- checkpoint: ${debate.questionRecord.id}`);
     return;
@@ -3101,8 +3130,7 @@ async function runTeam(args: Record<string, string | boolean>): Promise<void> {
     roleFlag: typeof args.role === "string" ? args.role : undefined,
     provider: setup?.providerSelection.provider as ProviderKind | undefined,
     visibility: "always_visible",
-    roundCount: rounds,
-    tmux: args.tmux === true
+    roundCount: rounds
   });
   await writeTeamDebateArtifacts(team, teamDir, prompt);
 
@@ -3136,44 +3164,8 @@ async function runTeam(args: Record<string, string | boolean>): Promise<void> {
     return;
   }
 
-  if (args.tmux !== true) {
-    console.log(renderTeamDebateSummary(team.run));
-    console.log(`- checkpoint: ${team.questionRecord.id}`);
-    return;
-  }
-
-  const sessionName = `longtable-${teamId.replaceAll("_", "-")}`;
-  const shell = process.env.SHELL || "/bin/sh";
-  const launcher = process.argv[1] ?? "longtable";
-  const leaderCommand = [
-    `echo ${shellEscape(`LongTable team ${teamId}`)}`,
-    `echo ${shellEscape(`Artifacts: ${teamDir}`)}`,
-    `echo ${shellEscape("Cross-review artifacts are recorded. Role panes can add live review logs.")}`,
-    `echo ${shellEscape(`Checkpoint: ${team.questionRecord.id}`)}`,
-    `exec ${shellEscape(shell)}`
-  ].join("; ");
-  execFileSync("tmux", ["new-session", "-d", "-s", sessionName, "-c", workingDirectory, leaderCommand], { stdio: "inherit" });
-
-  for (const member of team.plan.members) {
-    const rolePrompt = [
-      `LongTable team discussion role: ${member.label} (${member.role}).`,
-      "Give claims, objections, open questions, and evidence needs. Address likely disagreement with other roles.",
-      "",
-      prompt
-    ].join("\n");
-    const logPath = join(teamDir, `${member.role}.log`);
-    const command = [
-      `node ${shellEscape(launcher)} review --role ${shellEscape(member.role)} --prompt ${shellEscape(rolePrompt)} --cwd ${shellEscape(workingDirectory)} 2>&1 | tee ${shellEscape(logPath)}`,
-      `echo ${shellEscape(`Role log written to ${logPath}`)}`,
-      `exec ${shellEscape(shell)}`
-    ].join("; ");
-    execFileSync("tmux", ["split-window", "-t", sessionName, "-c", workingDirectory, command], { stdio: "inherit" });
-    execFileSync("tmux", ["select-layout", "-t", sessionName, "tiled"], { stdio: "ignore" });
-  }
-
-  console.log(`LongTable tmux team launched: ${sessionName}`);
-  console.log(`Attach with: tmux attach -t ${sessionName}`);
-  console.log(`Logs: ${teamDir}`);
+  console.log(renderTeamDebateSummary(team.run));
+  console.log(`- checkpoint: ${team.questionRecord.id}`);
 }
 
 async function runDecide(args: Record<string, string | boolean>): Promise<void> {

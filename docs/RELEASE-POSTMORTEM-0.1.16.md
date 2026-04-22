@@ -15,7 +15,6 @@ LongTable `0.1.16` was published to npm and deployed to GitHub on
 - permission-first `longtable setup`
 - lightweight `longtable sentinel`
 - `longtable hud`
-- tmux-backed `longtable team`
 - package version alignment to `0.1.16`
 - documented npm WebAuthn/security-key publish flow
 

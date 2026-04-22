@@ -51,7 +51,6 @@ export type InvocationSurface =
   | "prompt_alias"
   | "sequential_fallback"
   | "file_backed_debate"
-  | "tmux_console"
   | "mcp_transport";
 
 export type InvocationStatus = "planned" | "running" | "completed" | "blocked" | "degraded" | "error";

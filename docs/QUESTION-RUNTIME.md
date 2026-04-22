@@ -78,9 +78,10 @@ longtable question --provider claude --print --prompt "We are about to finalize 
 longtable decide --question <id> --answer evidence --rationale "Need scale validity support first."
 ```
 
-Required pending questions block normal `ask`, mode, and panel commands in the
-CLI until they are answered. This gives "blocking" a concrete runtime meaning:
-the system does not silently proceed through a required checkpoint.
+Required pending questions block normal `ask`, mode, panel, team, and debate
+commands in the CLI until they are answered. This gives "blocking" a concrete
+runtime meaning: the system does not silently proceed through a required
+checkpoint.
 
 Provider adapters expose the same record differently:
 

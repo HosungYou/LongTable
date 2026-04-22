@@ -169,4 +169,40 @@ const debate = JSON.parse(execFileSync("node", [
 assertEqual(debate.run.interactionDepth, "debated", "debate interaction depth");
 assertEqual(debate.run.roundCount, 5, "debate round count");
 
+const naturalTeam = JSON.parse(execFileSync("node", [
+  cli,
+  "ask",
+  "--cwd", mkdtempSync(join(tmpdir(), "longtable-natural-team-")),
+  "--prompt", "lt team: Review this measurement plan before I commit it.",
+  "--json"
+], {
+  cwd: tmpdir(),
+  encoding: "utf8"
+}));
+assertEqual(naturalTeam.run.interactionDepth, "cross_reviewed", "natural team interaction depth");
+
+const naturalDebate = JSON.parse(execFileSync("node", [
+  cli,
+  "ask",
+  "--cwd", mkdtempSync(join(tmpdir(), "longtable-natural-debate-")),
+  "--prompt", "lt debate: Review this measurement plan before I commit it.",
+  "--json"
+], {
+  cwd: tmpdir(),
+  encoding: "utf8"
+}));
+assertEqual(naturalDebate.run.interactionDepth, "debated", "natural debate interaction depth");
+
+const stakesRoute = JSON.parse(execFileSync("node", [
+  cli,
+  "ask",
+  "--cwd", mkdtempSync(join(tmpdir(), "longtable-stakes-route-")),
+  "--prompt", "Use multiple perspectives to review this submission plan. The editor and reviewer disagree about the public framing.",
+  "--json"
+], {
+  cwd: tmpdir(),
+  encoding: "utf8"
+}));
+assertEqual(stakesRoute.run.interactionDepth, "debated", "external-facing disagreement routes to debate");
+
 console.log("checkpoint routing smoke passed");

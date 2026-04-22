@@ -87,7 +87,6 @@ It is narrower than OMX Team Orchestration:
 
 - no worker queue
 - no mailbox protocol
-- no tmux panes
 - no heartbeat or shutdown lifecycle
 - no agent identity as checkpoint source
 

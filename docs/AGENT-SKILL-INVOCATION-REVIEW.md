@@ -51,7 +51,9 @@ OMX v0.14.0 is stronger than the current LongTable integration in three areas:
 
 LongTable should adopt those control-plane patterns.
 
-LongTable should not copy OMX's tmux team runtime, worker claims, mailbox protocol, or broad magic-keyword orchestration. Those are useful for a multi-agent execution platform, but they would make LongTable too agent-centered.
+LongTable should not copy OMX's worker claims, mailbox protocol, or broad
+magic-keyword orchestration. Those are useful for a multi-agent execution
+platform, but they would make LongTable too agent-centered.
 
 ## Target Architecture
 
@@ -89,7 +91,6 @@ Do not adopt:
 - checkpoint logic based on agent identity
 - a 24-agent static taxonomy as the product model
 - prompt or skill files as source of truth
-- tmux worker orchestration
 - hidden broad keyword dispatch
 - MCP as the canonical implementation of checkpoint semantics
 

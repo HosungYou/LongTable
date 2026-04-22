@@ -24,7 +24,6 @@ export interface BuildTeamDebateOptions {
   provider?: ProviderKind;
   visibility?: PanelVisibility;
   roundCount?: number;
-  tmux?: boolean;
 }
 
 export interface TeamDebateBundle {
@@ -418,7 +417,7 @@ function buildTeamBundle(options: BuildTeamDebateOptions, kind: TeamRunKind): Te
     prompt: options.prompt,
     roles: plan.members,
     status: "completed",
-    surface: options.tmux ? "tmux_console" : "file_backed_debate",
+    surface: "file_backed_debate",
     interactionDepth: kind === "debate" ? "debated" : "cross_reviewed",
     roundPolicy: kind === "debate" ? "fixed" : "team_cross_review",
     roundCount,
@@ -469,9 +468,7 @@ function buildTeamBundle(options: BuildTeamDebateOptions, kind: TeamRunKind): Te
     interactionDepth: run.interactionDepth,
     panelPlan: plan,
     teamDebateRun: run,
-    degradationReason: options.tmux
-      ? undefined
-      : "Tmux was not requested; file-backed debate artifacts are the canonical execution record."
+    degradationReason: "File-backed team artifacts are the canonical execution record."
   };
 
   return {

@@ -149,7 +149,8 @@ role이 하나라도 호출되면, 응답 초반에 짧게 공개한다.
 
 Panel orchestration is the multi-role version of persona orchestration.
 
-It is not the same as a persistent agent team. LongTable does not need worker mailboxes, task claims, heartbeats, or tmux panes to support useful panel review.
+It is not the same as a persistent agent team. LongTable does not need worker
+mailboxes, task claims, or heartbeats to support useful panel review.
 
 The panel coordinator should:
 

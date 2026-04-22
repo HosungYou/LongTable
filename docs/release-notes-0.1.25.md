@@ -23,8 +23,8 @@
 
 ## Documentation
 
-- Added `docs/AGENT-TEAM-README.md` as a user-facing guide to panel, team,
-  debate, and tmux surfaces.
+- Added `docs/AGENT-TEAM-README.md` as a user-facing guide to panel, team, and
+  debate surfaces.
 - Updated README and command docs to explain when to use `panel`, `team`, and
   `team --debate`.
 

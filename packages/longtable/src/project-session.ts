@@ -868,7 +868,7 @@ function optionsForCheckpointTrigger(family: string, checkpointKey?: string): Qu
   ];
 }
 
-interface ClarificationQuestionSpec {
+interface FollowUpQuestionSpec {
   key: string;
   title: string;
   question: string;
@@ -880,7 +880,7 @@ function includesAny(prompt: string, patterns: RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(prompt));
 }
 
-function clarificationOptions(
+function followUpQuestionOptions(
   first: QuestionOption,
   second: QuestionOption,
   third: QuestionOption,
@@ -889,11 +889,11 @@ function clarificationOptions(
   return [first, second, third, ...(fourth ? [fourth] : [])];
 }
 
-function buildClarificationQuestionSpecs(prompt: string): ClarificationQuestionSpec[] {
+function buildFollowUpQuestionSpecs(prompt: string): FollowUpQuestionSpec[] {
   const normalized = prompt.toLowerCase();
-  const specs: ClarificationQuestionSpec[] = [];
+  const specs: FollowUpQuestionSpec[] = [];
 
-  function push(spec: ClarificationQuestionSpec): void {
+  function push(spec: FollowUpQuestionSpec): void {
     if (!specs.some((candidate) => candidate.key === spec.key)) {
       specs.push(spec);
     }
@@ -905,7 +905,7 @@ function buildClarificationQuestionSpecs(prompt: string): ClarificationQuestionS
       title: "Rubric update basis",
       question: "How should LongTable use the available materials to update the rubric?",
       whyNow: "Rubric updates can silently change grading criteria if LongTable guesses the calibration basis.",
-      options: clarificationOptions(
+      options: followUpQuestionOptions(
         { value: "calibrate_to_exemplars", label: "Calibrate criteria to exemplars", description: "Use strong submissions to refine what each criterion means.", recommended: true },
         { value: "polish_existing", label: "Polish existing rubric only", description: "Keep criteria stable and improve wording or consistency." },
         { value: "rewrite_structure", label: "Restructure the rubric", description: "Change categories or levels where the materials suggest a better structure." }
@@ -919,7 +919,7 @@ function buildClarificationQuestionSpecs(prompt: string): ClarificationQuestionS
       title: "Exemplar use",
       question: "How should LongTable use selected exemplars or TA guidance?",
       whyNow: "Exemplars can either calibrate criteria privately or become visible evidence inside the output.",
-      options: clarificationOptions(
+      options: followUpQuestionOptions(
         { value: "calibrate_only", label: "Use as private calibration", description: "Adjust criteria using exemplars without quoting them.", recommended: true },
         { value: "include_deidentified_excerpts", label: "Include de-identified excerpts", description: "Add short anonymized examples where they clarify quality." },
         { value: "separate_notes", label: "Keep examples in separate notes", description: "Use exemplars outside the main artifact." }
@@ -933,7 +933,7 @@ function buildClarificationQuestionSpecs(prompt: string): ClarificationQuestionS
       title: "Source authority",
       question: "If sources conflict or leave gaps, which source should LongTable privilege?",
       whyNow: "Without an authority rule, LongTable may resolve conflicts by convenience rather than researcher intent.",
-      options: clarificationOptions(
+      options: followUpQuestionOptions(
         { value: "explicit_user_instruction", label: "Your explicit instruction", description: "Use the researcher's current instruction as the highest authority.", recommended: true },
         { value: "project_files", label: "Project files", description: "Treat supplied files or existing artifacts as authoritative." },
         { value: "external_guidance", label: "TA or external guidance", description: "Prioritize instructor, TA, venue, or policy guidance." }
@@ -947,7 +947,7 @@ function buildClarificationQuestionSpecs(prompt: string): ClarificationQuestionS
       title: "Delivery format",
       question: "How should LongTable deliver the clarified output?",
       whyNow: "Format and change-tracking choices affect whether the result is usable for review or handoff.",
-      options: clarificationOptions(
+      options: followUpQuestionOptions(
         { value: "tracked_changes", label: "Tracked-change artifact", description: "Produce a reviewable changed version where possible.", recommended: true },
         { value: "clean_final", label: "Clean final artifact", description: "Deliver the final version without change markup." },
         { value: "summary_plus_artifact", label: "Summary plus artifact", description: "Include a concise change summary with the output." }
@@ -961,7 +961,7 @@ function buildClarificationQuestionSpecs(prompt: string): ClarificationQuestionS
       title: "Autonomy boundary",
       question: "How much should LongTable do before checking back with you?",
       whyNow: "Execution requests can move from advice to authorship or artifact ownership unless the boundary is explicit.",
-      options: clarificationOptions(
+      options: followUpQuestionOptions(
         { value: "ask_then_act", label: "Clarify first, then act", description: "Ask needed questions before changing the artifact.", recommended: true },
         { value: "act_with_defaults", label: "Act with visible defaults", description: "Proceed using recommended defaults and record them." },
         { value: "recommend_only", label: "Recommend only", description: "Describe changes but do not alter artifacts." }
@@ -975,7 +975,7 @@ function buildClarificationQuestionSpecs(prompt: string): ClarificationQuestionS
       title: "Evaluation target",
       question: "What should LongTable treat as the main performance target?",
       whyNow: "Performance checks can optimize for UX, correctness, trigger sensitivity, or delivery reliability.",
-      options: clarificationOptions(
+      options: followUpQuestionOptions(
         { value: "question_sensitivity", label: "Question sensitivity", description: "Check whether LongTable asks at the right knowledge-gap moments.", recommended: true },
         { value: "renderer_convenience", label: "Renderer convenience", description: "Check whether the most convenient question UI is used." },
         { value: "state_reliability", label: "State reliability", description: "Check whether questions and answers persist correctly." }
@@ -989,7 +989,7 @@ function buildClarificationQuestionSpecs(prompt: string): ClarificationQuestionS
       title: "Missing context",
       question: "What should LongTable clarify before proceeding?",
       whyNow: "The request can be answered in multiple ways, and choosing silently would hide a researcher judgment.",
-      options: clarificationOptions(
+      options: followUpQuestionOptions(
         { value: "scope", label: "Clarify scope first", description: "Ask what is included and excluded before acting.", recommended: true },
         { value: "criteria", label: "Clarify success criteria", description: "Ask what would count as a good result." },
         { value: "proceed", label: "Proceed with visible assumptions", description: "Continue, but make assumptions explicit." }
@@ -1000,13 +1000,13 @@ function buildClarificationQuestionSpecs(prompt: string): ClarificationQuestionS
   return specs;
 }
 
-const CLARIFICATION_PROMPT_PREFIX = "Clarification prompt:";
+const FOLLOW_UP_PROMPT_PREFIX = "Follow-up prompt:";
 
-function hasClarificationPrompt(record: QuestionRecord, prompt: string): boolean {
-  return record.prompt.rationale.includes(`${CLARIFICATION_PROMPT_PREFIX} ${prompt}`);
+function hasFollowUpPrompt(record: QuestionRecord, prompt: string): boolean {
+  return record.prompt.rationale.includes(`${FOLLOW_UP_PROMPT_PREFIX} ${prompt}`);
 }
 
-export async function createWorkspaceClarificationCard(options: {
+export async function createWorkspaceFollowUpQuestions(options: {
   context: LongTableProjectContext;
   prompt: string;
   provider?: ProviderKind;
@@ -1020,7 +1020,7 @@ export async function createWorkspaceClarificationCard(options: {
 }> {
   const state = await loadResearchState(options.context.stateFilePath);
   if (!options.force) {
-    const existing = (state.questionLog ?? []).filter((record) => hasClarificationPrompt(record, options.prompt));
+    const existing = (state.questionLog ?? []).filter((record) => hasFollowUpPrompt(record, options.prompt));
     const pending = existing.filter((record) => record.status === "pending");
     if (pending.length > 0) {
       return { questions: pending, state, created: false, alreadyAnswered: false };
@@ -1034,14 +1034,14 @@ export async function createWorkspaceClarificationCard(options: {
   const preferredSurfaces = options.provider === "claude"
     ? ["native_structured", "terminal_selector", "numbered"]
     : ["mcp_elicitation", "terminal_selector", "numbered"];
-  const questions: QuestionRecord[] = buildClarificationQuestionSpecs(options.prompt).map((spec) => ({
+  const questions: QuestionRecord[] = buildFollowUpQuestionSpecs(options.prompt).map((spec) => ({
     id: createId("question_record"),
     createdAt,
     updatedAt: createdAt,
     status: "pending",
     prompt: {
       id: createId("question_prompt"),
-      checkpointKey: `clarification_${spec.key}`,
+      checkpointKey: `follow_up_${spec.key}`,
       title: spec.title,
       question: spec.question,
       type: "single_choice",
@@ -1052,7 +1052,7 @@ export async function createWorkspaceClarificationCard(options: {
       source: "runtime_guidance",
       rationale: [
         spec.whyNow,
-        `${CLARIFICATION_PROMPT_PREFIX} ${options.prompt}`
+        `${FOLLOW_UP_PROMPT_PREFIX} ${options.prompt}`
       ],
       preferredSurfaces: preferredSurfaces as QuestionSurface[]
     }

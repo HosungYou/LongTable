@@ -4,9 +4,8 @@
 
 This patch release supersedes `0.1.17` with file-backed autonomous team debate
 orchestration plus workspace-state preservation fixes. The feature extends
-`longtable team` from role-pane launch support into a fixed five-round debate
-protocol that preserves disagreement and turns the result into a Researcher
-Checkpoint.
+`longtable team` into a fixed five-round debate protocol that preserves
+disagreement and turns the result into a Researcher Checkpoint.
 
 ## Added
 
@@ -15,7 +14,6 @@ Checkpoint.
   - runs a fixed five-round protocol: independent review, cross-review,
     rebuttal, convergence, and synthesis/checkpoint
   - supports `--json` for machine-readable run records
-  - supports `--tmux` as an optional live role-pane surface
 - `TeamDebateRun`, `TeamDebateRound`, `TeamDebateContribution`, and
   `TeamDebateSynthesis` core contracts
 - debate-linked `InvocationRecord` support through `teamDebateRun`
@@ -32,7 +30,7 @@ Checkpoint.
 ## Clarified
 
 - Team debate is a research harness, not a general agent-worker runtime.
-- Debate artifacts are the canonical record; tmux panes are optional UX.
+- Debate artifacts are the canonical record.
 - Autonomous role disagreement must end in a researcher-facing checkpoint rather
   than an AI-selected final decision.
 

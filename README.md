@@ -7,7 +7,8 @@ measurement, and authorship traceable across sessions.
 
 LongTable is not a chatbot replacement and not a prompt collection. It is a
 small research workspace system that runs through a CLI, provider skills,
-optional MCP state access, and optional tmux research panels.
+optional MCP state and checkpoint transport, and file-backed panel or team
+review artifacts.
 
 ## Why LongTable Exists
 
@@ -51,8 +52,8 @@ Five short principles guide the system:
 - **Trace before trust.** A decision is more useful when the researcher can see
   why it was made, what alternatives were considered, and what uncertainty
   remains.
-- **Adapters are not the product.** Codex skills, Claude Code skills, MCP, and
-  tmux are surfaces. The durable product contract is the `.longtable/`
+- **Adapters are not the product.** Codex skills, Claude Code skills, and MCP
+  are surfaces. The durable product contract is the `.longtable/`
   workspace and the researcher's recorded judgment.
 
 In one sentence:
@@ -65,14 +66,15 @@ In one sentence:
 - A durable `.longtable/` workspace for each research project
 - A human-readable `CURRENT.md` status page regenerated from project state
 - Provider-native Codex and Claude Code skills when you approve installation
-- Researcher Checkpoints for decisions that should not be skipped silently
-- Clarification Cards for smaller tacit choices inside a task
+- Researcher Checkpoints for decisions that should not be skipped silently,
+  shown as UI prompts when the provider supports them and as numbered fallback
+  text otherwise
+- Focused follow-up questions for smaller tacit choices inside a task
 - Perspective-based review from viewpoints such as reviewer, editor, methods critic,
   theory critic, measurement auditor, ethics reviewer, venue strategist, and
   voice keeper
-- Panel and debate modes that preserve visible disagreement before synthesis
+- Panel, team, and debate modes that preserve visible disagreement before synthesis
 - Optional MCP access to LongTable state for provider runtimes
-- Optional tmux-backed team discussion for long research reviews
 - `doctor` and `status` commands for checking installation and workspace health
 
 ## Install
@@ -82,8 +84,8 @@ npm install -g @longtable/cli
 ```
 
 The npm install only installs the `longtable` command. It does not write Codex
-skills, Claude skills, MCP configuration, hooks, tmux state, or provider runtime
-files. Those require explicit setup approval.
+skills, Claude skills, MCP configuration, hooks, or provider runtime files.
+Those require explicit setup approval.
 
 Check the installed package:
 
@@ -248,9 +250,18 @@ LongTable contract unless your provider explicitly exposes it.
 ## Researcher Checkpoints
 
 A Researcher Checkpoint is a structured pause before LongTable treats a decision
-as settled.
+as settled. For Codex users, UI Researcher Checkpoints are a core LongTable
+feature, but they are active only when setup enables MCP plus checkpoint UI:
 
-Example:
+```bash
+longtable setup --provider codex --surfaces skills_mcp --checkpoint-ui strong
+```
+
+When enabled and approved in Codex, LongTable uses MCP elicitation to show a UI
+prompt for required decisions. The form should ask for the decision only;
+rationale is optional project memory, not a second required field.
+
+Good checkpoint shape:
 
 ```text
 Researcher Checkpoint
@@ -264,7 +275,7 @@ Options:
 Record: QuestionRecord -> DecisionRecord
 ```
 
-LongTable may trigger checkpoints around:
+LongTable may ask a checkpoint around:
 
 - research-question narrowing
 - theory choice
@@ -275,33 +286,51 @@ LongTable may trigger checkpoints around:
 - venue positioning
 - submission, preregistration, or public sharing
 
-Required checkpoints block ordinary `ask`, mode, and panel commands until the
-researcher records a decision:
+Required checkpoints block ordinary `ask`, mode, panel, team, and debate work
+until the researcher records a decision. That blocking behavior is intentional:
+LongTable should not turn an unresolved research commitment into project memory.
 
-```bash
-longtable decide --question <id> --answer evidence --rationale "Need scale validity support first."
+The checkpoint should be concrete. Instead of asking "Why now?", LongTable
+should name the decision at stake:
+
+```text
+Which measurement path should LongTable preserve before drafting the methods section?
+
+1. Use the existing trust calibration scale
+2. Compare two candidate instruments first
+3. Define the construct before selecting a scale
+4. Other
 ```
 
-If no question id is supplied, LongTable answers the most recent pending
-question:
+So the user-facing order is:
 
-```bash
-longtable decide --answer revise --rationale "The construct definition is not stable yet."
+```text
+natural request -> checkpoint UI when available -> numbered/CLI fallback when needed
 ```
 
-## Clarification Cards
+## Focused Follow-up Questions
 
-Some tasks contain several small assumptions rather than one large decision. In
-that case LongTable can create a Clarification Card:
+Not every pause deserves a blocking checkpoint. Some tasks contain several small
+assumptions rather than one large decision. In that case LongTable should ask a
+small set of focused follow-up questions and continue once the missing context
+is recorded.
+
+User-facing examples:
+
+```text
+Which audience should this revision optimize for?
+Which construct definition should I keep visible while drafting?
+Should LongTable prioritize speed, caution, or preserving alternatives here?
+```
+
+The CLI form is mainly for tests and plain terminal runs:
 
 ```bash
 longtable clarify --prompt "Update the rubric using the selected exemplars."
 ```
 
-A Clarification Card groups focused questions, marks recommended options, and
-records answers as durable question and decision records. In an interactive
-terminal, LongTable prefers selector UI. In plain text or non-interactive
-contexts, it falls back to numbered options.
+Interactive surfaces should prefer structured UI. Plain text and non-interactive
+contexts fall back to numbered options.
 
 ## Research Perspectives
 
@@ -343,78 +372,41 @@ not require learning role ids first.
 
 ## Panel, Team, And Debate
 
-Use a panel when disagreement matters more than a quick answer.
+Most users should ask for role disagreement in natural language. Shell commands
+exist beside the natural form for scripts, tests, and reproducible debugging:
 
-```bash
-longtable panel --prompt "Review this methods section." --json
-```
+| Natural request | CLI equivalent |
+| --- | --- |
+| Use a LongTable panel to review this methods section before I commit it. | `longtable panel --prompt "Review this methods section." --json` |
+| Use an agent team so the editor and measurement auditor inspect each other's concerns. | `longtable team --prompt "Review this measurement plan." --role editor,measurement_auditor --json` |
+| Debate this theory framework and keep unresolved disagreement visible. | `longtable team --debate --prompt "Review this measurement plan." --role editor,measurement_auditor --json` |
 
-Panel mode creates a provider-neutral `PanelPlan`, foregrounds role-specific
-objections, and creates a follow-up checkpoint so the researcher decides what
-happens next.
+- **Panel** is a fast multi-perspective review. It foregrounds role-specific
+  objections before synthesis.
+- **Team** is the default explicit agent-team path. Roles first review
+  independently, then cross-review one another before coordinator synthesis and
+  checkpoint.
+- **Debate** is for deeper disagreement. It adds rebuttal and convergence
+  rounds before the final checkpoint.
 
-When you already know the exact perspectives you want, constrain the panel with
-`--role`. This is useful for scripts, tests, and reproducible reviews, but it is
-not the default researcher path:
+When the user explicitly asks for a team or debate, LongTable should route there
+directly. When the request is less explicit, LongTable uses the checkpoint
+classifier's stakes signal to choose the lightest adequate surface: panel for
+ordinary multi-perspective disagreement, team for high-stakes cross-review, and
+debate for external-facing or deeply contested choices.
 
-```bash
-longtable review --role methods_critic,measurement_auditor --panel --prompt "Review this design." --json
-```
+LongTable records interaction depth so the output does not overclaim what
+happened:
 
-Use an agent team when you want roles to inspect each other before synthesis:
+- `independent`: panel-style role outputs
+- `cross_reviewed`: roles inspected another role's contribution
+- `debated`: cross-review plus rebuttal and convergence
 
-```bash
-longtable team --prompt "Review this measurement plan." --role editor,measurement_auditor --json
-```
-
-Team mode records three steps: independent review, cross-review, and coordinator
-synthesis/checkpoint. It is the default for agent-team requests because it gives
-users visible role interaction without making every review a long debate.
-
-For deeper agent-to-agent disagreement:
-
-```bash
-longtable team --debate --prompt "Review this measurement plan." --role editor,measurement_auditor --json
-```
-
-Debate mode records a fixed five-round protocol:
-
-1. independent review
-2. cross-review
-3. rebuttal
-4. convergence
-5. coordinator synthesis and checkpoint
-
-The result is written under `.longtable/team/<id>/`. The debate can surface
-conflict, but the researcher still answers the final decision.
+Team and debate results are written under `.longtable/team/<id>/`. They can
+surface conflict, but the researcher still answers the final decision.
 
 For user-facing guidance on which surface to choose, see
 [`docs/AGENT-TEAM-README.md`](docs/AGENT-TEAM-README.md).
-
-## Tmux Team Console
-
-Tmux is optional. LongTable should work without it. When tmux is available, it
-can host role panes for longer research reviews.
-
-Install tmux:
-
-```bash
-# macOS
-brew install tmux
-
-# Ubuntu/Debian
-sudo apt install tmux
-```
-
-Useful commands:
-
-```bash
-longtable team --tmux --prompt "Review this measurement plan before I commit it."
-```
-
-Think of tmux as an optional review console, not as the LongTable core. The
-core contract remains `.longtable/` state, `CURRENT.md`, Researcher
-Checkpoints, and DecisionRecords.
 
 ## Provider Adapters And Skills
 
@@ -481,7 +473,7 @@ Default config targets:
 Run the server directly:
 
 ```bash
-npx -y @longtable/mcp@0.1.25
+npx -y @longtable/mcp@0.1.26
 longtable-state --self-test
 ```
 
@@ -599,13 +591,12 @@ Checkpoint commands:
 ```bash
 longtable clarify --prompt "..."
 longtable question --prompt "..."
-longtable decide --answer <value> --rationale "..."
+longtable decide --answer <value>
 ```
 
 Runtime and provider commands:
 
 ```bash
-longtable team --tmux --prompt "..."
 longtable team --prompt "..."
 longtable team --debate --prompt "..."
 longtable codex install-skills
@@ -642,7 +633,7 @@ provider skills are the preferred adapter surface.
 | `.longtable/current-session.json` | Current session cursor |
 | `.longtable/state.json` | Layered working memory, tensions, questions, decisions, and invocations |
 | `.longtable/sessions/` | Historical session snapshots |
-| `.longtable/team/<id>/` | Panel or debate artifacts when team mode is used |
+| `.longtable/team/<id>/` | Team or debate artifacts when team mode is used |
 
 ## Design Principles
 
@@ -681,6 +672,7 @@ git diff --check
 - [Question Runtime](docs/QUESTION-RUNTIME.md)
 - [Checkpoint Triggering](docs/CHECKPOINT-TRIGGERING.md)
 - [Researcher Checkpoints](docs/RESEARCHER-CHECKPOINTS.md)
+- [Agent Team](docs/AGENT-TEAM-README.md)
 - [Doctor Status](docs/DOCTOR.md)
 - [Memory](docs/MEMORY.md)
 - [Evidence Policy](docs/EVIDENCE-POLICY.md)

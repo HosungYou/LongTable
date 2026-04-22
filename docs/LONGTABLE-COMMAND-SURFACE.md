@@ -98,8 +98,13 @@ It creates:
 
 Direct natural-language assistance inside an existing project directory.
 
-If the prompt contains a panel directive such as `lt panel: ...`, `ask` delegates
-to the provider-neutral panel path.
+If the prompt contains an explicit collaboration directive such as
+`lt panel: ...`, `lt team: ...`, or `lt debate: ...`, `ask` delegates to the
+matching panel, team, or debate path. If the request is less explicit but asks
+for multiple perspectives, LongTable uses checkpoint classifier stakes to route
+to the lightest adequate surface: panel for ordinary role disagreement, team for
+high-stakes cross-review, and debate for external-facing or deeply contested
+choices.
 
 Short forms such as `lt explore: ...`, `lt review: ...`, and `lt methods: ...`
 are based on the LongTable directive parser and role router. They are not
@@ -109,15 +114,15 @@ language surface when installed.
 If the workspace has a required pending Researcher Checkpoint, `ask` is blocked
 until `longtable decide` records an answer.
 
-When a project prompt contains tacit choices, `ask` first runs the same
-Clarification Card path used by `longtable clarify`. In an interactive terminal,
-LongTable uses selector UI and records answers immediately. In non-interactive
-contexts, it records pending required questions and prints the card so the
-researcher can answer with `longtable decide`.
+When a project prompt contains tacit choices, `ask` first asks focused
+follow-up questions. In an interactive terminal, LongTable uses selector UI and
+records answers immediately. In non-interactive contexts, it records pending
+required questions and prints the questions so the researcher can answer with
+`longtable decide`.
 
 ### `longtable clarify`
 
-Creates a Clarification Card from task context:
+Creates focused follow-up questions from task context:
 
 ```bash
 longtable clarify --prompt "Update the rubrics using the selected best submissions."
@@ -151,7 +156,8 @@ The command uses the shared checkpoint trigger classifier. It records:
 - rationale
 - preferred provider surfaces
 
-Required questions block normal `ask`, mode, and panel commands until answered.
+Required questions block normal `ask`, mode, panel, team, and debate commands
+until answered.
 `--print` renders the provider transport without asking the researcher to know
 provider internals.
 
@@ -200,7 +206,6 @@ Examples:
 
 ```bash
 longtable team --prompt "review this measurement plan" --role editor,measurement_auditor --json
-longtable team --tmux --prompt "review this measurement plan"
 longtable team --debate --prompt "debate this study design" --role theory_critic,methods_critic --json
 ```
 

@@ -55,6 +55,9 @@ if (setupJson.setup.initialState.explicitState.installScope !== "none") {
 if (setupJson.setup.initialState.explicitState.runtimeSurfaces !== "cli_only") {
   throw new Error("Setup did not record runtime surface.");
 }
+if (["t", "muxMode"].join("") in setupJson.setup.initialState.explicitState) {
+  throw new Error("Setup should not record a console-specific mode.");
+}
 if ("runtimeTarget" in setupJson.runtime) {
   throw new Error("install-scope none should not write provider runtime files.");
 }
