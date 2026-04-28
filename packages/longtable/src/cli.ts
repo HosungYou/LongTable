@@ -8,6 +8,7 @@ import type { Interface as ReadlineInterface } from "node:readline/promises";
 import { stdin as input, stdout as output, cwd, env, exit } from "node:process";
 import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 import type { InteractionMode, PanelVisibility, ProviderKind, QuestionRecord, ResearchStage } from "@longtable/core";
 import { classifyCheckpointTrigger } from "@longtable/checkpoints";
 import {
@@ -71,15 +72,25 @@ import { buildPersonaGuidance, parseInvocationDirective } from "./persona-router
 import { PERSONA_DEFINITIONS, listRoleDefinitions } from "./personas.js";
 import { buildPanelFallback, renderPanelSummary } from "./panel.js";
 import {
+  LONGTABLE_MANAGED_HOOK_EVENTS,
+  codexHooksEnabled,
+  enableCodexHooksFeature,
+  getMissingManagedCodexHookEvents,
+  mergeManagedCodexHooksConfig,
+  removeManagedCodexHooks
+} from "./codex-hooks.js";
+import {
   appendInvocationRecordToWorkspace,
   assertWorkspaceNotBlocked,
   answerWorkspaceQuestion,
+  clearWorkspaceQuestion,
   createWorkspaceFollowUpQuestions,
   createWorkspaceQuestion,
   createOrUpdateProjectWorkspace,
   inspectProjectWorkspace,
   loadWorkspaceState,
   loadProjectContextFromDirectory,
+  repairWorkspaceStateConsistency,
   renderProjectWorkspaceSummary,
   syncCurrentWorkspaceView,
   type LongTableProjectContext,
@@ -147,6 +158,10 @@ interface CodexSkillHealth extends ProviderSkillHealth {
   mcpConfigExists: boolean;
   longtableMcpConfigured: boolean;
   mcpElicitationsAllowed: boolean;
+  hooksPath: string;
+  hooksExists: boolean;
+  codexHooksEnabled: boolean;
+  missingManagedHookEvents: string[];
 }
 
 interface LongTableDoctorStatus {
@@ -163,6 +178,8 @@ interface DoctorRepairResult {
   installedCodexSkills: string[];
   installedClaudeSkills: string[];
   removedLegacyPromptFiles: string[];
+  installedCodexHooks?: boolean;
+  repairedWorkspaceState?: string[];
   writtenRuntimeConfigs: Array<{
     provider: ProviderKind;
     path: string;
@@ -188,6 +205,14 @@ interface McpInstallResult {
   write: boolean;
   checkpointUi?: SetupCheckpointUiChoice;
   targets: McpInstallTarget[];
+}
+
+interface CodexHookInstallResult {
+  configPath: string;
+  hooksPath: string;
+  codexHooksEnabled: boolean;
+  managedEvents: string[];
+  write: boolean;
 }
 
 const VALID_MODES = new Set<InteractionMode>([
@@ -218,7 +243,7 @@ const ANSI = {
 };
 
 const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
-const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.32";
+const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.33";
 const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
 const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 
@@ -278,8 +303,8 @@ function usage(): string {
     "  longtable init [deprecated alias for setup; full legacy flags still supported for automation]",
     "  longtable start [deprecated fallback] [--path <dir>] [--name <project>] [--goal <text>] [--blocker <text>] [--research-object research_question|theory_framework|measurement_instrument|study_design|analysis_plan|manuscript] [--gap-risk known_gap|suspected_tacit_assumptions|diagnose] [--protected-decision theory|measurement|method|evidence_citation|authorship_voice|submission_public_sharing] [--perspectives <role[,role]>] [--disagreement synthesis_only|show_on_conflict|always_visible] [--setup <path>] [--json] [--no-interview]",
     "  longtable resume [--cwd <path>] [--json]",
-    "  longtable doctor [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--codex-config <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
-    "  longtable status [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--codex-config <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
+    "  longtable doctor [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--codex-config <path>] [--hooks-path <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
+    "  longtable status [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--codex-config <path>] [--hooks-path <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
     "  longtable roles [--json]",
     "  longtable show [--json] [--path <file>]",
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
@@ -293,6 +318,7 @@ function usage(): string {
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable clarify --prompt <task-context> [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json] [--force]",
     "  longtable question --prompt <decision-context> [--title <text>] [--text <question>] [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json]",
+    "  longtable clear-question --question <id> --reason <text> [--cwd <path>] [--json]",
     "  longtable panel [--prompt <text>] [--role <role[,role]>] [--mode review|critique|draft|commit] [--visibility synthesis_only|show_on_conflict|always_visible] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable decide [--question <id>] --answer <value-or-text> [--rationale <text>] [--provider codex|claude] [--cwd <path>] [--json]",
     "  longtable explore|review|critique|draft|commit|submit [--prompt <text>] [--role <role[,role]>] [--panel] [--show-conflicts] [--show-deliberation] [--print] [--json] [--stage <stage>] [--setup <path>] [--cwd <path>]",
@@ -301,7 +327,9 @@ function usage(): string {
     "  longtable codex remove-skills [--dir <path>]",
     "  longtable codex install-prompts [--dir <path>]",
     "  longtable codex remove-prompts [--dir <path>]",
-    "  longtable codex status [--dir <path>] [--json]",
+    "  longtable codex install-hooks [--codex-config <path>] [--hooks-path <path>] [--json]",
+    "  longtable codex remove-hooks [--codex-config <path>] [--hooks-path <path>] [--json]",
+    "  longtable codex status [--dir <path>] [--codex-config <path>] [--hooks-path <path>] [--json]",
     "  longtable claude install-skills [--dir <path>]",
     "  longtable claude remove-skills [--dir <path>]",
     "  longtable claude status [--dir <path>] [--json]",
@@ -328,7 +356,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "setup", "start", "resume", "doctor", "status", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "panel", "decide", "sentinel", "team", "search"].includes(command);
+    command && ["init", "setup", "start", "resume", "doctor", "status", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "panel", "decide", "sentinel", "team", "search"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -1562,6 +1590,19 @@ function resolveCodexMcpConfigPath(args: Record<string, string | boolean>): stri
   );
 }
 
+function resolveCodexHooksPath(args: Record<string, string | boolean>): string {
+  if (typeof args["hooks-path"] === "string" && args["hooks-path"].trim()) {
+    return resolve(normalizeUserPath(args["hooks-path"]));
+  }
+
+  const configPath = resolveCodexMcpConfigPath(args);
+  return resolve(dirname(configPath), "hooks.json");
+}
+
+function resolveCliPackageRoot(): string {
+  return resolve(fileURLToPath(new URL("..", import.meta.url)));
+}
+
 function resolveClaudeMcpSettingsPath(args: Record<string, string | boolean>): string {
   return resolve(
     normalizeUserPath(
@@ -1673,6 +1714,67 @@ async function writeClaudeMcpSettings(path: string, serverName: string, command:
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${updated}\n`, "utf8");
   return `${updated}\n`;
+}
+
+async function installCodexNativeHooks(
+  args: Record<string, string | boolean>
+): Promise<CodexHookInstallResult> {
+  const configPath = resolveCodexMcpConfigPath(args);
+  const hooksPath = resolveCodexHooksPath(args);
+  const packageRoot = resolveCliPackageRoot();
+  const existingConfig = existsSync(configPath) ? await readFile(configPath, "utf8") : "";
+  const existingHooks = existsSync(hooksPath) ? await readFile(hooksPath, "utf8") : "";
+  const nextConfig = enableCodexHooksFeature(existingConfig);
+  const nextHooks = mergeManagedCodexHooksConfig(existingHooks, packageRoot);
+
+  await mkdir(dirname(configPath), { recursive: true });
+  await mkdir(dirname(hooksPath), { recursive: true });
+  await writeFile(configPath, nextConfig, "utf8");
+  await writeFile(hooksPath, nextHooks, "utf8");
+
+  return {
+    configPath,
+    hooksPath,
+    codexHooksEnabled: codexHooksEnabled(nextConfig),
+    managedEvents: [...LONGTABLE_MANAGED_HOOK_EVENTS],
+    write: true
+  };
+}
+
+async function removeCodexNativeHooks(
+  args: Record<string, string | boolean>
+): Promise<CodexHookInstallResult> {
+  const configPath = resolveCodexMcpConfigPath(args);
+  const hooksPath = resolveCodexHooksPath(args);
+  const existingHooks = existsSync(hooksPath) ? await readFile(hooksPath, "utf8") : "";
+  const removed = existingHooks ? removeManagedCodexHooks(existingHooks) : { nextContent: null, removedCount: 0 };
+
+  if (removed.nextContent === null) {
+    await rm(hooksPath, { force: true });
+  } else {
+    await mkdir(dirname(hooksPath), { recursive: true });
+    await writeFile(hooksPath, removed.nextContent, "utf8");
+  }
+
+  const configContent = existsSync(configPath) ? await readFile(configPath, "utf8") : "";
+
+  return {
+    configPath,
+    hooksPath,
+    codexHooksEnabled: codexHooksEnabled(configContent),
+    managedEvents: removed.removedCount > 0 ? [...LONGTABLE_MANAGED_HOOK_EVENTS] : [],
+    write: true
+  };
+}
+
+function renderCodexHookInstallSummary(result: CodexHookInstallResult): string {
+  return [
+    "LongTable Codex hooks",
+    `- config: ${result.configPath}`,
+    `- hooks: ${result.hooksPath}`,
+    `- codex_hooks feature: ${result.codexHooksEnabled ? "enabled" : "missing"}`,
+    `- managed events: ${result.managedEvents.length > 0 ? result.managedEvents.join(", ") : "none"}`
+  ].join("\n");
 }
 
 function renderMcpInstallSummary(result: McpInstallResult): string {
@@ -1888,6 +1990,13 @@ async function collectDoctorStatus(args: Record<string, string | boolean>): Prom
   const codexMcpConfig = existsSync(codexMcpConfigPath)
     ? await readFile(codexMcpConfigPath, "utf8")
     : "";
+  const codexHooksPath = resolveCodexHooksPath(args);
+  const codexHooksContent = existsSync(codexHooksPath)
+    ? await readFile(codexHooksPath, "utf8")
+    : "";
+  const missingManagedHookEvents = codexHooksContent
+    ? (getMissingManagedCodexHookEvents(codexHooksContent) ?? [...LONGTABLE_MANAGED_HOOK_EVENTS])
+    : [...LONGTABLE_MANAGED_HOOK_EVENTS];
   const expectedCodexSkills = buildCodexSkillSpecs(roles).map((skill) => skill.name);
   const expectedClaudeSkills = buildClaudeSkillSpecs(roles).map((skill) => skill.name);
   const [codexSkills, claudeSkills, codexAliases, workspace] = await Promise.all([
@@ -1917,7 +2026,11 @@ async function collectDoctorStatus(args: Record<string, string | boolean>): Prom
         mcpConfigPath: codexMcpConfigPath,
         mcpConfigExists: existsSync(codexMcpConfigPath),
         longtableMcpConfigured: codexLongTableMcpConfigured(codexMcpConfig),
-        mcpElicitationsAllowed: codexMcpElicitationsAllowed(codexMcpConfig)
+        mcpElicitationsAllowed: codexMcpElicitationsAllowed(codexMcpConfig),
+        hooksPath: codexHooksPath,
+        hooksExists: existsSync(codexHooksPath),
+        codexHooksEnabled: codexHooksEnabled(codexMcpConfig),
+        missingManagedHookEvents
       },
       claude: {
         command: "claude",
@@ -1961,6 +2074,9 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
     `- MCP config: ${status.providers.codex.mcpConfigExists ? "present" : "missing"} (${status.providers.codex.mcpConfigPath})`,
     `- LongTable MCP: ${status.providers.codex.longtableMcpConfigured ? "configured" : "missing"}`,
     `- MCP elicitation approval: ${status.providers.codex.mcpElicitationsAllowed ? "allowed" : "not allowed"}`,
+    `- Codex hooks file: ${status.providers.codex.hooksExists ? "present" : "missing"} (${status.providers.codex.hooksPath})`,
+    `- codex_hooks feature: ${status.providers.codex.codexHooksEnabled ? "enabled" : "missing"}`,
+    `- managed hook coverage: ${status.providers.codex.missingManagedHookEvents.length === 0 ? "complete" : `missing ${status.providers.codex.missingManagedHookEvents.join(", ")}`}`,
     "",
     ...renderProviderDoctorBlock("Claude", status.providers.claude),
     "",
@@ -1977,6 +2093,7 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
       `- goal: ${workspace.session?.currentGoal ?? "unknown"}`,
       `- invocations: ${workspace.counts?.invocations ?? 0}`,
       `- questions: ${workspace.counts?.questions ?? 0} (${workspace.counts?.pendingQuestions ?? 0} pending, ${workspace.counts?.answeredQuestions ?? 0} answered)`,
+      `- obligations: ${workspace.counts?.pendingObligations ?? 0} pending`,
       `- decisions: ${workspace.counts?.decisions ?? 0}`
     );
     if ((workspace.recentInvocations ?? []).length > 0) {
@@ -1990,6 +2107,12 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
       lines.push("- pending questions:");
       for (const question of workspace.pendingQuestions ?? []) {
         lines.push(`  - ${question.id}: ${question.question} (${question.options.join("/")})`);
+      }
+    }
+    if ((workspace.pendingObligations ?? []).length > 0) {
+      lines.push("- pending obligations:");
+      for (const obligation of workspace.pendingObligations ?? []) {
+        lines.push(`  - ${obligation.id}: ${obligation.prompt}`);
       }
     }
     if ((workspace.answerWarnings ?? []).length > 0) {
@@ -2008,11 +2131,16 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
     status.providers.codex.missingSkills.length > 0 ||
     status.providers.claude.missingSkills.length > 0 ||
     status.providers.codex.legacyPromptFilesInstalled.length > 0 ||
+    !status.providers.codex.codexHooksEnabled ||
+    status.providers.codex.missingManagedHookEvents.length > 0 ||
     (status.setupExists &&
       (!status.providers.codex.runtimeExists || !status.providers.claude.runtimeExists));
 
   if (canFix) {
     nextActions.push("longtable doctor --fix");
+  }
+  if (!status.providers.codex.codexHooksEnabled || status.providers.codex.missingManagedHookEvents.length > 0) {
+    nextActions.push("longtable codex install-hooks");
   }
   if (!status.setupExists) {
     nextActions.push("longtable setup --provider codex");
@@ -2045,6 +2173,15 @@ function renderRepairSummary(repair: DoctorRepairResult): string {
   }
   if (repair.removedLegacyPromptFiles.length > 0) {
     lines.push(`- removed legacy prompt files: ${repair.removedLegacyPromptFiles.length}`);
+  }
+  if (repair.installedCodexHooks) {
+    lines.push("- installed Codex native hooks");
+  }
+  if ((repair.repairedWorkspaceState ?? []).length > 0) {
+    lines.push("- repaired workspace state:");
+    for (const item of repair.repairedWorkspaceState ?? []) {
+      lines.push(`  - ${item}`);
+    }
   }
   if (repair.writtenRuntimeConfigs.length > 0) {
     lines.push("- wrote runtime configs:");
@@ -2102,6 +2239,8 @@ async function repairDoctorStatus(
     installedCodexSkills: [],
     installedClaudeSkills: [],
     removedLegacyPromptFiles: [],
+    installedCodexHooks: false,
+    repairedWorkspaceState: [],
     writtenRuntimeConfigs: [],
     skipped: []
   };
@@ -2115,9 +2254,17 @@ async function repairDoctorStatus(
   if (status.providers.codex.legacyPromptFilesInstalled.length > 0) {
     repair.removedLegacyPromptFiles = await removeCodexPromptAliases(codexPromptsDir);
   }
+  if (!status.providers.codex.codexHooksEnabled || status.providers.codex.missingManagedHookEvents.length > 0) {
+    await installCodexNativeHooks(args);
+    repair.installedCodexHooks = true;
+  }
 
   if (!status.setupExists) {
     repair.skipped.push("runtime configs require setup approval; run `longtable setup --provider codex` first");
+    const workspaceContext = await loadProjectContextFromDirectory(typeof args.cwd === "string" ? args.cwd : cwd());
+    if (workspaceContext) {
+      repair.repairedWorkspaceState = (await repairWorkspaceStateConsistency({ context: workspaceContext })).repaired;
+    }
     return repair;
   }
 
@@ -2145,6 +2292,11 @@ async function repairDoctorStatus(
       path: target.path,
       format: target.format
     });
+  }
+
+  const workspaceContext = await loadProjectContextFromDirectory(typeof args.cwd === "string" ? args.cwd : cwd());
+  if (workspaceContext) {
+    repair.repairedWorkspaceState = (await repairWorkspaceStateConsistency({ context: workspaceContext })).repaired;
   }
 
   return repair;
@@ -2997,6 +3149,47 @@ async function runQuestion(args: Record<string, string | boolean>): Promise<void
   console.log(`- current: ${context.currentFilePath}`);
 }
 
+async function runClearQuestion(args: Record<string, string | boolean>): Promise<void> {
+  const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+  const questionId = typeof args.question === "string" ? args.question.trim() : "";
+  const reason = typeof args.reason === "string" ? args.reason.trim() : "";
+
+  if (!questionId) {
+    throw new Error("`clear-question` requires --question <id>.");
+  }
+  if (!reason) {
+    throw new Error("`clear-question` requires --reason <text>.");
+  }
+
+  const context = await loadProjectContextFromDirectory(workingDirectory);
+  if (!context) {
+    throw new Error("No LongTable project workspace was found here. Run this inside a project or pass --cwd.");
+  }
+
+  const result = await clearWorkspaceQuestion({
+    context,
+    questionId,
+    reason
+  });
+
+  if (args.json === true) {
+    console.log(JSON.stringify({
+      question: result.question,
+      files: {
+        state: context.stateFilePath,
+        current: context.currentFilePath
+      }
+    }, null, 2));
+    return;
+  }
+
+  console.log("LongTable question cleared");
+  console.log(`- question: ${result.question.id}`);
+  console.log(`- reason: ${result.question.clearedReason ?? reason}`);
+  console.log(`- state: ${context.stateFilePath}`);
+  console.log(`- current: ${context.currentFilePath}`);
+}
+
 function isInteractiveTerminal(): boolean {
   return Boolean(input.isTTY && output.isTTY);
 }
@@ -3720,11 +3913,36 @@ async function runCodexSubcommand(
     return;
   }
 
+  if (subcommand === "install-hooks") {
+    const result = await installCodexNativeHooks(args);
+    if (args.json === true) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    console.log(renderCodexHookInstallSummary(result));
+    console.log("Restart Codex so the native hook config is reloaded.");
+    return;
+  }
+
+  if (subcommand === "remove-hooks") {
+    const result = await removeCodexNativeHooks(args);
+    if (args.json === true) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    console.log(renderCodexHookInstallSummary(result));
+    return;
+  }
+
   if (subcommand === "status") {
     const aliases = await listInstalledCodexPromptAliases(customDir);
     const skills = await listInstalledCodexSkills(roles, customDir);
     const setupPath = resolveDefaultSetupPath(typeof args.path === "string" ? args.path : undefined).path;
     const runtimePath = resolveDefaultRuntimeConfigPath("codex", typeof args["runtime-path"] === "string" ? args["runtime-path"] : undefined).path;
+    const configPath = resolveCodexMcpConfigPath(args);
+    const configContent = existsSync(configPath) ? await readFile(configPath, "utf8") : "";
+    const hooksPath = resolveCodexHooksPath(args);
+    const hooksContent = existsSync(hooksPath) ? await readFile(hooksPath, "utf8") : "";
     const status = {
       setupPath,
       setupExists: existsSync(setupPath),
@@ -3733,7 +3951,14 @@ async function runCodexSubcommand(
       skillsDir: resolveCodexSkillsDir(customDir),
       skillsInstalled: skills.map((skill) => skill.name),
       promptsDir: resolveCodexPromptsDir(customDir),
-      legacyPromptFilesInstalled: aliases.map((alias) => alias.name)
+      legacyPromptFilesInstalled: aliases.map((alias) => alias.name),
+      codexConfigPath: configPath,
+      codexHooksEnabled: codexHooksEnabled(configContent),
+      hooksPath,
+      hooksExists: existsSync(hooksPath),
+      missingManagedHookEvents: hooksContent
+        ? (getMissingManagedCodexHookEvents(hooksContent) ?? [...LONGTABLE_MANAGED_HOOK_EVENTS])
+        : [...LONGTABLE_MANAGED_HOOK_EVENTS]
     };
 
     if (args.json === true) {
@@ -3763,6 +3988,10 @@ async function runCodexSubcommand(
         console.log(`  - ${alias.name}`);
       }
     }
+    console.log(`- codex config: ${status.codexConfigPath}`);
+    console.log(`- codex_hooks feature: ${status.codexHooksEnabled ? "enabled" : "missing"}`);
+    console.log(`- hooks file: ${status.hooksExists ? "present" : "missing"} (${status.hooksPath})`);
+    console.log(`- managed hook coverage: ${status.missingManagedHookEvents.length === 0 ? "complete" : `missing ${status.missingManagedHookEvents.join(", ")}`}`);
     return;
   }
 
@@ -3899,6 +4128,11 @@ async function main(): Promise<void> {
 
   if (command === "question") {
     await runQuestion(values);
+    return;
+  }
+
+  if (command === "clear-question") {
+    await runClearQuestion(values);
     return;
   }
 

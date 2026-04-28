@@ -1,6 +1,6 @@
 {
   "name": "@longtable/cli",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "private": false,
   "description": "Researcher-facing LongTable CLI",
   "type": "module",
@@ -29,12 +29,12 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
-    "@longtable/checkpoints": "0.1.32",
-    "@longtable/core": "0.1.32",
-    "@longtable/memory": "0.1.32",
-    "@longtable/provider-claude": "0.1.32",
-    "@longtable/provider-codex": "0.1.32",
-    "@longtable/setup": "0.1.32"
+    "@longtable/checkpoints": "0.1.33",
+    "@longtable/core": "0.1.33",
+    "@longtable/memory": "0.1.33",
+    "@longtable/provider-claude": "0.1.33",
+    "@longtable/provider-codex": "0.1.33",
+    "@longtable/setup": "0.1.33"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

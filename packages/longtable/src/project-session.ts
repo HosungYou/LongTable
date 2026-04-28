@@ -12,6 +12,7 @@ import { classifyCheckpointTrigger } from "@longtable/checkpoints";
 import type {
   DecisionRecord,
   InvocationRecord,
+  LongTableQuestionObligation,
   ProviderKind,
   QuestionOption,
   QuestionAnswer,
@@ -20,6 +21,12 @@ import type {
   ResearchState
 } from "@longtable/core";
 import type { SetupPersistedOutput } from "@longtable/setup";
+import {
+  ensureFirstResearchShapeObligation,
+  ensureRequiredQuestionObligation,
+  pendingQuestionObligations,
+  resolveQuestionObligationByQuestionId
+} from "./question-obligations.js";
 
 export type ProjectDisagreementPreference =
   | "synthesis_only"
@@ -188,6 +195,7 @@ export interface LongTableWorkspaceInspection {
     invocations: number;
     questions: number;
     pendingQuestions: number;
+    pendingObligations: number;
     answeredQuestions: number;
     decisions: number;
   };
@@ -207,6 +215,13 @@ export interface LongTableWorkspaceInspection {
     question: string;
     options: string[];
     required: boolean;
+  }>;
+  pendingObligations?: Array<{
+    id: string;
+    kind: string;
+    prompt: string;
+    reason: string;
+    questionId?: string;
   }>;
   recentDecisions?: Array<{
     id: string;
@@ -350,7 +365,8 @@ function buildCurrentGuide(
   project: LongTableProjectRecord,
   session: LongTableSessionRecord,
   recentInvocations: InvocationRecord[] = [],
-  pendingQuestions: QuestionRecord[] = []
+  pendingQuestions: QuestionRecord[] = [],
+  pendingObligations: LongTableQuestionObligation[] = []
 ): string {
   const locale = normalizeLocale(session.locale ?? project.locale);
   const openQuestions = session.openQuestions && session.openQuestions.length > 0
@@ -401,6 +417,16 @@ function buildCurrentGuide(
               return `- ${record.id}: ${record.prompt.question} (${options})`;
             }),
             "- 답변 기록: `longtable decide --question <id> --answer <value>`"
+          ]
+        : []),
+      ...(pendingObligations.length > 0
+        ? [
+            "",
+            "## 대기 중인 연구 의무",
+            ...pendingObligations.map((obligation) => {
+              const linked = obligation.questionId ? ` [question: ${obligation.questionId}]` : "";
+              return `- ${obligation.prompt}${linked}: ${obligation.reason}`;
+            })
           ]
         : []),
       "",
@@ -467,6 +493,16 @@ function buildCurrentGuide(
           "- Record an answer: `longtable decide --question <id> --answer <value>`"
         ]
       : []),
+    ...(pendingObligations.length > 0
+      ? [
+          "",
+          "## Pending Research Obligations",
+          ...pendingObligations.map((obligation) => {
+            const linked = obligation.questionId ? ` [question: ${obligation.questionId}]` : "";
+            return `- ${obligation.prompt}${linked}: ${obligation.reason}`;
+          })
+        ]
+      : []),
     "",
     "## Restart Prompt",
     `- "${resumeHint}"`,
@@ -501,6 +537,7 @@ async function loadResearchState(stateFilePath: string): Promise<LongTableWorksp
     workingState: parsed.workingState ?? {},
     hooks: parsed.hooks ?? [],
     ...(parsed.firstResearchShape ? { firstResearchShape: parsed.firstResearchShape } : {}),
+    questionObligations: parsed.questionObligations ?? [],
     inferredHypotheses: parsed.inferredHypotheses ?? [],
     openTensions: parsed.openTensions ?? [],
     decisionLog: parsed.decisionLog ?? [],
@@ -527,6 +564,23 @@ function recentPendingQuestions(state: ResearchState, limit = 3): QuestionRecord
     .reverse();
 }
 
+function visiblePendingObligations(state: ResearchState): LongTableQuestionObligation[] {
+  const pendingQuestionIds = new Set(
+    (state.questionLog ?? [])
+      .filter((record) => record.status === "pending")
+      .map((record) => record.id)
+  );
+  return pendingQuestionObligations(state).filter((obligation) =>
+    !obligation.questionId || !pendingQuestionIds.has(obligation.questionId)
+  );
+}
+
+function recentPendingObligations(state: ResearchState, limit = 3): LongTableQuestionObligation[] {
+  return visiblePendingObligations(state)
+    .slice(-limit)
+    .reverse();
+}
+
 function formatQuestionOptionValues(record: QuestionRecord): string[] {
   const values = record.prompt.options.map((option) => option.value);
   if (record.prompt.allowOther) {
@@ -542,6 +596,7 @@ function summarizeWorkspaceInspection(
   const questions = state.questionLog ?? [];
   const pendingQuestions = questions.filter((record) => record.status === "pending");
   const answeredQuestions = questions.filter((record) => record.status === "answered");
+  const pendingObligations = visiblePendingObligations(state);
 
   return {
     found: true,
@@ -569,6 +624,7 @@ function summarizeWorkspaceInspection(
       invocations: (state.invocationLog ?? []).length,
       questions: questions.length,
       pendingQuestions: pendingQuestions.length,
+      pendingObligations: pendingObligations.length,
       answeredQuestions: answeredQuestions.length,
       decisions: (state.decisionLog ?? []).length
     },
@@ -588,6 +644,13 @@ function summarizeWorkspaceInspection(
       question: record.prompt.question,
       options: formatQuestionOptionValues(record),
       required: record.prompt.required
+    })),
+    pendingObligations: pendingObligations.slice(-5).reverse().map((obligation) => ({
+      id: obligation.id,
+      kind: obligation.kind,
+      prompt: obligation.prompt,
+      reason: obligation.reason,
+      ...(obligation.questionId ? { questionId: obligation.questionId } : {})
     })),
     recentDecisions: (state.decisionLog ?? []).slice(-5).reverse().map((record) => ({
       id: record.id,
@@ -775,7 +838,8 @@ export async function syncCurrentWorkspaceView(context: LongTableProjectContext)
     context.project,
     context.session,
     recentInvocationRecords(state),
-    recentPendingQuestions(state)
+    recentPendingQuestions(state),
+    recentPendingObligations(state)
   );
   await writeFile(context.currentFilePath, body, "utf8");
   return context.currentFilePath;
@@ -1040,6 +1104,13 @@ function findQuestionForDecision(
   return pending.at(-1) ?? null;
 }
 
+function findPendingQuestionForClear(
+  state: ResearchState,
+  questionId: string
+): QuestionRecord | null {
+  return (state.questionLog ?? []).find((record) => record.id === questionId && record.status === "pending") ?? null;
+}
+
 function pendingRequiredQuestions(state: ResearchState): QuestionRecord[] {
   return (state.questionLog ?? []).filter(
     (record) => record.status === "pending" && record.prompt.required
@@ -1053,22 +1124,44 @@ export async function listBlockingWorkspaceQuestions(
   return pendingRequiredQuestions(state);
 }
 
+export async function listBlockingWorkspaceObligations(
+  context: LongTableProjectContext
+): Promise<LongTableQuestionObligation[]> {
+  const state = await loadResearchState(context.stateFilePath);
+  return pendingQuestionObligations(state);
+}
+
 export async function assertWorkspaceNotBlocked(context: LongTableProjectContext): Promise<void> {
-  const blocking = await listBlockingWorkspaceQuestions(context);
-  if (blocking.length === 0) {
-    return;
+  const [blockingQuestions, blockingObligations] = await Promise.all([
+    listBlockingWorkspaceQuestions(context),
+    listBlockingWorkspaceObligations(context)
+  ]);
+  if (blockingQuestions.length > 0) {
+    const first = blockingQuestions[0];
+    const options = formatQuestionOptionValues(first).join("/");
+    throw new Error(
+      [
+        `LongTable is blocked by a required Researcher Checkpoint: ${first.id}`,
+        first.prompt.question,
+        `Options: ${options}`,
+        `Record an answer with: longtable decide --question ${first.id} --answer <value>`
+      ].join("\n")
+    );
   }
 
-  const first = blocking[0];
-  const options = formatQuestionOptionValues(first).join("/");
-  throw new Error(
-    [
-      `LongTable is blocked by a required Researcher Checkpoint: ${first.id}`,
-      first.prompt.question,
-      `Options: ${options}`,
-      `Record an answer with: longtable decide --question ${first.id} --answer <value>`
-    ].join("\n")
-  );
+  if (blockingObligations.length > 0) {
+    const first = blockingObligations[0];
+    throw new Error(
+      [
+        `LongTable is blocked by a pending research obligation: ${first.id}`,
+        first.prompt,
+        first.reason,
+        ...(first.questionId
+          ? [`If a question was already issued, answer it with: longtable decide --question ${first.questionId} --answer <value>`]
+          : ["Resume the LongTable interview and answer the next researcher-facing checkpoint before proceeding."])
+      ].join("\n")
+    );
+  }
 }
 
 function questionTitleForCheckpoint(family: string, checkpointKey?: string): string {
@@ -1514,10 +1607,11 @@ export async function createWorkspaceQuestion(options: {
   };
 
   const updated = appendQuestionRecords(state, [question]);
-  await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
+  const withObligation = ensureRequiredQuestionObligation(updated, question);
+  await writeFile(options.context.stateFilePath, JSON.stringify(withObligation, null, 2), "utf8");
   await syncCurrentWorkspaceView(options.context);
 
-  return { question, state: updated };
+  return { question, state: withObligation };
 }
 
 function updateInvocationWithDecision(
@@ -1696,7 +1790,8 @@ export async function answerWorkspaceQuestion(options: {
       updateInvocationWithDecision(record, question.id, decision.id)
     )
   };
-  const updated = appendDecisionToResearchState(withQuestion, decision);
+  const withDecision = appendDecisionToResearchState(withQuestion, decision);
+  const updated = resolveQuestionObligationByQuestionId(withDecision, question.id, decision.id);
 
   await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
   await syncCurrentWorkspaceView(options.context);
@@ -1706,6 +1801,136 @@ export async function answerWorkspaceQuestion(options: {
     decision,
     state: updated
   };
+}
+
+export async function clearWorkspaceQuestion(options: {
+  context: LongTableProjectContext;
+  questionId: string;
+  reason: string;
+}): Promise<{
+  question: QuestionRecord;
+  state: ResearchState;
+}> {
+  const state = await loadResearchState(options.context.stateFilePath);
+  const question = findPendingQuestionForClear(state, options.questionId);
+  if (!question) {
+    throw new Error(`No pending LongTable question found for ${options.questionId}.`);
+  }
+
+  const timestamp = nowIso();
+  const clearedQuestion: QuestionRecord = {
+    ...question,
+    updatedAt: timestamp,
+    status: "cleared",
+    clearedReason: options.reason.trim()
+  };
+
+  const withQuestion = {
+    ...state,
+    questionLog: (state.questionLog ?? []).map((record) =>
+      record.id === question.id ? clearedQuestion : record
+    )
+  };
+  const updated = resolveQuestionObligationByQuestionId(withQuestion, question.id, undefined, "cleared");
+
+  await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
+  await syncCurrentWorkspaceView(options.context);
+
+  return {
+    question: clearedQuestion,
+    state: updated
+  };
+}
+
+export async function repairWorkspaceStateConsistency(options: {
+  context: LongTableProjectContext;
+}): Promise<{
+  state: ResearchState;
+  repaired: string[];
+}> {
+  const state = await loadResearchState(options.context.stateFilePath);
+  const repaired: string[] = [];
+  const hooks = state.hooks ?? [];
+  const hookMatchedByHandle = state.firstResearchShape?.confirmedAt
+    ? hooks.find((hook) =>
+        hook.kind === "longtable_interview" &&
+        hook.firstResearchShape?.handle === state.firstResearchShape?.handle
+      )
+    : undefined;
+  const confirmedShape = state.firstResearchShape?.confirmedAt
+    ? {
+        ...state.firstResearchShape,
+        ...(state.firstResearchShape.sourceHookId
+          ? {}
+          : hookMatchedByHandle?.id
+            ? { sourceHookId: hookMatchedByHandle.id }
+            : {})
+      }
+    : undefined;
+
+  let updated = state;
+  if (confirmedShape && confirmedShape.sourceHookId && !state.firstResearchShape?.sourceHookId) {
+    repaired.push(`restored sourceHookId ${confirmedShape.sourceHookId} on confirmed first research shape`);
+    updated = {
+      ...updated,
+      firstResearchShape: confirmedShape,
+      workingState: {
+        ...updated.workingState,
+        firstResearchShape: confirmedShape
+      }
+    };
+  }
+
+  if (confirmedShape?.sourceHookId) {
+    const hooks = (updated.hooks ?? []).map((hook) => {
+      if (
+        hook.id === confirmedShape.sourceHookId &&
+        hook.kind === "longtable_interview" &&
+        hook.status !== "confirmed"
+      ) {
+        repaired.push(`confirmed interview hook ${hook.id}`);
+        return {
+          ...hook,
+          status: "confirmed" as const,
+          updatedAt: nowIso(),
+          firstResearchShape: confirmedShape
+        };
+      }
+      return hook;
+    });
+    updated = {
+      ...updated,
+      hooks
+    };
+  }
+
+  if (confirmedShape?.sourceHookId) {
+    updated = {
+      ...updated,
+      questionObligations: (updated.questionObligations ?? []).map((obligation) => {
+        if (
+          obligation.kind === "first_research_shape_confirmation" &&
+          obligation.status === "pending" &&
+          obligation.sourceHookId === confirmedShape.sourceHookId
+        ) {
+          repaired.push(`cleared first research shape obligation ${obligation.id}`);
+          return {
+            ...obligation,
+            status: "satisfied" as const,
+            updatedAt: nowIso()
+          };
+        }
+        return obligation;
+      })
+    };
+  }
+
+  if (repaired.length > 0) {
+    await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
+    await syncCurrentWorkspaceView(options.context);
+  }
+
+  return { state: updated, repaired };
 }
 
 export async function createOrUpdateProjectWorkspace(options: {

@@ -36,6 +36,11 @@ Researcher Checkpoint -> QuestionRecord -> DecisionRecord
 
 `QuestionRecord` is durable lifecycle state. It exists so a required question is not inferred from prompt text alone.
 
+LongTable may also keep a lightweight pending obligation record when the runtime
+must remember that a research-facing checkpoint is still owed even before a
+fresh QuestionRecord is answered. This is especially important for the
+interview-to-First-Research-Shape handoff.
+
 ## Triggering
 
 Natural-language checkpoint triggering is owned by `@longtable/checkpoints`.
@@ -108,7 +113,8 @@ LongTable should not replace Claude Code's native question surface with a custom
 ### Codex
 
 Codex should use LongTable-owned MCP elicitation when that tool surface is
-available and fall back to numbered checkpoints otherwise.
+available and fall back to numbered checkpoints otherwise. Native Codex hooks
+should be used for lifecycle timing, not for checkpoint semantics.
 
 Flow:
 
@@ -117,6 +123,13 @@ Flow:
 3. Codex adapter renders numbered options with strict parsing as the fallback
 4. invalid numbered answers re-prompt
 5. the selected answer is normalized into LongTable state
+
+Native hook support is the surrounding guard layer:
+
+- `SessionStart` restores current research context
+- `UserPromptSubmit` injects pending-checkpoint context
+- `Stop` blocks silent closure when obligations remain
+- `PreToolUse` / `PostToolUse` review Bash-side effects without becoming the source of truth
 
 ## What Must Stay Shared
 

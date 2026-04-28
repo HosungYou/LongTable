@@ -356,6 +356,7 @@ export interface QuestionRecord {
   transportStatus?: QuestionTransportState;
   answer?: QuestionAnswer;
   error?: string;
+  clearedReason?: string;
   decisionRecordId?: string;
 }
 
@@ -447,6 +448,28 @@ export interface LongTableHookRun {
   linkedDecisionRecordIds?: string[];
 }
 
+export type LongTableQuestionObligationKind =
+  | "required_question"
+  | "first_research_shape_confirmation";
+
+export type LongTableQuestionObligationStatus =
+  | "pending"
+  | "satisfied"
+  | "cleared";
+
+export interface LongTableQuestionObligation {
+  id: string;
+  kind: LongTableQuestionObligationKind;
+  status: LongTableQuestionObligationStatus;
+  createdAt: string;
+  updatedAt: string;
+  prompt: string;
+  reason: string;
+  questionId?: string;
+  decisionId?: string;
+  sourceHookId?: string;
+}
+
 export interface RuntimeGuidance {
   mode: InteractionMode;
   minimumQuestions: number;
@@ -482,6 +505,7 @@ export interface ResearchState {
   workingState: Record<string, unknown>;
   hooks?: LongTableHookRun[];
   firstResearchShape?: FirstResearchShape;
+  questionObligations?: LongTableQuestionObligation[];
   inferredHypotheses: InferredHypothesis[];
   openTensions: string[];
   decisionLog: DecisionRecord[];

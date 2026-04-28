@@ -32,6 +32,7 @@ Strengths:
 - strong coding/runtime environment
 - subagent support
 - better path to open orchestration patterns
+- native lifecycle hooks can restore research context and guard unsafe closure timing
 
 Risks:
 
@@ -47,6 +48,13 @@ Recommended use:
 - state/hook/runtime 경계 설계 참고
 - team and workflow orchestration pattern 참고
 - native hook와 fallback ownership split 참고
+
+LongTable's Codex-native hook boundary should stay narrow:
+
+- `SessionStart`: restore CURRENT / First Research Shape / pending obligations
+- `UserPromptSubmit`: inject checkpoint-needed context when research responsibility is about to shift
+- `Stop`: block silent closure when required questions or interview obligations remain
+- `PreToolUse` / `PostToolUse`: Bash-only guard/review layer, not the semantic source of truth
 
 Not recommended as:
 

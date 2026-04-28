@@ -15,7 +15,7 @@ longtable-state
 Run:
 
 ```bash
-npx -y @longtable/mcp@0.1.32
+npx -y @longtable/mcp@0.1.33
 ```
 
 Self-test:
