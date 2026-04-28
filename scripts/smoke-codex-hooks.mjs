@@ -154,6 +154,24 @@ const engineeringExecutionHook = await dispatchCodexHook({
 }, workspaceTmp);
 assertEqual(engineeringExecutionHook, null, "LongTable engineering execution prompt should not create researcher checkpoints");
 
+const malformedSkillPromptHook = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "$longlongtable"
+}, workspaceTmp);
+assertEqual(malformedSkillPromptHook, null, "Malformed LongTable skill autocomplete text should not create researcher checkpoints");
+
+const engineeringExplanationHook = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "현재 에이전트 시스템이 어떻게 돌아가는지 설명해줘"
+}, workspaceTmp);
+assertEqual(engineeringExplanationHook, null, "LongTable engineering explanation prompt should not create researcher checkpoints");
+
+const engineeringSimulationHook = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "시뮬레이션 테스트로 왜 훅이 불필요하게 나오는지 확인해줘"
+}, workspaceTmp);
+assertEqual(engineeringSimulationHook, null, "LongTable engineering simulation prompt should not create researcher checkpoints");
+
 const closureQuestionHook = await dispatchCodexHook({
   hook_event_name: "UserPromptSubmit",
   prompt: "Implement the plan."

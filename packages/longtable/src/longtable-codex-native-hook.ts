@@ -186,8 +186,20 @@ function looksLikeLongTableEngineeringPrompt(prompt: string): boolean {
     || /롱테이블|훅|체크포인트|에이전트|글로벌|배포|버전|릴리즈|깃|깃허브/.test(normalized);
 }
 
+function looksLikeDiagnosticOrExplanatoryPrompt(prompt: string): boolean {
+  const normalized = prompt.trim();
+  if (!normalized) {
+    return false;
+  }
+  return /\b(explain|why|how|diagnos(?:e|is)|debug|inspect|check|verify|status|simulate|simulation|test|logs?)\b/i.test(normalized)
+    || /설명|왜|어떻게|진단|디버그|확인|점검|상태|시뮬레이션|테스트|로그|불필요/.test(normalized);
+}
+
 function shouldAutoCreateQuestionsForPrompt(prompt: string): boolean {
-  return !(looksLikeExecutionDirective(prompt) && looksLikeLongTableEngineeringPrompt(prompt));
+  if (!looksLikeLongTableEngineeringPrompt(prompt)) {
+    return true;
+  }
+  return !looksLikeExecutionDirective(prompt) && !looksLikeDiagnosticOrExplanatoryPrompt(prompt);
 }
 
 function shouldApplyProtectedDecisionClosure(runtime: LongTableRuntime, prompt: string): boolean {

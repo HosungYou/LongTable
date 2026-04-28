@@ -254,7 +254,7 @@ const ANSI = {
 };
 
 const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
-const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.37";
+const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.38";
 const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
 const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 

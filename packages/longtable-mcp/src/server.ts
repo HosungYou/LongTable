@@ -29,7 +29,7 @@ import {
 } from "./first-research-shape.js";
 
 const SERVER_NAME = "longtable-state";
-const SERVER_VERSION = "0.1.37";
+const SERVER_VERSION = "0.1.38";
 
 const TOOL_NAMES = [
   "read_project",
