@@ -35,7 +35,7 @@ function questionTitle(shape: FirstResearchShape): string {
 
 function questionText(shape: FirstResearchShape): string {
   if (shape.protectedDecision) {
-    return `Before LongTable moves forward, what should stay explicitly open about ${shape.protectedDecision}?`;
+    return "Before LongTable moves forward, what protected research decision should stay explicit?";
   }
   if (shape.currentBlocker) {
     return "What should LongTable do with the main unresolved issue in this emerging study?";
@@ -79,8 +79,8 @@ function baseOptions(shape: FirstResearchShape): QuestionOption[] {
   if (shape.protectedDecision) {
     options.push({
       value: "protect_decision",
-      label: `Keep ${shape.protectedDecision} open`,
-      description: "Treat this as the guarded judgment while the broader direction stays provisional.",
+      label: "Keep the protected decision open",
+      description: `Treat this as the guarded judgment while the broader direction stays provisional: ${shape.protectedDecision}`,
       recommended: recommended === "protect_decision"
     });
   }

@@ -42,9 +42,11 @@ runtime surface. The config change is explicit because it writes:
 approval_policy = { granular = { sandbox_approval = false, rules = false, mcp_elicitations = true } }
 ```
 
-If the client rejects, cancels, or does not support elicitation, LongTable keeps
-the pending `QuestionRecord` and returns the numbered fallback plus the
-`longtable decide` next action.
+If the client does not support elicitation or the transport fails, LongTable
+keeps the pending `QuestionRecord` and returns the numbered fallback plus the
+`longtable decide` next action. If the researcher explicitly cancels or declines
+the final First Research Shape confirmation, LongTable clears that generated
+required question so a canceled form does not keep blocking the session.
 
 ## Responsibilities
 

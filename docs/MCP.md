@@ -45,7 +45,7 @@ longtable-state
 Direct run:
 
 ```bash
-npx -y @longtable/mcp@0.1.33
+npx -y @longtable/mcp@0.1.34
 longtable-state --self-test
 ```
 
@@ -101,7 +101,8 @@ The first tool set is intentionally narrow:
   answer-quality metadata
 - `summarize_interview`: store the provisional First Research Shape
 - `confirm_first_research_shape`: request MCP form elicitation for the final
-  First Research Shape confirmation
+  First Research Shape confirmation; already-confirmed shapes return without
+  opening a new form
 - `pending_questions`: list pending Researcher Checkpoints
 - `evaluate_checkpoint`: classify natural-language context without writing
   state

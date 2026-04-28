@@ -86,8 +86,11 @@ const shapeQuestion = buildFirstResearchShapeQuestion({
   sourceHookId: "hook_test"
 });
 assert(!shapeQuestion.question.includes("How should LongTable treat this first research handle?"), "shape question should not use the old technical wording");
-assert(shapeQuestion.question.includes("what counts as calibration"), "shape question should reflect the protected decision");
+assert(!shapeQuestion.question.includes("what counts as calibration"), "shape question should keep long protected-decision text out of the title question");
 assert(shapeQuestion.options.some((option) => option.value === "protect_decision"), "shape question should offer a protected-decision option");
+const protectedOption = shapeQuestion.options.find((option) => option.value === "protect_decision");
+assertEqual(protectedOption?.label, "Keep the protected decision open", "protected-decision option should use a short UI label");
+assert(protectedOption?.description?.includes("what counts as calibration"), "protected-decision detail should move to the option description");
 
 const workspaceTmp = mkdtempSync(join(tmpdir(), "longtable-codex-hook-runtime-"));
 const setupPath = join(workspaceTmp, "setup.json");
@@ -175,6 +178,32 @@ assertEqual(stopAfterClear, null, "Stop hook should clear after explicit stale-q
 
 const statePath = join(workspaceTmp, ".longtable", "state.json");
 const state = JSON.parse(readFileSync(statePath, "utf8"));
+const compactSessionStart = await dispatchCodexHook({ hook_event_name: "SessionStart" }, workspaceTmp);
+const compactSessionContext = compactSessionStart?.hookSpecificOutput?.additionalContext ?? "";
+assert(compactSessionContext.includes("research context restored"), "SessionStart should confirm restored LongTable context");
+assert(!compactSessionContext.includes("Current blocker:"), "SessionStart should not dump full blocker text when nothing is pending");
+assert(!compactSessionContext.includes("Protected decision: measurement"), "SessionStart should keep protected-decision details out of the compact startup summary");
+
+state.hooks = [
+  ...(state.hooks ?? []),
+  {
+    id: "hook_active_waiting_for_researcher",
+    kind: "longtable_interview",
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    targetOutcome: "first_research_handle",
+    depth: "gathering_context",
+    provider: "codex",
+    turns: [],
+    qualityNotes: [],
+    rationale: []
+  }
+];
+writeFileSync(statePath, JSON.stringify(state, null, 2));
+const stopWithActiveInterview = await dispatchCodexHook({ hook_event_name: "Stop" }, workspaceTmp);
+assertEqual(stopWithActiveInterview, null, "Stop hook should not auto-continue while an interview is waiting for researcher input");
+
 state.questionObligations = [{
   id: "obligation_test",
   kind: "first_research_shape_confirmation",

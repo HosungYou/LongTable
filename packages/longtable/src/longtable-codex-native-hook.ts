@@ -116,6 +116,14 @@ function activeInterviewHook(state: LongTableRuntime["state"]): LongTableHookRun
   );
 }
 
+function compactContextValue(value: string, maxLength = 160): string {
+  const compact = value.replace(/\s+/g, " ").trim();
+  if (compact.length <= maxLength) {
+    return compact;
+  }
+  return `${compact.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
 function buildAdditionalContextOutput(
   hookEventName: CodexHookEventName,
   additionalContext: string
@@ -177,8 +185,20 @@ async function loadLongTableRuntime(startPath: string): Promise<LongTableRuntime
   return { context, state };
 }
 
-function buildWorkspaceSummary(runtime: LongTableRuntime): string[] {
+function buildWorkspaceSummary(runtime: LongTableRuntime, detail: "compact" | "full" = "compact"): string[] {
   const { context, state } = runtime;
+  if (detail === "compact") {
+    const primaryContext = state.firstResearchShape
+      ? `First research shape: ${compactContextValue(state.firstResearchShape.handle, 96)}.`
+      : `Current goal: ${compactContextValue(context.session.currentGoal, 120)}.`;
+    return [
+      "LongTable workspace detected; research context restored.",
+      primaryContext,
+      context.session.nextAction ? `Next action: ${compactContextValue(context.session.nextAction)}.` : "",
+      context.session.protectedDecision ? "Protected decision: active; full text is in `.longtable/` and `CURRENT.md`." : ""
+    ].filter(Boolean);
+  }
+
   const lines = [
     "LongTable workspace detected.",
     `Current goal: ${context.session.currentGoal}.`,
@@ -222,7 +242,8 @@ function sessionStartContext(runtime: LongTableRuntime): string {
   const blockingQuestion = pendingRequiredQuestions(runtime.state)[0];
   const blockingObligation = pendingObligations(runtime.state)[0];
   const interview = activeInterviewHook(runtime.state);
-  const sections = [buildWorkspaceSummary(runtime).join("\n")];
+  const needsDetailedSummary = Boolean(blockingQuestion || blockingObligation);
+  const sections = [buildWorkspaceSummary(runtime, needsDetailedSummary ? "full" : "compact").join("\n")];
 
   if (blockingQuestion) {
     sections.push(buildPendingQuestionContext(blockingQuestion));
@@ -336,13 +357,6 @@ function stopOutput(runtime: LongTableRuntime): Record<string, unknown> | null {
   if (blockingObligation) {
     return buildStopBlockOutput(
       "A LongTable research obligation is still pending.",
-    );
-  }
-
-  const interview = activeInterviewHook(runtime.state);
-  if (interview) {
-    return buildStopBlockOutput(
-      "A LongTable interview is still active and should not be closed silently.",
     );
   }
 

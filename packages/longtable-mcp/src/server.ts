@@ -14,6 +14,7 @@ import type { ProviderKind, QuestionOption, QuestionRecord, QuestionTransportSta
 import { loadSetupOutput } from "@longtable/setup";
 import {
   answerWorkspaceQuestion,
+  clearWorkspaceQuestion,
   createOrUpdateProjectWorkspace,
   createWorkspaceQuestion,
   inspectProjectWorkspace,
@@ -28,7 +29,7 @@ import {
 } from "./first-research-shape.js";
 
 const SERVER_NAME = "longtable-state";
-const SERVER_VERSION = "0.1.33";
+const SERVER_VERSION = "0.1.34";
 
 const TOOL_NAMES = [
   "read_project",
@@ -316,6 +317,21 @@ async function beginInterviewHook(
   if (existing) {
     return { hook: existing, state };
   }
+  const confirmedShape = state.firstResearchShape?.confirmedAt ? state.firstResearchShape : undefined;
+  if (confirmedShape) {
+    const confirmedHook = [...(state.hooks ?? [])].reverse().find((hook): hook is InterviewHookRun =>
+      isInterviewHookRun(hook) &&
+      hook.status === "confirmed" &&
+      hook.firstResearchShape?.handle === confirmedShape.handle
+    );
+    return {
+      hook: confirmedHook,
+      state,
+      alreadyConfirmed: true,
+      shape: confirmedShape,
+      nextQuestion: options.openingQuestion ?? confirmedShape.openQuestions[0] ?? confirmedShape.nextAction
+    };
+  }
   const timestamp = new Date().toISOString();
   const hook: InterviewHookRun = {
     id: createId("hook_interview"),
@@ -464,15 +480,10 @@ async function summarizeInterviewHook(
     visibility: "explicit",
     importance: shape.confidence
   });
-  const questionSpec = buildFirstResearchShapeQuestion(shape);
-  const withObligation = ensureFirstResearchShapeObligation(updated, shape, {
-    prompt: questionSpec.question,
-    reason: questionSpec.displayReason
-  }) as InterviewState;
   await writeFile(context.sessionFilePath, JSON.stringify(session, null, 2), "utf8");
-  await writeFile(context.stateFilePath, JSON.stringify(withObligation, null, 2), "utf8");
+  await writeFile(context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
   await syncCurrentWorkspaceView(context);
-  return { hook, shape, state: withObligation, session };
+  return { hook, shape, state: updated, session };
 }
 
 function findQuestion(records: QuestionRecord[], questionId?: string): QuestionRecord | null {
@@ -486,6 +497,23 @@ function renderQuestionFallback(record: QuestionRecord, provider: ProviderKind =
   return provider === "claude"
     ? renderQuestionRecordInput(record)
     : renderQuestionRecordPrompt(record);
+}
+
+function compactInterviewHook(hook: InterviewHookRun | undefined) {
+  if (!hook) {
+    return undefined;
+  }
+  return {
+    id: hook.id,
+    kind: hook.kind,
+    status: hook.status,
+    depth: hook.depth,
+    provider: hook.provider,
+    turnCount: hook.turns?.length ?? 0,
+    firstResearchShape: hook.firstResearchShape?.handle,
+    createdAt: hook.createdAt,
+    updatedAt: hook.updatedAt
+  };
 }
 
 async function markQuestionTransport(
@@ -607,6 +635,51 @@ async function markFirstResearchShapeConfirmation(
     sourceHookId: shape.sourceHookId,
     questionId,
     decisionId,
+    status: "satisfied"
+  }) as InterviewState;
+
+  const session = {
+    ...context.session,
+    firstResearchShape: confirmedShape,
+    lastUpdatedAt: timestamp
+  };
+  context.session = session;
+  await writeFile(context.sessionFilePath, JSON.stringify(session, null, 2), "utf8");
+  await writeFile(context.stateFilePath, JSON.stringify(nextState, null, 2), "utf8");
+  await syncCurrentWorkspaceView(context);
+  return { state: nextState, session, shape: confirmedShape };
+}
+
+async function markAlreadyConfirmedFirstResearchShape(
+  context: Awaited<ReturnType<typeof requireContext>>,
+  shape: FirstResearchShape
+) {
+  const state = asInterviewState(await loadWorkspaceState(context));
+  const timestamp = new Date().toISOString();
+  const confirmedShape = shape.confirmedAt ? shape : { ...shape, confirmedAt: timestamp };
+  state.firstResearchShape = confirmedShape;
+  state.workingState = {
+    ...state.workingState,
+    firstResearchShape: confirmedShape
+  };
+  state.hooks = (state.hooks ?? []).map((hook) => {
+    if (!isInterviewHookRun(hook)) {
+      return hook;
+    }
+    const matchesSource = shape.sourceHookId && hook.id === shape.sourceHookId;
+    const matchesHandle = !shape.sourceHookId && hook.firstResearchShape?.handle === shape.handle;
+    if (!matchesSource && !matchesHandle) {
+      return hook;
+    }
+    return {
+      ...hook,
+      status: "confirmed",
+      updatedAt: timestamp,
+      firstResearchShape: confirmedShape
+    };
+  });
+  const nextState = resolveFirstResearchShapeObligation(state, {
+    sourceHookId: confirmedShape.sourceHookId,
     status: "satisfied"
   }) as InterviewState;
 
@@ -798,7 +871,18 @@ export function createLongTableMcpServer(): McpServer {
           openingQuestion,
           seedAnswer
         });
-        return textResult(result);
+        return textResult({
+          hook: compactInterviewHook(result.hook),
+          alreadyConfirmed: "alreadyConfirmed" in result ? Boolean(result.alreadyConfirmed) : false,
+          shape: "shape" in result ? result.shape : result.hook?.firstResearchShape,
+          nextQuestion: "nextQuestion" in result ? result.nextQuestion : openingQuestion,
+          workspace: {
+            projectName: context.project.projectName,
+            currentGoal: context.session.currentGoal,
+            currentBlocker: context.session.currentBlocker,
+            nextAction: context.session.nextAction
+          }
+        });
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
       }
@@ -858,7 +942,16 @@ export function createLongTableMcpServer(): McpServer {
           hookId,
           shape: shape as FirstResearchShape
         });
-        return textResult(result);
+        return textResult({
+          hook: compactInterviewHook(result.hook),
+          shape: result.shape,
+          session: {
+            currentGoal: result.session.currentGoal,
+            currentBlocker: result.session.currentBlocker,
+            nextAction: result.session.nextAction,
+            firstResearchShape: result.session.firstResearchShape
+          }
+        });
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
       }
@@ -883,6 +976,13 @@ export function createLongTableMcpServer(): McpServer {
         const shape = (inputShape as FirstResearchShape | undefined) ?? state.firstResearchShape;
         if (!shape) {
           return errorResult("No First Research Shape was found to confirm. Run summarize_interview first.");
+        }
+        if (shape.confirmedAt) {
+          const confirmation = await markAlreadyConfirmedFirstResearchShape(context, shape);
+          return textResult({
+            shape: confirmation.shape,
+            elicitation: { attempted: false, reason: "already_confirmed" }
+          });
         }
         const spec = buildFirstResearchShapeQuestion(shape);
         const created = await createWorkspaceQuestion({
@@ -927,8 +1027,15 @@ export function createLongTableMcpServer(): McpServer {
               ? "declined"
               : "fallback_rendered";
             const marked = await markQuestionTransport(context, created.question.id, status, `MCP elicitation returned action: ${elicited.action}.`);
+            const cleared = status === "declined"
+              ? await clearWorkspaceQuestion({
+                  context,
+                  questionId: created.question.id,
+                  reason: `MCP elicitation returned action: ${elicited.action}; confirmation was deferred without a research-direction decision.`
+                })
+              : undefined;
             return textResult({
-              question: marked ?? created.question,
+              question: cleared?.question ?? marked ?? created.question,
               shape,
               elicitation: { attempted: true, action: elicited.action },
               fallback
