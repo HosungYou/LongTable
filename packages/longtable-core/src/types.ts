@@ -300,6 +300,78 @@ export interface QuestionOption {
   recommended?: boolean;
 }
 
+export type QuestionOpportunityKind =
+  | "harness_design"
+  | "question_policy"
+  | "philosophical_reflection"
+  | "knowledge_gap"
+  | "tacit_assumption"
+  | "value_conflict"
+  | "research_commitment"
+  | "evidence_risk"
+  | "authorship_risk"
+  | "source_authority"
+  | "delivery_format"
+  | "autonomy_boundary"
+  | "evaluation_target"
+  | "general_missing_context";
+
+export interface QuestionOpportunity {
+  key: string;
+  kind: QuestionOpportunityKind;
+  title: string;
+  question: string;
+  whyNow: string;
+  options: QuestionOption[];
+  required: boolean;
+  confidence: ConfidenceLevel;
+  autoEligible: boolean;
+  cues: string[];
+}
+
+export interface QuestionGenerationResult {
+  promptSignature: string;
+  opportunities: QuestionOpportunity[];
+  blocking: boolean;
+}
+
+export interface QuestionAuditFixtureResult {
+  id: string;
+  prompt: string;
+  expectedKinds: QuestionOpportunityKind[];
+  observedKinds: QuestionOpportunityKind[];
+  passed: boolean;
+  failures: string[];
+}
+
+export interface QuestionAuditResult {
+  passed: boolean;
+  fixtures: QuestionAuditFixtureResult[];
+  totals: {
+    fixtureCount: number;
+    passedCount: number;
+    failedCount: number;
+  };
+}
+
+export interface RoleAuditEntry {
+  name: string;
+  provider: ProviderKind;
+  lineCount: number;
+  missingSections: string[];
+  warnings: string[];
+}
+
+export interface RoleAuditResult {
+  passed: boolean;
+  roles: RoleAuditEntry[];
+  totals: {
+    roleCount: number;
+    passedCount: number;
+    failedCount: number;
+  };
+}
+
 export type QuestionPromptType = "single_choice" | "multi_choice" | "free_text";
 
 export interface QuestionPrompt {

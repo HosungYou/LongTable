@@ -252,6 +252,40 @@ function baseSkillSpecs(): CodexSkillSpec[] {
   ];
 }
 
+function mustAskQuestionsForRole(role: RoleDefinition): string[] {
+  const common = [
+    "What researcher judgment would be hidden if this role gives a confident answer now?",
+    "What evidence or project-state reference would change this role's recommendation?"
+  ];
+  const byRole: Record<string, string[]> = {
+    editor: [
+      "What is the strongest venue-facing contribution claim, and what would make it overreach?"
+    ],
+    reviewer: [
+      "What objection would a skeptical reviewer raise first, and what missing evidence would answer it?"
+    ],
+    theory_critic: [
+      "Which construct boundary or theoretical assumption must stay explicit before the claim is revised?"
+    ],
+    methods_critic: [
+      "Which design choice, comparison, sample, or causal claim is being treated as settled too early?"
+    ],
+    measurement_auditor: [
+      "What exactly is being measured, and what would count as construct drift or invalid substitution?"
+    ],
+    ethics_reviewer: [
+      "Who could be misrepresented, exposed, or burdened if this design choice is accepted?"
+    ],
+    voice_keeper: [
+      "Which part of the researcher's own narrative or uncertainty should not be polished away?"
+    ],
+    venue_strategist: [
+      "Which venue expectation is being optimized for, and what positioning tradeoff follows from it?"
+    ]
+  };
+  return [...(byRole[role.key] ?? []), ...common];
+}
+
 function roleSkillSpec(role: RoleDefinition): CodexSkillSpec {
   const label = role.label;
   return {
@@ -269,6 +303,28 @@ function roleSkillSpec(role: RoleDefinition): CodexSkillSpec {
       "## Role Focus",
       "",
       role.shortDescription,
+      "",
+      "## Must-Ask Questions",
+      "",
+      ...mustAskQuestionsForRole(role).map((question) => `- ${question}`),
+      "",
+      "## Stop Conditions",
+      "",
+      "- Stop before closure when the role's recommendation would change a research question, construct definition, measurement rule, authorship boundary, or venue positioning.",
+      "- Stop when the role is relying on unstated evidence, a tacit assumption, or a hidden tradeoff.",
+      "- Stop when another LongTable role would likely disagree and the disagreement has not been shown to the researcher.",
+      "",
+      "## Output Contract",
+      "",
+      "- Start with the role's strongest concern or contribution.",
+      "- State one concrete question the researcher should answer if the direction is not yet safe to settle.",
+      "- Separate evidence needs from interpretation and from role-specific judgment.",
+      "",
+      "## Anti-Patterns",
+      "",
+      "- Do not give generic encouragement or a polished synthesis without the role's actual objection.",
+      "- Do not use the role as a decorative label after a normal answer has already been written.",
+      "- Do not ask for evidence only as a fallback; name the missing evidence when it changes the recommendation.",
       "",
       "## Rules",
       "",

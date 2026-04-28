@@ -9,7 +9,17 @@ import { stdin as input, stdout as output, cwd, env, exit } from "node:process";
 import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import type { InteractionMode, PanelVisibility, ProviderKind, QuestionRecord, ResearchStage } from "@longtable/core";
+import type {
+  InteractionMode,
+  PanelVisibility,
+  ProviderKind,
+  QuestionAuditResult,
+  QuestionOpportunityKind,
+  QuestionRecord,
+  ResearchStage,
+  RoleAuditEntry,
+  RoleAuditResult
+} from "@longtable/core";
 import { classifyCheckpointTrigger } from "@longtable/checkpoints";
 import {
   assessSearchSourceCapabilities,
@@ -83,6 +93,7 @@ import {
   appendInvocationRecordToWorkspace,
   assertWorkspaceNotBlocked,
   answerWorkspaceQuestion,
+  buildQuestionOpportunitySpecs,
   clearWorkspaceQuestion,
   createWorkspaceFollowUpQuestions,
   createWorkspaceQuestion,
@@ -243,7 +254,7 @@ const ANSI = {
 };
 
 const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
-const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.35";
+const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.36";
 const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
 const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 
@@ -305,6 +316,7 @@ function usage(): string {
     "  longtable resume [--cwd <path>] [--json]",
     "  longtable doctor [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--codex-config <path>] [--hooks-path <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
     "  longtable status [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--codex-config <path>] [--hooks-path <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
+    "  longtable audit [questions|roles] [--json]",
     "  longtable roles [--json]",
     "  longtable show [--json] [--path <file>]",
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
@@ -356,7 +368,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "setup", "start", "resume", "doctor", "status", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "panel", "decide", "sentinel", "team", "search"].includes(command);
+    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "panel", "decide", "sentinel", "team", "search"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -365,6 +377,9 @@ function parseArgs(argv: string[]): ParsedArgs {
   } else if (command === "codex" || command === "claude" || command === "mcp") {
     startIndex = 2;
   } else if (command === "search" && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
+    subcommand = maybeSubcommand;
+    startIndex = 2;
+  } else if (command === "audit" && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
     subcommand = maybeSubcommand;
     startIndex = 2;
   } else if (directCommand) {
@@ -2324,6 +2339,210 @@ async function runDoctor(args: Record<string, string | boolean>): Promise<void> 
   console.log(renderDoctorStatus(status));
 }
 
+const QUESTION_AUDIT_FIXTURES: Array<{
+  id: string;
+  prompt: string;
+  expectedKinds: QuestionOpportunityKind[];
+}> = [
+  {
+    id: "harness_philosophy",
+    prompt: "LongTable 훅과 체크포인트가 연구자의 철학에 맞는지, 질문을 멈춰야 하는 지점에서 생성하는지 평가해줘.",
+    expectedKinds: ["harness_design", "question_policy", "philosophical_reflection"]
+  },
+  {
+    id: "all_needed_questions",
+    prompt: "매번 내가 필요한 질문을 해줘 라고 하지 않아도 필요한 질문을 모두 하는 에이전트로 만들고 싶어.",
+    expectedKinds: ["question_policy"]
+  },
+  {
+    id: "trust_calibration_construct",
+    prompt: "Trust calibration에서 subjective trust와 reliance, switch to AI를 같은 측정으로 봐도 되는지 검토해줘.",
+    expectedKinds: ["research_commitment"]
+  },
+  {
+    id: "tacit_assumption",
+    prompt: "이 계획에는 말하지 않은 전제와 암묵적 가정이 있는 것 같아.",
+    expectedKinds: ["tacit_assumption"]
+  },
+  {
+    id: "protected_decision_closure",
+    prompt: "Protected decision closure pressure: measurement. User prompt: Implement the plan.",
+    expectedKinds: ["research_commitment"]
+  },
+  {
+    id: "low_stakes_copyedit",
+    prompt: "문장 끝 공백만 정리해줘.",
+    expectedKinds: []
+  }
+];
+
+function runQuestionAudit(): QuestionAuditResult {
+  const fixtures = QUESTION_AUDIT_FIXTURES.map((fixture) => {
+    const opportunities = buildQuestionOpportunitySpecs(fixture.prompt, {
+      includeFallback: false,
+      autoOnly: true
+    });
+    const observedKinds = [...new Set(opportunities.map((opportunity) => opportunity.kind))];
+    const failures = fixture.expectedKinds
+      .filter((kind) => !observedKinds.includes(kind))
+      .map((kind) => `missing expected question kind: ${kind}`);
+    if (fixture.expectedKinds.length === 0 && observedKinds.length > 0) {
+      failures.push(`expected no auto questions, observed: ${observedKinds.join(", ")}`);
+    }
+    return {
+      id: fixture.id,
+      prompt: fixture.prompt,
+      expectedKinds: fixture.expectedKinds,
+      observedKinds,
+      passed: failures.length === 0,
+      failures
+    };
+  });
+  const passedCount = fixtures.filter((fixture) => fixture.passed).length;
+  return {
+    passed: passedCount === fixtures.length,
+    fixtures,
+    totals: {
+      fixtureCount: fixtures.length,
+      passedCount,
+      failedCount: fixtures.length - passedCount
+    }
+  };
+}
+
+const REQUIRED_ROLE_SKILL_SECTIONS = [
+  "## Purpose",
+  "## Role Focus",
+  "## Must-Ask Questions",
+  "## Stop Conditions",
+  "## Output Contract",
+  "## Anti-Patterns",
+  "## Rules"
+];
+
+function buildRoleAuditEntry(
+  provider: ProviderKind,
+  spec: { name: string; body: string[] }
+): RoleAuditEntry {
+  const body = spec.body.join("\n");
+  const missingSections = REQUIRED_ROLE_SKILL_SECTIONS.filter((section) => !body.includes(section));
+  const warnings: string[] = [];
+  if (spec.body.length < 35) {
+    warnings.push("role skill is too thin to carry a distinct research perspective");
+  }
+  if (!body.includes("Researcher Checkpoint")) {
+    warnings.push("role skill does not explicitly mention Researcher Checkpoint behavior");
+  }
+  if (!body.includes("evidence")) {
+    warnings.push("role skill does not explicitly mention evidence needs");
+  }
+  return {
+    name: spec.name,
+    provider,
+    lineCount: spec.body.length,
+    missingSections,
+    warnings
+  };
+}
+
+function runRoleAudit(): RoleAuditResult {
+  const baseSkillNames = new Set([
+    "longtable",
+    "longtable-interview",
+    "longtable-panel",
+    "longtable-explore",
+    "longtable-review"
+  ]);
+  const roles: RoleAuditEntry[] = [
+    ...buildCodexSkillSpecs(listRoleDefinitions())
+      .filter((spec) => !baseSkillNames.has(spec.name))
+      .map((spec) => buildRoleAuditEntry("codex", spec)),
+    ...buildClaudeSkillSpecs(listRoleDefinitions())
+      .filter((spec) => !baseSkillNames.has(spec.name))
+      .map((spec) => buildRoleAuditEntry("claude", spec))
+  ];
+  const passedCount = roles.filter((role) => role.missingSections.length === 0 && role.warnings.length === 0).length;
+  return {
+    passed: passedCount === roles.length,
+    roles,
+    totals: {
+      roleCount: roles.length,
+      passedCount,
+      failedCount: roles.length - passedCount
+    }
+  };
+}
+
+function renderQuestionAudit(result: QuestionAuditResult): string {
+  const lines = [
+    "LongTable question audit",
+    `Result: ${result.passed ? "passed" : "failed"} (${result.totals.passedCount}/${result.totals.fixtureCount})`,
+    ""
+  ];
+  for (const fixture of result.fixtures) {
+    lines.push(`- ${fixture.id}: ${fixture.passed ? "passed" : "failed"}`);
+    lines.push(`  expected: ${fixture.expectedKinds.length > 0 ? fixture.expectedKinds.join(", ") : "none"}`);
+    lines.push(`  observed: ${fixture.observedKinds.length > 0 ? fixture.observedKinds.join(", ") : "none"}`);
+    for (const failure of fixture.failures) {
+      lines.push(`  failure: ${failure}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function renderRoleAudit(result: RoleAuditResult): string {
+  const lines = [
+    "LongTable role skill audit",
+    `Result: ${result.passed ? "passed" : "failed"} (${result.totals.passedCount}/${result.totals.roleCount})`,
+    ""
+  ];
+  for (const role of result.roles) {
+    const passed = role.missingSections.length === 0 && role.warnings.length === 0;
+    lines.push(`- ${role.provider}:${role.name}: ${passed ? "passed" : "failed"} (${role.lineCount} lines)`);
+    if (role.missingSections.length > 0) {
+      lines.push(`  missing: ${role.missingSections.join(", ")}`);
+    }
+    for (const warning of role.warnings) {
+      lines.push(`  warning: ${warning}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+async function runAudit(subcommand: string | undefined, args: Record<string, string | boolean>): Promise<void> {
+  if (subcommand === "questions" || subcommand === "question") {
+    const result = runQuestionAudit();
+    console.log(args.json === true ? JSON.stringify(result, null, 2) : renderQuestionAudit(result));
+    if (!result.passed) {
+      exit(1);
+    }
+    return;
+  }
+
+  if (subcommand === "roles" || subcommand === "role") {
+    const result = runRoleAudit();
+    console.log(args.json === true ? JSON.stringify(result, null, 2) : renderRoleAudit(result));
+    if (!result.passed) {
+      exit(1);
+    }
+    return;
+  }
+
+  const questions = runQuestionAudit();
+  const roles = runRoleAudit();
+  const result = {
+    passed: questions.passed && roles.passed,
+    questions,
+    roles
+  };
+  console.log(args.json === true
+    ? JSON.stringify(result, null, 2)
+    : [renderQuestionAudit(questions), "", renderRoleAudit(roles)].join("\n"));
+  if (!result.passed) {
+    exit(1);
+  }
+}
+
 async function runCodexPersistInit(args: Record<string, string | boolean>): Promise<void> {
   const { flow, provider, answers } = await readPersistAnswers(args);
   const outputValue = createPersistedSetupOutput(answers, provider, flow);
@@ -3368,7 +3587,8 @@ async function runAutomaticFollowUpIfNeeded(
     context,
     prompt,
     provider,
-    required: true
+    required: true,
+    auto: true
   });
 
   if (result.questions.length === 0) {
@@ -4088,6 +4308,11 @@ async function main(): Promise<void> {
 
   if (command === "doctor" || command === "status") {
     await runDoctor(values);
+    return;
+  }
+
+  if (command === "audit") {
+    await runAudit(subcommand, values);
     return;
   }
 

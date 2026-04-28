@@ -1,6 +1,6 @@
 {
   "name": "longtable-monorepo",
-  "version": "0.1.35",
+  "version": "0.1.36",
   "private": true,
   "description": "Monorepo for the LongTable product surface and provider-neutral runtime packages",
   "workspaces": [
@@ -12,8 +12,10 @@
     "smoke:setup": "node scripts/smoke-setup-flow.mjs",
     "smoke:checkpoints": "node scripts/smoke-checkpoint-routing.mjs",
     "smoke:hooks": "node scripts/smoke-codex-hooks.mjs",
+    "smoke:question-audit": "node scripts/smoke-question-audit.mjs",
+    "smoke:role-audit": "node scripts/smoke-role-audit.mjs",
     "smoke:search": "node scripts/smoke-search.mjs",
-    "test": "npm run build && npm run smoke:setup && npm run smoke:checkpoints && npm run smoke:hooks && npm run smoke:search && npm run typecheck",
+    "test": "npm run build && npm run smoke:setup && npm run smoke:checkpoints && npm run smoke:hooks && npm run smoke:question-audit && npm run smoke:role-audit && npm run smoke:search && npm run typecheck",
     "pack:check": "npm pack --workspaces --dry-run",
     "release:check": "npm run test && npm run pack:check"
   },

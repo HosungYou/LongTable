@@ -16,6 +16,8 @@ import type {
   ProviderKind,
   QuestionOption,
   QuestionAnswer,
+  QuestionGenerationResult,
+  QuestionOpportunity,
   QuestionSurface,
   QuestionRecord,
   ResearchState
@@ -1359,12 +1361,11 @@ function optionsForCheckpointTrigger(family: string, checkpointKey?: string): Qu
   ];
 }
 
-interface FollowUpQuestionSpec {
-  key: string;
-  title: string;
-  question: string;
-  whyNow: string;
-  options: QuestionOption[];
+type FollowUpQuestionSpec = QuestionOpportunity;
+
+interface BuildFollowUpQuestionOptions {
+  includeFallback?: boolean;
+  autoOnly?: boolean;
 }
 
 function includesAny(prompt: string, patterns: RegExp[]): boolean {
@@ -1380,19 +1381,231 @@ function followUpQuestionOptions(
   return [first, second, third, ...(fourth ? [fourth] : [])];
 }
 
-function buildFollowUpQuestionSpecs(prompt: string): FollowUpQuestionSpec[] {
+export function buildQuestionOpportunitySpecs(
+  prompt: string,
+  options: BuildFollowUpQuestionOptions = {}
+): FollowUpQuestionSpec[] {
   const normalized = prompt.toLowerCase();
   const specs: FollowUpQuestionSpec[] = [];
 
-  function push(spec: FollowUpQuestionSpec): void {
+  function push(
+    spec: Omit<FollowUpQuestionSpec, "required" | "confidence" | "autoEligible" | "cues"> &
+      Partial<Pick<FollowUpQuestionSpec, "required" | "confidence" | "autoEligible" | "cues">>
+  ): void {
     if (!specs.some((candidate) => candidate.key === spec.key)) {
-      specs.push(spec);
+      specs.push({
+        required: true,
+        confidence: "medium",
+        autoEligible: false,
+        cues: [],
+        ...spec
+      });
     }
+  }
+
+  if (includesAny(normalized, [
+    /\blongtable\b/,
+    /\bharness\b/,
+    /\bhook\b/,
+    /\bcheckpoint\b/,
+    /\bagents?\b/,
+    /\bmcp\b/,
+    /\bover[- ]?engineer/,
+    /롱테이블|하네스|훅|체크포인트|에이전트|오버\s*엔지니어링|과설계/
+  ])) {
+    push({
+      key: "harness_question_harness",
+      kind: "harness_design",
+      title: "Question harness target",
+      question: "Which LongTable failure should the question system optimize against first?",
+      whyNow: "Harness changes can optimize for visible activity while still missing the moments where researcher judgment should stop the run.",
+      options: followUpQuestionOptions(
+        { value: "missing_questions", label: "Missing necessary questions", description: "Prioritize stopping at unstated assumptions, construct collapse, or closure pressure.", recommended: true },
+        { value: "false_interruptions", label: "Unhelpful interruptions", description: "Reduce questions that slow execution without protecting a real research judgment." },
+        { value: "role_surface_quality", label: "Role and skill quality", description: "Audit whether agents and markdown skills ask the right questions for their roles." },
+        { value: "state_traceability", label: "State traceability", description: "Prioritize durable question, answer, and checkpoint records over UI convenience." }
+      ),
+      confidence: "high",
+      autoEligible: true,
+      cues: ["longtable", "harness", "hook", "checkpoint", "agent", "mcp"]
+    });
+  }
+
+  if (includesAny(normalized, [
+    /\bneeded questions?\b/,
+    /\bnecessary questions?\b/,
+    /\bask (all|every|more)\b/,
+    /\bquestion generation\b/,
+    /\bclarifying questions?\b/,
+    /필요한\s*질문|질문을\s*(모두|많이|생성)|질문.*(?:생성|멈춰|지점)|질문이\s*모두|질문\s*생성|물어봐|질문해/
+  ])) {
+    push({
+      key: "needed_question_policy",
+      kind: "question_policy",
+      title: "Question policy",
+      question: "When LongTable detects missing context, what questioning rule should it follow before continuing?",
+      whyNow: "A question-heavy agent needs a policy for when questions are required, batched, advisory, or too disruptive.",
+      options: followUpQuestionOptions(
+        { value: "ask_required_first", label: "Ask required blockers first", description: "Stop only for questions that protect a real decision or construct boundary.", recommended: true },
+        { value: "batch_all_questions", label: "Batch all plausible questions", description: "Generate a fuller question queue even if some items are advisory." },
+        { value: "continue_with_assumptions", label: "Continue with assumptions", description: "Proceed but record assumptions and unresolved questions explicitly." }
+      ),
+      confidence: "high",
+      autoEligible: true,
+      cues: ["needed_questions", "question_generation"]
+    });
+  }
+
+  if (includesAny(normalized, [
+    /\bphilosoph/i,
+    /\breflect(ion|ive)?\b/,
+    /\bfundamental questions?\b/,
+    /\bprinciple\b/,
+    /\bagency\b/,
+    /철학|성찰|근본(?:적)?\s*질문|원칙|내\s*철학|연구자성|주체성/
+  ])) {
+    push({
+      key: "philosophical_checkpoint_boundary",
+      kind: "philosophical_reflection",
+      title: "Checkpoint philosophy",
+      question: "What should a checkpoint philosophically protect in this LongTable run?",
+      whyNow: "A checkpoint can either protect researcher agency or become a procedural interruption; LongTable should not choose that philosophy silently.",
+      options: followUpQuestionOptions(
+        { value: "researcher_agency", label: "Researcher agency", description: "Stop when LongTable is about to decide for the researcher.", recommended: true },
+        { value: "construct_integrity", label: "Construct integrity", description: "Stop when distinct ideas may be collapsed into one claim." },
+        { value: "usability_burden", label: "Usability burden", description: "Stop only when the benefit justifies interrupting the workflow." }
+      ),
+      autoEligible: true,
+      cues: ["philosophy", "reflection", "researcher_agency"]
+    });
+  }
+
+  if (includesAny(normalized, [
+    /\bprotected decision\b/,
+    /\bclosure pressure\b/,
+    /\bsettle\b/,
+    /\bfinalize\b/,
+    /\bcommit\b/,
+    /보호된\s*결정|확정|최종|마무리|결정\s*압력/
+  ])) {
+    push({
+      key: "protected_decision_closure",
+      kind: "research_commitment",
+      title: "Protected decision closure",
+      question: "What should LongTable do with the protected decision before proceeding?",
+      whyNow: "The prompt creates closure pressure around a decision the workspace says should not settle silently.",
+      options: followUpQuestionOptions(
+        { value: "keep_open", label: "Keep it open", description: "Do not treat the decision as settled; preserve it as an explicit blocker.", recommended: true },
+        { value: "ask_researcher", label: "Ask the researcher now", description: "Pause execution until the researcher chooses the decision boundary." },
+        { value: "proceed_with_record", label: "Proceed with record", description: "Continue only after recording the assumption and residual risk." }
+      ),
+      confidence: "high",
+      autoEligible: true,
+      cues: ["protected_decision", "closure_pressure"]
+    });
+  }
+
+  if (includesAny(normalized, [
+    /\btrust\b/,
+    /\breliance\b/,
+    /\bcalibration\b/,
+    /\bconstruct\b/,
+    /\bmeasurement\b/,
+    /\bdefinition\b/,
+    /신뢰|의존|의존성|캘리브레이션|교정|보정|개념|구성개념|측정|정의/
+  ])) {
+    push({
+      key: "construct_boundary_commitment",
+      kind: "research_commitment",
+      title: "Construct boundary",
+      question: "Which construct boundary should LongTable keep explicit before treating the direction as settled?",
+      whyNow: "Trust, reliance, calibration, and measurement choices can look compatible while requiring different evidence and analysis rules.",
+      options: followUpQuestionOptions(
+        { value: "separate_trust_reliance", label: "Separate trust from reliance", description: "Treat subjective trust as a predictor or correlate rather than the same thing as reliance.", recommended: true },
+        { value: "condition_calibration", label: "Condition calibration carefully", description: "Define calibration using AI correctness and participant correctness instead of switch behavior alone." },
+        { value: "hold_construct_open", label: "Keep construct open", description: "Do not settle the construct boundary until evidence or design constraints are clearer." }
+      ),
+      confidence: "high",
+      autoEligible: true,
+      cues: ["trust", "reliance", "calibration", "construct", "measurement"]
+    });
+  }
+
+  if (includesAny(normalized, [
+    /\bknowledge gap\b/,
+    /\bgap\b/,
+    /\bunknown\b/,
+    /\buncertain\b/,
+    /\bnot sure\b/,
+    /\bblocker\b/,
+    /지식\s*공백|모르겠|불확실|블로커|막히|애매/
+  ])) {
+    push({
+      key: "knowledge_gap_probe",
+      kind: "knowledge_gap",
+      title: "Knowledge gap",
+      question: "Which unknown should LongTable resolve before it recommends or implements a direction?",
+      whyNow: "The request signals uncertainty; moving directly to advice can hide the real blocker.",
+      options: followUpQuestionOptions(
+        { value: "scope_gap", label: "Scope is unclear", description: "Clarify what is included, excluded, and high stakes.", recommended: true },
+        { value: "evidence_gap", label: "Evidence is missing", description: "Clarify what sources or data should anchor the answer." },
+        { value: "decision_gap", label: "Decision is unsettled", description: "Clarify the researcher judgment that must stay open." }
+      ),
+      autoEligible: true,
+      cues: ["knowledge_gap", "uncertainty", "blocker"]
+    });
+  }
+
+  if (includesAny(normalized, [
+    /\bassumption\b/,
+    /\bimplicit\b/,
+    /\btacit\b/,
+    /\bunstated\b/,
+    /전제|가정|암묵|묵시|숨은\s*가정|말하지\s*않은/
+  ])) {
+    push({
+      key: "tacit_assumption_probe",
+      kind: "tacit_assumption",
+      title: "Tacit assumption",
+      question: "Which assumption should LongTable make explicit before proceeding?",
+      whyNow: "Tacit assumptions often determine the answer while remaining invisible in the artifact.",
+      options: followUpQuestionOptions(
+        { value: "researcher_intent", label: "Researcher intent", description: "Clarify the user's intended boundary or priority.", recommended: true },
+        { value: "evidence_standard", label: "Evidence standard", description: "Clarify what would count as adequate support." },
+        { value: "system_behavior", label: "System behavior", description: "Clarify what the agent or hook should do at runtime." }
+      ),
+      autoEligible: true,
+      cues: ["assumption", "implicit", "tacit"]
+    });
+  }
+
+  if (includesAny(normalized, [
+    /\btrade[- ]?off\b/,
+    /\bconflict\b/,
+    /\btension\b/,
+    /\bvs\.?\b/,
+    /갈등|긴장|상충|균형|대립|비교/
+  ])) {
+    push({
+      key: "value_conflict_boundary",
+      kind: "value_conflict",
+      title: "Value conflict",
+      question: "Which tradeoff should LongTable keep visible instead of resolving silently?",
+      whyNow: "Competing values such as rigor, usability, speed, and authorship require researcher judgment.",
+      options: followUpQuestionOptions(
+        { value: "rigor_over_speed", label: "Rigor over speed", description: "Ask more before changing the research direction.", recommended: true },
+        { value: "usability_over_coverage", label: "Usability over coverage", description: "Limit questions to those that unblock the current task." },
+        { value: "record_disagreement", label: "Record disagreement", description: "Proceed only after preserving the conflict in state or output." }
+      ),
+      autoEligible: true,
+      cues: ["tradeoff", "conflict", "tension"]
+    });
   }
 
   if (includesAny(normalized, [/\brubrics?\b/, /루브릭|채점기준/])) {
     push({
       key: "rubric_update_basis",
+      kind: "research_commitment",
       title: "Rubric update basis",
       question: "How should LongTable use the available materials to update the rubric?",
       whyNow: "Rubric updates can silently change grading criteria if LongTable guesses the calibration basis.",
@@ -1407,6 +1620,7 @@ function buildFollowUpQuestionSpecs(prompt: string): FollowUpQuestionSpec[] {
   if (includesAny(normalized, [/\bexemplar\b/, /\bbest submission\b/, /\bselected submission\b/, /\bTA\b/i, /우수\s*답안|예시|선정|조교/])) {
     push({
       key: "exemplar_use",
+      kind: "evidence_risk",
       title: "Exemplar use",
       question: "How should LongTable use selected exemplars or TA guidance?",
       whyNow: "Exemplars can either calibrate criteria privately or become visible evidence inside the output.",
@@ -1421,6 +1635,7 @@ function buildFollowUpQuestionSpecs(prompt: string): FollowUpQuestionSpec[] {
   if (includesAny(normalized, [/\binstruction/, /\bguidance\b/, /\bsource\b/, /\bfile\b/, /\bdocx?\b/, /지침|가이드|문서|파일|자료/])) {
     push({
       key: "source_authority",
+      kind: "source_authority",
       title: "Source authority",
       question: "If sources conflict or leave gaps, which source should LongTable privilege?",
       whyNow: "Without an authority rule, LongTable may resolve conflicts by convenience rather than researcher intent.",
@@ -1435,6 +1650,7 @@ function buildFollowUpQuestionSpecs(prompt: string): FollowUpQuestionSpec[] {
   if (includesAny(normalized, [/\bdeliver\b/, /\boutput\b/, /\btracked?[- ]?change/, /\bdocx?\b/, /\bmarkdown\b/, /\btable\b/, /전달|산출물|결과물|수정\s*표시|트랙|형식|포맷/])) {
     push({
       key: "delivery_format",
+      kind: "delivery_format",
       title: "Delivery format",
       question: "How should LongTable deliver the clarified output?",
       whyNow: "Format and change-tracking choices affect whether the result is usable for review or handoff.",
@@ -1449,6 +1665,7 @@ function buildFollowUpQuestionSpecs(prompt: string): FollowUpQuestionSpec[] {
   if (includesAny(normalized, [/\bupdate\b/, /\bchange\b/, /\bedit\b/, /\bfix\b/, /\bimplement\b/, /\bbuild\b/, /\bcreate\b/, /업데이트|수정|변경|구현|만들|고쳐/])) {
     push({
       key: "autonomy_boundary",
+      kind: "autonomy_boundary",
       title: "Autonomy boundary",
       question: "How much should LongTable do before checking back with you?",
       whyNow: "Execution requests can move from advice to authorship or artifact ownership unless the boundary is explicit.",
@@ -1463,6 +1680,7 @@ function buildFollowUpQuestionSpecs(prompt: string): FollowUpQuestionSpec[] {
   if (includesAny(normalized, [/\bperformance\b/, /\btest\b/, /\bevaluate\b/, /\bcheck\b/, /\bbenchmark\b/, /성능|테스트|평가|체크|검증/])) {
     push({
       key: "evaluation_target",
+      kind: "evaluation_target",
       title: "Evaluation target",
       question: "What should LongTable treat as the main performance target?",
       whyNow: "Performance checks can optimize for UX, correctness, trigger sensitivity, or delivery reliability.",
@@ -1474,9 +1692,10 @@ function buildFollowUpQuestionSpecs(prompt: string): FollowUpQuestionSpec[] {
     });
   }
 
-  if (specs.length === 0) {
+  if (specs.length === 0 && options.includeFallback !== false) {
     push({
       key: "general_missing_context",
+      kind: "general_missing_context",
       title: "Missing context",
       question: "What should LongTable clarify before proceeding?",
       whyNow: "The request can be answered in multiple ways, and choosing silently would hide a researcher judgment.",
@@ -1488,7 +1707,23 @@ function buildFollowUpQuestionSpecs(prompt: string): FollowUpQuestionSpec[] {
     });
   }
 
-  return specs;
+  return options.autoOnly === true ? specs.filter((spec) => spec.autoEligible) : specs;
+}
+
+function buildFollowUpQuestionSpecs(prompt: string): FollowUpQuestionSpec[] {
+  return buildQuestionOpportunitySpecs(prompt);
+}
+
+export function generateQuestionOpportunities(
+  prompt: string,
+  options: BuildFollowUpQuestionOptions = {}
+): QuestionGenerationResult {
+  const opportunities = buildQuestionOpportunitySpecs(prompt, options);
+  return {
+    promptSignature: prompt.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 160),
+    opportunities,
+    blocking: opportunities.some((opportunity) => opportunity.required)
+  };
 }
 
 const FOLLOW_UP_PROMPT_PREFIX = "Follow-up prompt:";
@@ -1503,6 +1738,7 @@ export async function createWorkspaceFollowUpQuestions(options: {
   provider?: ProviderKind;
   required?: boolean;
   force?: boolean;
+  auto?: boolean;
 }): Promise<{
   questions: QuestionRecord[];
   state: ResearchState;
@@ -1525,7 +1761,28 @@ export async function createWorkspaceFollowUpQuestions(options: {
   const preferredSurfaces = options.provider === "claude"
     ? ["native_structured", "terminal_selector", "numbered"]
     : ["mcp_elicitation", "terminal_selector", "numbered"];
-  const questions: QuestionRecord[] = buildFollowUpQuestionSpecs(options.prompt).map((spec) => ({
+  const specs = buildQuestionOpportunitySpecs(options.prompt, {
+    includeFallback: options.force === true ? true : options.auto !== true,
+    autoOnly: options.auto === true
+  });
+  if (specs.length === 0) {
+    return { questions: [], state, created: false, alreadyAnswered: false };
+  }
+
+  const existingPendingByCheckpoint = new Map(
+    (state.questionLog ?? [])
+      .filter((record) => record.status === "pending" && record.prompt.source === "runtime_guidance")
+      .map((record) => [record.prompt.checkpointKey, record] as const)
+  );
+  const pendingMatches = specs
+    .map((spec) => existingPendingByCheckpoint.get(`follow_up_${spec.key}`))
+    .filter((record): record is QuestionRecord => Boolean(record));
+  const specsToCreate = specs.filter((spec) => !existingPendingByCheckpoint.has(`follow_up_${spec.key}`));
+  if (specsToCreate.length === 0) {
+    return { questions: pendingMatches, state, created: false, alreadyAnswered: false };
+  }
+
+  const questions: QuestionRecord[] = specsToCreate.map((spec) => ({
     id: createId("question_record"),
     createdAt,
     updatedAt: createdAt,
@@ -1539,10 +1796,12 @@ export async function createWorkspaceFollowUpQuestions(options: {
       options: spec.options,
       allowOther: true,
       otherLabel: "Other",
-      required: options.required ?? true,
+      required: options.required ?? spec.required,
       source: "runtime_guidance",
       rationale: [
         spec.whyNow,
+        `Question kind: ${spec.kind}`,
+        `Question confidence: ${spec.confidence}`,
         `${FOLLOW_UP_PROMPT_PREFIX} ${options.prompt}`
       ],
       preferredSurfaces: preferredSurfaces as QuestionSurface[]
@@ -1553,7 +1812,7 @@ export async function createWorkspaceFollowUpQuestions(options: {
   await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
   await syncCurrentWorkspaceView(options.context);
 
-  return { questions, state: updated, created: true, alreadyAnswered: false };
+  return { questions: [...pendingMatches, ...questions], state: updated, created: true, alreadyAnswered: false };
 }
 
 export async function createWorkspaceQuestion(options: {

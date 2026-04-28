@@ -127,6 +127,53 @@ runCli([
 const context = await loadProjectContextFromDirectory(workspaceTmp);
 assert(context, "workspace context should exist");
 
+const autoQuestionHook = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "LongTable 훅과 체크포인트가 철학적으로 멈춰야 하는 지점에서 필요한 질문을 생성하는지 평가해줘."
+}, workspaceTmp);
+const autoQuestionContext = autoQuestionHook?.hookSpecificOutput?.additionalContext ?? "";
+assert(autoQuestionContext.includes("LongTable created"), "UserPromptSubmit should create required checkpoint questions for high-signal LongTable prompts");
+assert(autoQuestionContext.includes("Question harness target"), "Generated hook context should include the harness question");
+const autoQuestionState = JSON.parse(readFileSync(join(workspaceTmp, ".longtable", "state.json"), "utf8"));
+const generatedQuestions = (autoQuestionState.questionLog ?? []).filter((question) =>
+  question.status === "pending" &&
+  question.prompt.checkpointKey?.startsWith("follow_up_")
+);
+assert(generatedQuestions.length >= 2, "High-signal hook prompt should persist multiple follow-up questions");
+for (const question of generatedQuestions) {
+  await clearWorkspaceQuestion({
+    context,
+    questionId: question.id,
+    reason: "Cleared after verifying automatic hook question generation in smoke test."
+  });
+}
+
+const engineeringExecutionHook = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "진행해 줘. LongTable hook checkpoint 중복을 고치고 글로벌 배포 버전까지 수정해줘."
+}, workspaceTmp);
+assertEqual(engineeringExecutionHook, null, "LongTable engineering execution prompt should not create researcher checkpoints");
+
+const closureQuestionHook = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "Implement the plan."
+}, workspaceTmp);
+const closureQuestionContext = closureQuestionHook?.hookSpecificOutput?.additionalContext ?? "";
+assert(closureQuestionContext.includes("Protected decision closure"), "Closure prompt should create a protected-decision checkpoint");
+const closureQuestionState = JSON.parse(readFileSync(join(workspaceTmp, ".longtable", "state.json"), "utf8"));
+const closureQuestions = (closureQuestionState.questionLog ?? []).filter((question) =>
+  question.status === "pending" &&
+  question.prompt.checkpointKey === "follow_up_protected_decision_closure"
+);
+assert(closureQuestions.length === 1, "Protected-decision closure should persist exactly one follow-up question");
+for (const question of closureQuestions) {
+  await clearWorkspaceQuestion({
+    context,
+    questionId: question.id,
+    reason: "Cleared after verifying protected-decision closure question generation in smoke test."
+  });
+}
+
 const created = await createWorkspaceQuestion({
   context,
   prompt: "We are about to finalize the measurement definition.",

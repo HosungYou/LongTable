@@ -5,6 +5,7 @@ import type {
   QuestionRecord
 } from "@longtable/core";
 import {
+  createWorkspaceFollowUpQuestions,
   type LongTableProjectContext,
   loadProjectContextFromDirectory,
   loadWorkspaceState,
@@ -167,6 +168,42 @@ function looksLikeClosurePrompt(prompt: string): boolean {
     || /최종|확정|커밋|제출|수정|초안|구현|진행|고쳐/.test(normalized);
 }
 
+function looksLikeExecutionDirective(prompt: string): boolean {
+  const normalized = prompt.trim();
+  if (!normalized) {
+    return false;
+  }
+  return /\b(proceed|implement|fix|publish|release|deploy|tag|push|ship)\b/i.test(normalized)
+    || /진행|구현|수정|고쳐|배포|릴리즈|태그|푸시|출시/.test(normalized);
+}
+
+function looksLikeLongTableEngineeringPrompt(prompt: string): boolean {
+  const normalized = prompt.trim();
+  if (!normalized) {
+    return false;
+  }
+  return /\b(longtable|hook|checkpoint|mcp|agent|npm|version|global|publish|release|deploy|git)\b/i.test(normalized)
+    || /롱테이블|훅|체크포인트|에이전트|글로벌|배포|버전|릴리즈|깃|깃허브/.test(normalized);
+}
+
+function shouldAutoCreateQuestionsForPrompt(prompt: string): boolean {
+  return !(looksLikeExecutionDirective(prompt) && looksLikeLongTableEngineeringPrompt(prompt));
+}
+
+function shouldApplyProtectedDecisionClosure(runtime: LongTableRuntime, prompt: string): boolean {
+  return Boolean(runtime.context.session.protectedDecision) &&
+    looksLikeClosurePrompt(prompt) &&
+    !looksLikeLongTableEngineeringPrompt(prompt);
+}
+
+function protectedDecisionClosurePrompt(prompt: string): string {
+  return [
+    "Protected decision closure pressure.",
+    "The protected decision text is stored in the current session.",
+    `User prompt: ${prompt}`
+  ].join("\n");
+}
+
 function isStateChangingBash(command: string): boolean {
   const normalized = command.trim();
   if (!normalized) {
@@ -218,6 +255,20 @@ function buildPendingQuestionContext(question: QuestionRecord): string {
   ].join("\n");
 }
 
+function buildGeneratedQuestionsContext(questions: QuestionRecord[], created: boolean): string {
+  const lines = [
+    created
+      ? `LongTable created ${questions.length} required Researcher Checkpoint${questions.length === 1 ? "" : "s"} for this prompt.`
+      : `LongTable found ${questions.length} pending Researcher Checkpoint${questions.length === 1 ? "" : "s"} for this prompt.`
+  ];
+  for (const question of questions) {
+    lines.push(`- ${question.prompt.title}: ${question.prompt.question}`);
+    lines.push(`  Options: ${formatQuestionOptions(question)}`);
+    lines.push(`  Record it with longtable decide --question ${question.id} --answer <value> if you are outside MCP elicitation.`);
+  }
+  return lines.join("\n");
+}
+
 function buildPendingObligationContext(obligation: LongTableQuestionObligation): string {
   return [
     `Pending LongTable research obligation: ${obligation.prompt}`,
@@ -257,7 +308,7 @@ function sessionStartContext(runtime: LongTableRuntime): string {
   return sections.filter(Boolean).join("\n\n");
 }
 
-function userPromptSubmitContext(runtime: LongTableRuntime, prompt: string): string | null {
+async function userPromptSubmitContext(runtime: LongTableRuntime, prompt: string): Promise<string | null> {
   const blockingQuestion = pendingRequiredQuestions(runtime.state)[0];
   if (blockingQuestion) {
     return buildPendingQuestionContext(blockingQuestion);
@@ -273,7 +324,41 @@ function userPromptSubmitContext(runtime: LongTableRuntime, prompt: string): str
     return buildActiveInterviewContext(interview);
   }
 
-  if (runtime.context.session.protectedDecision && looksLikeClosurePrompt(prompt)) {
+  const generatedQuestions: QuestionRecord[] = [];
+  let createdQuestions = false;
+  if (shouldAutoCreateQuestionsForPrompt(prompt)) {
+    const generated = await createWorkspaceFollowUpQuestions({
+      context: runtime.context,
+      prompt,
+      provider: "codex",
+      required: true,
+      auto: true
+    });
+    generatedQuestions.push(...generated.questions);
+    createdQuestions = createdQuestions || generated.created;
+  }
+
+  if (shouldApplyProtectedDecisionClosure(runtime, prompt)) {
+    const protectedGenerated = await createWorkspaceFollowUpQuestions({
+      context: runtime.context,
+      prompt: protectedDecisionClosurePrompt(prompt),
+      provider: "codex",
+      required: true,
+      auto: true
+    });
+    generatedQuestions.push(
+      ...protectedGenerated.questions.filter((question) =>
+        !generatedQuestions.some((existing) => existing.id === question.id)
+      )
+    );
+    createdQuestions = createdQuestions || protectedGenerated.created;
+  }
+
+  if (generatedQuestions.length > 0) {
+    return buildGeneratedQuestionsContext(generatedQuestions, createdQuestions);
+  }
+
+  if (shouldApplyProtectedDecisionClosure(runtime, prompt)) {
     return [
       `This workspace marks ${runtime.context.session.protectedDecision} as a protected decision.`,
       "Before you settle it through drafting, revision, or closure, surface one researcher-facing checkpoint grounded in the current blocker or open questions."
@@ -382,7 +467,7 @@ export async function dispatchCodexHook(
   }
 
   if (hookEventName === "UserPromptSubmit") {
-    const additionalContext = userPromptSubmitContext(runtime, readPromptText(payload));
+    const additionalContext = await userPromptSubmitContext(runtime, readPromptText(payload));
     return additionalContext
       ? buildAdditionalContextOutput(hookEventName, additionalContext)
       : null;
