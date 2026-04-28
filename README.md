@@ -135,9 +135,18 @@ should use `longtable setup`.
 
 ### 2. Start The Research Interview
 
+Choose the project folder before launching the provider. Codex and Claude Code
+use the shell working directory at process start as the session workspace.
+
 ```bash
 cd "<research-folder>"
 codex
+```
+
+Equivalent Codex form:
+
+```bash
+codex -C "<research-folder>"
 ```
 
 Then invoke:
@@ -152,6 +161,11 @@ For Claude Code:
 cd "<research-folder>"
 claude
 ```
+
+Changing directories inside an already-running provider session does not change
+the provider session root or rerun LongTable's `SessionStart` hook. If the
+wrong folder was used, exit and restart the provider from the intended project
+folder.
 
 `$longtable-interview` creates `.longtable/` when needed, asks one natural
 language question at a time, and records the interview as LongTable state. It

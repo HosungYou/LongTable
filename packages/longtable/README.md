@@ -24,11 +24,18 @@ config, hooks, or provider runtime files without explicit setup approval.
 
 ## Primary Flow
 
+Start Codex from the research folder. The provider uses the shell working
+directory at process start as the session workspace.
+
 ```bash
 longtable setup --provider codex
 cd "<research-folder>"
 codex
 ```
+
+You can use `codex -C "<research-folder>"` instead of `cd` plus `codex`.
+Changing directories after Codex is already running does not change that
+session's workspace root or rerun LongTable's `SessionStart` hook.
 
 Then invoke `$longtable-interview` inside Codex.
 
@@ -42,9 +49,11 @@ Return later:
 
 ```bash
 cd "<project-path>"
-longtable resume
 codex
 ```
+
+Run `longtable resume` inside the project folder when you want a terminal
+summary without starting a provider session.
 
 ## What `$longtable-interview` Creates
 
