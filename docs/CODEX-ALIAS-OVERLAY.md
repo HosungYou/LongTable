@@ -23,12 +23,16 @@ Generated files:
 ```text
 ~/.codex/skills/
   longtable/SKILL.md
-  longtable-panel/SKILL.md
-  longtable-explore/SKILL.md
-  longtable-review/SKILL.md
-  longtable-methods-critic/SKILL.md
-  ...
+  longtable-interview/SKILL.md
+  longtable-methods/SKILL.md
+  longtable-measure/SKILL.md
+  longtable-theory/SKILL.md
+  longtable-reviewer/SKILL.md
+  longtable-voice/SKILL.md
 ```
+
+The compact surface above is the default. The legacy full surface remains
+available with `longtable codex install-skills --surface full`.
 
 Expected user-facing invocation:
 
@@ -50,7 +54,7 @@ Prompt files are not enough if the active Codex build rejects `/prompts`.
 Generated skills also better match the Claude Code plugin/skill model:
 
 - one native entrypoint such as `longtable`
-- role-specific generated surfaces
+- a small compact set of role-specific shortcuts backed by router behavior
 - natural-language triggers
 - provider-specific files generated from one LongTable role registry
 

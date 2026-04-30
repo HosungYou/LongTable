@@ -156,16 +156,21 @@ longtable codex install-skills
 longtable claude install-skills
 ```
 
-Codex skills include `longtable`, `longtable-panel`, and generated role-specific
-skills such as `longtable-methods-critic`. If your Codex build exposes explicit
-skill shortcuts, `$longtable-interview` is the research-start entry and
-`$longtable` is the general router. Do not depend on `/prompts`; current Codex
-builds may reject it.
+By default, provider skills use the compact surface: `longtable`,
+`longtable-interview`, and five short role shortcuts: `longtable-methods`,
+`longtable-measure`, `longtable-theory`, `longtable-reviewer`, and
+`longtable-voice`. `$longtable` remains the general router and can still invoke
+editor, ethics, venue, panel, explore, or review behavior when the request calls
+for it.
 
-Claude Code skills include `longtable`, `longtable-panel`, and generated
-role-specific skills such as `longtable-methods-critic`. They also include
-`longtable-interview` for the First Research Shape workflow. They are adapter
-files generated from the LongTable role registry.
+Power users can install the legacy full surface explicitly:
+
+```bash
+longtable codex install-skills --surface full
+longtable claude install-skills --surface full
+```
+
+Do not depend on `/prompts`; current Codex builds may reject it.
 
 ## Panel Orchestration
 

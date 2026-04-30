@@ -101,6 +101,7 @@ import {
   inspectProjectWorkspace,
   loadWorkspaceState,
   loadProjectContextFromDirectory,
+  pruneWorkspaceQuestions,
   repairWorkspaceStateConsistency,
   renderProjectWorkspaceSummary,
   syncCurrentWorkspaceView,
@@ -124,6 +125,8 @@ interface ParsedArgs {
   subcommand?: string;
   values: Record<string, string | boolean>;
 }
+
+type LongTableSkillSurface = "compact" | "full";
 
 interface CodexPersistAnswers {
   provider: "codex" | "claude";
@@ -254,7 +257,7 @@ const ANSI = {
 };
 
 const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
-const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.38";
+const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.39";
 const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
 const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 
@@ -335,16 +338,17 @@ function usage(): string {
     "  longtable decide [--question <id>] --answer <value-or-text> [--rationale <text>] [--provider codex|claude] [--cwd <path>] [--json]",
     "  longtable explore|review|critique|draft|commit|submit [--prompt <text>] [--role <role[,role]>] [--panel] [--show-conflicts] [--show-deliberation] [--print] [--json] [--stage <stage>] [--setup <path>] [--cwd <path>]",
     "  longtable codex persist-init [--answers-json <json> | --stdin | full setup flags] [--install-skills] [--install-prompts] [--json]",
-    "  longtable codex install-skills [--dir <path>]",
+    "  longtable codex install-skills [--surface compact|full] [--dir <path>]",
     "  longtable codex remove-skills [--dir <path>]",
     "  longtable codex install-prompts [--dir <path>]",
     "  longtable codex remove-prompts [--dir <path>]",
     "  longtable codex install-hooks [--codex-config <path>] [--hooks-path <path>] [--json]",
     "  longtable codex remove-hooks [--codex-config <path>] [--hooks-path <path>] [--json]",
-    "  longtable codex status [--dir <path>] [--codex-config <path>] [--hooks-path <path>] [--json]",
-    "  longtable claude install-skills [--dir <path>]",
+    "  longtable codex status [--surface compact|full] [--dir <path>] [--codex-config <path>] [--hooks-path <path>] [--json]",
+    "  longtable claude install-skills [--surface compact|full] [--dir <path>]",
     "  longtable claude remove-skills [--dir <path>]",
-    "  longtable claude status [--dir <path>] [--json]",
+    "  longtable claude status [--surface compact|full] [--dir <path>] [--json]",
+    "  longtable prune-questions [--cwd <path>] [--dry-run] [--json]",
     "  longtable mcp install --provider all",
     "",
     "Examples:",
@@ -368,7 +372,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "panel", "decide", "sentinel", "team", "search"].includes(command);
+    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "decide", "sentinel", "team", "search"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -466,6 +470,17 @@ function questionSection(questionId: string): string {
 
 function formatModeLabel(mode: InteractionMode): string {
   return `${mode[0].toUpperCase()}${mode.slice(1)}`;
+}
+
+function parseSkillSurface(args: Record<string, string | boolean>): LongTableSkillSurface {
+  const value = args.surface;
+  if (value === undefined || value === true) {
+    return "compact";
+  }
+  if (value === "compact" || value === "full") {
+    return value;
+  }
+  throw new Error("Invalid --surface value. Use compact or full.");
 }
 
 function stripWrappingQuotes(value: string): string {
@@ -1970,6 +1985,7 @@ function setupForProvider(
 
 async function collectDoctorStatus(args: Record<string, string | boolean>): Promise<LongTableDoctorStatus> {
   const roles = listRoleDefinitions();
+  const skillSurface = parseSkillSurface(args);
   const setupOverride = typeof args.setup === "string"
     ? args.setup
     : typeof args.path === "string"
@@ -2012,11 +2028,11 @@ async function collectDoctorStatus(args: Record<string, string | boolean>): Prom
   const missingManagedHookEvents = codexHooksContent
     ? (getMissingManagedCodexHookEvents(codexHooksContent) ?? [...LONGTABLE_MANAGED_HOOK_EVENTS])
     : [...LONGTABLE_MANAGED_HOOK_EVENTS];
-  const expectedCodexSkills = buildCodexSkillSpecs(roles).map((skill) => skill.name);
-  const expectedClaudeSkills = buildClaudeSkillSpecs(roles).map((skill) => skill.name);
+  const expectedCodexSkills = buildCodexSkillSpecs(roles, skillSurface).map((skill) => skill.name);
+  const expectedClaudeSkills = buildClaudeSkillSpecs(roles, skillSurface).map((skill) => skill.name);
   const [codexSkills, claudeSkills, codexAliases, workspace] = await Promise.all([
-    listInstalledCodexSkills(roles, codexDir),
-    listInstalledClaudeSkills(roles, claudeDir),
+    listInstalledCodexSkills(roles, codexDir, skillSurface),
+    listInstalledClaudeSkills(roles, claudeDir, skillSurface),
     listInstalledCodexPromptAliases(codexPromptsDir),
     inspectProjectWorkspace(typeof args.cwd === "string" ? args.cwd : cwd())
   ]);
@@ -2221,6 +2237,7 @@ async function repairDoctorStatus(
   status: LongTableDoctorStatus
 ): Promise<DoctorRepairResult> {
   const roles = listRoleDefinitions();
+  const skillSurface = parseSkillSurface(args);
   const codexDir = typeof args["codex-dir"] === "string"
     ? args["codex-dir"]
     : typeof args.dir === "string"
@@ -2261,10 +2278,10 @@ async function repairDoctorStatus(
   };
 
   if (status.providers.codex.missingSkills.length > 0) {
-    repair.installedCodexSkills = (await installCodexSkills(roles, codexDir)).map((skill) => skill.name);
+    repair.installedCodexSkills = (await installCodexSkills(roles, codexDir, skillSurface)).map((skill) => skill.name);
   }
   if (status.providers.claude.missingSkills.length > 0) {
-    repair.installedClaudeSkills = (await installClaudeSkills(roles, claudeDir)).map((skill) => skill.name);
+    repair.installedClaudeSkills = (await installClaudeSkills(roles, claudeDir, skillSurface)).map((skill) => skill.name);
   }
   if (status.providers.codex.legacyPromptFilesInstalled.length > 0) {
     repair.removedLegacyPromptFiles = await removeCodexPromptAliases(codexPromptsDir);
@@ -2454,10 +2471,10 @@ function runRoleAudit(): RoleAuditResult {
     "longtable-review"
   ]);
   const roles: RoleAuditEntry[] = [
-    ...buildCodexSkillSpecs(listRoleDefinitions())
+    ...buildCodexSkillSpecs(listRoleDefinitions(), "full")
       .filter((spec) => !baseSkillNames.has(spec.name))
       .map((spec) => buildRoleAuditEntry("codex", spec)),
-    ...buildClaudeSkillSpecs(listRoleDefinitions())
+    ...buildClaudeSkillSpecs(listRoleDefinitions(), "full")
       .filter((spec) => !baseSkillNames.has(spec.name))
       .map((spec) => buildRoleAuditEntry("claude", spec))
   ];
@@ -3409,6 +3426,45 @@ async function runClearQuestion(args: Record<string, string | boolean>): Promise
   console.log(`- current: ${context.currentFilePath}`);
 }
 
+async function runPruneQuestions(args: Record<string, string | boolean>): Promise<void> {
+  const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+  const context = await loadProjectContextFromDirectory(workingDirectory);
+  if (!context) {
+    throw new Error("No LongTable project workspace was found here. Run this inside a project or pass --cwd.");
+  }
+
+  const dryRun = args["dry-run"] === true;
+  const result = await pruneWorkspaceQuestions({
+    context,
+    dryRun
+  });
+
+  if (args.json === true) {
+    console.log(JSON.stringify({
+      dryRun,
+      removedCount: result.removedQuestions.length,
+      removedQuestions: result.removedQuestions.map((question) => ({
+        id: question.id,
+        title: question.prompt.title,
+        reason: question.clearedReason
+      })),
+      files: {
+        state: context.stateFilePath,
+        current: context.currentFilePath
+      }
+    }, null, 2));
+    return;
+  }
+
+  console.log(dryRun ? "LongTable question prune preview" : "LongTable questions pruned");
+  console.log(`- removed false-positive cleared questions: ${result.removedQuestions.length}`);
+  for (const question of result.removedQuestions) {
+    console.log(`  - ${question.id}: ${question.prompt.title}`);
+  }
+  console.log(`- state: ${context.stateFilePath}`);
+  console.log(`- current: ${context.currentFilePath}`);
+}
+
 function isInteractiveTerminal(): boolean {
   return Boolean(input.isTTY && output.isTTY);
 }
@@ -4094,12 +4150,13 @@ async function runCodexSubcommand(
 ): Promise<void> {
   const customDir = typeof args.dir === "string" ? args.dir : undefined;
   const roles = listRoleDefinitions();
+  const skillSurface = parseSkillSurface(args);
 
   if (subcommand === "install-skills") {
-    const installed = await installCodexSkills(roles, customDir);
-    console.log(`Installed ${installed.length} LongTable Codex skills in ${resolveCodexSkillsDir(customDir)}`);
+    const installed = await installCodexSkills(roles, customDir, skillSurface);
+    console.log(`Installed ${installed.length} LongTable Codex skills in ${resolveCodexSkillsDir(customDir)} (${skillSurface} surface)`);
     console.log("Use them inside Codex with natural-language triggers such as `lt explore: ...` or `lt panel: ...`.");
-    console.log("If you want an explicit trigger, use `$longtable` when your Codex build exposes skills that way.");
+    console.log("Use `$longtable` as the general router; compact installs expose only the most common role shortcuts.");
     for (const skill of installed) {
       console.log(`- ${skill.name}`);
     }
@@ -4156,7 +4213,7 @@ async function runCodexSubcommand(
 
   if (subcommand === "status") {
     const aliases = await listInstalledCodexPromptAliases(customDir);
-    const skills = await listInstalledCodexSkills(roles, customDir);
+    const skills = await listInstalledCodexSkills(roles, customDir, skillSurface);
     const setupPath = resolveDefaultSetupPath(typeof args.path === "string" ? args.path : undefined).path;
     const runtimePath = resolveDefaultRuntimeConfigPath("codex", typeof args["runtime-path"] === "string" ? args["runtime-path"] : undefined).path;
     const configPath = resolveCodexMcpConfigPath(args);
@@ -4169,6 +4226,7 @@ async function runCodexSubcommand(
       runtimePath,
       runtimeExists: existsSync(runtimePath),
       skillsDir: resolveCodexSkillsDir(customDir),
+      skillSurface,
       skillsInstalled: skills.map((skill) => skill.name),
       promptsDir: resolveCodexPromptsDir(customDir),
       legacyPromptFilesInstalled: aliases.map((alias) => alias.name),
@@ -4190,6 +4248,7 @@ async function runCodexSubcommand(
     console.log(`- setup: ${status.setupExists ? "present" : "missing"} (${setupPath})`);
     console.log(`- codex runtime artifact: ${status.runtimeExists ? "present" : "missing"} (${runtimePath})`);
     console.log(`- skills dir: ${status.skillsDir}`);
+    console.log(`- skill surface: ${status.skillSurface}`);
     if (skills.length === 0) {
       console.log("- skills: none");
     } else {
@@ -4224,10 +4283,11 @@ async function runClaudeSubcommand(
 ): Promise<void> {
   const customDir = typeof args.dir === "string" ? args.dir : undefined;
   const roles = listRoleDefinitions();
+  const skillSurface = parseSkillSurface(args);
 
   if (subcommand === "install-skills") {
-    const installed = await installClaudeSkills(roles, customDir);
-    console.log(`Installed ${installed.length} LongTable Claude skills in ${resolveClaudeSkillsDir(customDir)}`);
+    const installed = await installClaudeSkills(roles, customDir, skillSurface);
+    console.log(`Installed ${installed.length} LongTable Claude skills in ${resolveClaudeSkillsDir(customDir)} (${skillSurface} surface)`);
     console.log("Use them inside Claude Code with natural-language triggers such as `lt explore: ...` or `lt panel: ...`.");
     for (const skill of installed) {
       console.log(`- ${skill.name}`);
@@ -4242,7 +4302,7 @@ async function runClaudeSubcommand(
   }
 
   if (subcommand === "status") {
-    const skills = await listInstalledClaudeSkills(roles, customDir);
+    const skills = await listInstalledClaudeSkills(roles, customDir, skillSurface);
     const setupPath = resolveDefaultSetupPath(typeof args.path === "string" ? args.path : undefined).path;
     const runtimePath = resolveDefaultRuntimeConfigPath("claude", typeof args["runtime-path"] === "string" ? args["runtime-path"] : undefined).path;
     const status = {
@@ -4251,6 +4311,7 @@ async function runClaudeSubcommand(
       runtimePath,
       runtimeExists: existsSync(runtimePath),
       skillsDir: resolveClaudeSkillsDir(customDir),
+      skillSurface,
       skillsInstalled: skills.map((skill) => skill.name)
     };
 
@@ -4263,6 +4324,7 @@ async function runClaudeSubcommand(
     console.log(`- setup: ${status.setupExists ? "present" : "missing"} (${setupPath})`);
     console.log(`- claude runtime artifact: ${status.runtimeExists ? "present" : "missing"} (${runtimePath})`);
     console.log(`- skills dir: ${status.skillsDir}`);
+    console.log(`- skill surface: ${status.skillSurface}`);
     if (skills.length === 0) {
       console.log("- skills: none");
     } else {
@@ -4358,6 +4420,11 @@ async function main(): Promise<void> {
 
   if (command === "clear-question") {
     await runClearQuestion(values);
+    return;
+  }
+
+  if (command === "prune-questions") {
+    await runPruneQuestions(values);
     return;
   }
 

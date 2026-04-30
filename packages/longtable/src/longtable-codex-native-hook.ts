@@ -168,38 +168,17 @@ function looksLikeClosurePrompt(prompt: string): boolean {
     || /최종|확정|커밋|제출|수정|초안|구현|진행|고쳐/.test(normalized);
 }
 
-function looksLikeExecutionDirective(prompt: string): boolean {
-  const normalized = prompt.trim();
-  if (!normalized) {
-    return false;
-  }
-  return /\b(proceed|implement|fix|publish|release|deploy|tag|push|ship)\b/i.test(normalized)
-    || /진행|구현|수정|고쳐|배포|릴리즈|태그|푸시|출시/.test(normalized);
-}
-
 function looksLikeLongTableEngineeringPrompt(prompt: string): boolean {
   const normalized = prompt.trim();
   if (!normalized) {
     return false;
   }
-  return /\b(longtable|hook|checkpoint|mcp|agent|npm|version|global|publish|release|deploy|git)\b/i.test(normalized)
-    || /롱테이블|훅|체크포인트|에이전트|글로벌|배포|버전|릴리즈|깃|깃허브/.test(normalized);
-}
-
-function looksLikeDiagnosticOrExplanatoryPrompt(prompt: string): boolean {
-  const normalized = prompt.trim();
-  if (!normalized) {
-    return false;
-  }
-  return /\b(explain|why|how|diagnos(?:e|is)|debug|inspect|check|verify|status|simulate|simulation|test|logs?)\b/i.test(normalized)
-    || /설명|왜|어떻게|진단|디버그|확인|점검|상태|시뮬레이션|테스트|로그|불필요/.test(normalized);
+  return /\b(longtable|hook|checkpoint|mcp|agent|skill|skills|ux|interface|setup|install|cli|npm|version|global|publish|release|deploy|git)\b/i.test(normalized)
+    || /롱테이블|훅|체크포인트|에이전트|스킬|사용성|인터페이스|설치|세팅|글로벌|배포|버전|릴리즈|깃|깃허브/.test(normalized);
 }
 
 function shouldAutoCreateQuestionsForPrompt(prompt: string): boolean {
-  if (!looksLikeLongTableEngineeringPrompt(prompt)) {
-    return true;
-  }
-  return !looksLikeExecutionDirective(prompt) && !looksLikeDiagnosticOrExplanatoryPrompt(prompt);
+  return !looksLikeLongTableEngineeringPrompt(prompt);
 }
 
 function shouldApplyProtectedDecisionClosure(runtime: LongTableRuntime, prompt: string): boolean {

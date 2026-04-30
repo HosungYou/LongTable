@@ -483,9 +483,13 @@ use the LongTable methods critic on this design
 ```
 
 If your Codex build exposes explicit skill shortcuts, `$longtable` is the manual
-entry and role-specific shortcuts such as `$longtable-editor` may foreground one
-perspective. Claude Code uses generated skill files under `~/.claude/skills`
-with trigger phrases rather than a LongTable-specific slash-command contract.
+entry. The default compact surface exposes `$longtable`, `$longtable-interview`,
+and five short role shortcuts: `$longtable-methods`, `$longtable-measure`,
+`$longtable-theory`, `$longtable-reviewer`, and `$longtable-voice`. Other roles
+remain available through `$longtable` routing. Power users can restore the
+legacy full surface with `longtable codex install-skills --surface full`.
+Claude Code uses generated skill files under `~/.claude/skills` with trigger
+phrases rather than a LongTable-specific slash-command contract.
 
 Legacy Codex prompt files are not the recommended surface. Do not rely on
 `/prompts`; current Codex builds may reject custom prompt files as slash

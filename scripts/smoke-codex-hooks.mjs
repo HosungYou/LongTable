@@ -11,7 +11,8 @@ const {
   clearWorkspaceQuestion,
   createWorkspaceQuestion,
   loadProjectContextFromDirectory,
-  mergeManagedCodexHooksConfig
+  mergeManagedCodexHooksConfig,
+  pruneWorkspaceQuestions
 } = await import(join(repoRoot, "packages", "longtable", "dist", "index.js"));
 const {
   buildFirstResearchShapeQuestion
@@ -129,17 +130,17 @@ assert(context, "workspace context should exist");
 
 const autoQuestionHook = await dispatchCodexHook({
   hook_event_name: "UserPromptSubmit",
-  prompt: "LongTable 훅과 체크포인트가 철학적으로 멈춰야 하는 지점에서 필요한 질문을 생성하는지 평가해줘."
+  prompt: "이 측정 모델을 원고에 반영하기 전에 주관적 신뢰와 행동 의존을 분리하기 위해 필요한 질문을 생성해줘."
 }, workspaceTmp);
 const autoQuestionContext = autoQuestionHook?.hookSpecificOutput?.additionalContext ?? "";
-assert(autoQuestionContext.includes("LongTable created"), "UserPromptSubmit should create required checkpoint questions for high-signal LongTable prompts");
-assert(autoQuestionContext.includes("Question harness target"), "Generated hook context should include the harness question");
+assert(autoQuestionContext.includes("LongTable created"), "UserPromptSubmit should create required checkpoint questions for high-signal research prompts");
+assert(autoQuestionContext.includes("Question policy"), "Generated hook context should include the question policy prompt");
 const autoQuestionState = JSON.parse(readFileSync(join(workspaceTmp, ".longtable", "state.json"), "utf8"));
 const generatedQuestions = (autoQuestionState.questionLog ?? []).filter((question) =>
   question.status === "pending" &&
   question.prompt.checkpointKey?.startsWith("follow_up_")
 );
-assert(generatedQuestions.length >= 2, "High-signal hook prompt should persist multiple follow-up questions");
+assert(generatedQuestions.length >= 1, "High-signal hook prompt should persist follow-up questions");
 for (const question of generatedQuestions) {
   await clearWorkspaceQuestion({
     context,
@@ -147,6 +148,28 @@ for (const question of generatedQuestions) {
     reason: "Cleared after verifying automatic hook question generation in smoke test."
   });
 }
+
+const falsePositiveQuestion = await createWorkspaceQuestion({
+  context,
+  prompt: "False-positive hook record created for prune smoke coverage.",
+  question: "Should this false-positive checkpoint be pruned?",
+  questionOptions: [
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" }
+  ],
+  displayReason: "Prune smoke coverage.",
+  required: true,
+  provider: "codex"
+});
+await clearWorkspaceQuestion({
+  context,
+  questionId: falsePositiveQuestion.question.id,
+  reason: "False-positive hook record created for prune smoke coverage."
+});
+const prunePreview = await pruneWorkspaceQuestions({ context, dryRun: true });
+assert(prunePreview.removedQuestions.some((question) => question.id === falsePositiveQuestion.question.id), "Prune preview should find false-positive cleared questions");
+const pruneResult = await pruneWorkspaceQuestions({ context });
+assert(pruneResult.removedQuestions.some((question) => question.id === falsePositiveQuestion.question.id), "Prune should remove false-positive cleared questions");
 
 const engineeringExecutionHook = await dispatchCodexHook({
   hook_event_name: "UserPromptSubmit",
@@ -171,6 +194,12 @@ const engineeringSimulationHook = await dispatchCodexHook({
   prompt: "시뮬레이션 테스트로 왜 훅이 불필요하게 나오는지 확인해줘"
 }, workspaceTmp);
 assertEqual(engineeringSimulationHook, null, "LongTable engineering simulation prompt should not create researcher checkpoints");
+
+const productUxHook = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "$longtable skill이 13개 노출되면 사용자가 혼란스러울 수 있으니 compact surface를 제안해줘."
+}, workspaceTmp);
+assertEqual(productUxHook, null, "LongTable product and UX prompts should not create researcher checkpoints");
 
 const closureQuestionHook = await dispatchCodexHook({
   hook_event_name: "UserPromptSubmit",

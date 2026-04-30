@@ -148,12 +148,23 @@ const installOutput = runCli(["codex", "install-skills", "--dir", skillsDir]);
 if (!installOutput.includes("longtable-interview")) {
   throw new Error("Codex skill install should include longtable-interview.");
 }
+if (!installOutput.includes("longtable-methods") || !installOutput.includes("longtable-measure")) {
+  throw new Error("Compact Codex skill install should include short role shortcuts.");
+}
+if (installOutput.includes("longtable-methods-critic") || installOutput.includes("longtable-panel")) {
+  throw new Error("Compact Codex skill install should not expose full role or panel shortcuts by default.");
+}
 const interviewSkill = readFileSync(join(skillsDir, "longtable-interview", "SKILL.md"), "utf8");
 if (!interviewSkill.includes("First Research Shape")) {
   throw new Error("longtable-interview skill should document First Research Shape.");
 }
 if (!interviewSkill.includes("Do not begin with reader/reviewer")) {
   throw new Error("longtable-interview skill should forbid early reader/reviewer prompts.");
+}
+const fullSkillsDir = join(tmp, "codex-skills-full");
+const fullInstallOutput = runCli(["codex", "install-skills", "--surface", "full", "--dir", fullSkillsDir]);
+if (!fullInstallOutput.includes("longtable-methods-critic") || !fullInstallOutput.includes("longtable-panel")) {
+  throw new Error("Full Codex skill install should preserve the full skill surface.");
 }
 
 console.log("setup/start smoke passed");

@@ -2101,6 +2101,66 @@ export async function clearWorkspaceQuestion(options: {
   };
 }
 
+function isPrunableFalsePositiveQuestion(record: QuestionRecord): boolean {
+  if (record.status !== "cleared") {
+    return false;
+  }
+  return /false-positive|duplicated automatic hook/i.test(record.clearedReason ?? "");
+}
+
+export async function pruneWorkspaceQuestions(options: {
+  context: LongTableProjectContext;
+  dryRun?: boolean;
+}): Promise<{
+  removedQuestions: QuestionRecord[];
+  state: ResearchState;
+}> {
+  const state = await loadResearchState(options.context.stateFilePath);
+  const removedQuestions = (state.questionLog ?? []).filter(isPrunableFalsePositiveQuestion);
+  if (removedQuestions.length === 0 || options.dryRun) {
+    return {
+      removedQuestions,
+      state
+    };
+  }
+
+  const removedIds = new Set(removedQuestions.map((question) => question.id));
+  const updated: ResearchState = {
+    ...state,
+    questionLog: (state.questionLog ?? []).filter((question) => !removedIds.has(question.id)),
+    questionObligations: (state.questionObligations ?? []).filter((obligation) =>
+      !obligation.questionId || !removedIds.has(obligation.questionId)
+    ),
+    invocationLog: (state.invocationLog ?? []).map((record) => ({
+      ...record,
+      ...(record.panelResult
+        ? {
+            panelResult: {
+              ...record.panelResult,
+              linkedQuestionRecordIds: record.panelResult.linkedQuestionRecordIds.filter((id) => !removedIds.has(id))
+            }
+          }
+        : {}),
+      ...(record.teamDebateRun
+        ? {
+            teamDebateRun: {
+              ...record.teamDebateRun,
+              linkedQuestionRecordIds: record.teamDebateRun.linkedQuestionRecordIds.filter((id) => !removedIds.has(id))
+            }
+          }
+        : {})
+    }))
+  };
+
+  await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
+  await syncCurrentWorkspaceView(options.context);
+
+  return {
+    removedQuestions,
+    state: updated
+  };
+}
+
 export async function repairWorkspaceStateConsistency(options: {
   context: LongTableProjectContext;
 }): Promise<{

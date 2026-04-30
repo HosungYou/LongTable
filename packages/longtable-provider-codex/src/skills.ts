@@ -16,11 +16,24 @@ export interface InstalledCodexSkill {
   description: string;
 }
 
+export type LongTableSkillSurface = "compact" | "full";
+
+const COMPACT_ROLE_SKILL_NAMES: Record<string, string> = {
+  methods_critic: "longtable-methods",
+  measurement_auditor: "longtable-measure",
+  theory_critic: "longtable-theory",
+  reviewer: "longtable-reviewer",
+  voice_keeper: "longtable-voice"
+};
+
 export function resolveCodexSkillsDir(customDir?: string): string {
   return customDir ? resolve(customDir) : join(homedir(), ".codex", "skills");
 }
 
-function skillNameForRole(role: RoleDefinition): string {
+function skillNameForRole(role: RoleDefinition, surface: LongTableSkillSurface): string {
+  if (surface === "compact" && COMPACT_ROLE_SKILL_NAMES[role.key]) {
+    return COMPACT_ROLE_SKILL_NAMES[role.key];
+  }
   return `longtable-${role.key.replaceAll("_", "-")}`;
 }
 
@@ -41,8 +54,8 @@ function renderSkillFile(spec: CodexSkillSpec): string {
   ].join("\n");
 }
 
-function baseSkillSpecs(): CodexSkillSpec[] {
-  return [
+function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): CodexSkillSpec[] {
+  const base = [
     {
       name: "longtable",
       description:
@@ -63,6 +76,7 @@ function baseSkillSpecs(): CodexSkillSpec[] {
         "- `use the LongTable methods critic on this design`",
         "- `$longtable: deploy a research team to review this measurement plan, show the main disagreements, and ask me what decision should be recorded before you revise it.`",
         "- `$longtable: use editor, reviewer, methods, measurement, and voice perspectives to evaluate this manuscript section. Do not collapse disagreement too early.`",
+        "- `$longtable-methods`, `$longtable-measure`, `$longtable-theory`, `$longtable-reviewer`, or `$longtable-voice` when the researcher explicitly wants that shortcut.",
         "- `$longtable-interview` to create or continue the first research-start interview.",
         "",
         "## Routing Rules",
@@ -72,6 +86,7 @@ function baseSkillSpecs(): CodexSkillSpec[] {
         "- `lt panel` creates a visible multi-role review with synthesis, role opinions, conflict summary, and a decision prompt.",
         "- `$longtable-interview` runs the provider-native LongTable start interview. It replaces the old CLI start questionnaire as the primary research-start surface.",
         "- Natural references to methods, measurement, theory, reviewer, editor, ethics, venue, or voice should foreground the matching LongTable role.",
+        "- The compact visible shortcut set is methods, measure, theory, reviewer, and voice. Other roles remain available through this router when the request calls for them.",
         "- When research responsibility is about to shift, surface a Researcher Checkpoint before closure.",
         "- When changing LongTable product language, README positioning, or checkpoint policy, surface a Meta-Decision Checkpoint first.",
         "",
@@ -180,7 +195,9 @@ function baseSkillSpecs(): CodexSkillSpec[] {
         "",
         "If MCP tools are unavailable, continue the natural-language interview in Codex, but state that durable LongTable state could not be written. Do not pretend a checkpoint or First Research Shape was recorded."
       ]
-    },
+    }
+  ];
+  const fullOnly = [
     {
       name: "longtable-panel",
       description:
@@ -250,6 +267,7 @@ function baseSkillSpecs(): CodexSkillSpec[] {
       ]
     }
   ];
+  return surface === "full" ? [...base, ...fullOnly] : base;
 }
 
 function mustAskQuestionsForRole(role: RoleDefinition): string[] {
@@ -286,10 +304,10 @@ function mustAskQuestionsForRole(role: RoleDefinition): string[] {
   return [...(byRole[role.key] ?? []), ...common];
 }
 
-function roleSkillSpec(role: RoleDefinition): CodexSkillSpec {
+function roleSkillSpec(role: RoleDefinition, surface: LongTableSkillSurface = "compact"): CodexSkillSpec {
   const label = role.label;
   return {
-    name: skillNameForRole(role),
+    name: skillNameForRole(role, surface),
     description: `Use the LongTable ${label} role: ${role.shortDescription}`,
     body: [
       "## Purpose",
@@ -337,19 +355,46 @@ function roleSkillSpec(role: RoleDefinition): CodexSkillSpec {
   };
 }
 
-export function buildCodexSkillSpecs(roles: RoleDefinition[]): CodexSkillSpec[] {
-  return [...baseSkillSpecs(), ...roles.map(roleSkillSpec)];
+function compactRoles(roles: RoleDefinition[]): RoleDefinition[] {
+  return roles.filter((role) => Object.hasOwn(COMPACT_ROLE_SKILL_NAMES, role.key));
+}
+
+function allCodexSkillSpecs(roles: RoleDefinition[]): CodexSkillSpec[] {
+  const byName = new Map<string, CodexSkillSpec>();
+  for (const spec of [...buildCodexSkillSpecs(roles, "compact"), ...buildCodexSkillSpecs(roles, "full")]) {
+    byName.set(spec.name, spec);
+  }
+  return [...byName.values()];
+}
+
+export function buildCodexSkillSpecs(
+  roles: RoleDefinition[],
+  surface: LongTableSkillSurface = "compact"
+): CodexSkillSpec[] {
+  const roleSpecs = (surface === "compact" ? compactRoles(roles) : roles).map((role) =>
+    roleSkillSpec(role, surface)
+  );
+  return [...baseSkillSpecs(surface), ...roleSpecs];
 }
 
 export async function installCodexSkills(
   roles: RoleDefinition[],
-  customDir?: string
+  customDir?: string,
+  surface: LongTableSkillSurface = "compact"
 ): Promise<InstalledCodexSkill[]> {
   const skillsDir = resolveCodexSkillsDir(customDir);
   await mkdir(skillsDir, { recursive: true });
 
+  const specs = buildCodexSkillSpecs(roles, surface);
+  const selectedNames = new Set(specs.map((spec) => spec.name));
+  for (const spec of allCodexSkillSpecs(roles)) {
+    if (!selectedNames.has(spec.name)) {
+      await rm(join(skillsDir, spec.name), { recursive: true, force: true });
+    }
+  }
+
   const installed: InstalledCodexSkill[] = [];
-  for (const spec of buildCodexSkillSpecs(roles)) {
+  for (const spec of specs) {
     const skillDir = join(skillsDir, spec.name);
     await mkdir(skillDir, { recursive: true });
     const path = join(skillDir, "SKILL.md");
@@ -371,7 +416,7 @@ export async function removeCodexSkills(
   const skillsDir = resolveCodexSkillsDir(customDir);
   const removed: string[] = [];
 
-  for (const spec of buildCodexSkillSpecs(roles)) {
+  for (const spec of allCodexSkillSpecs(roles)) {
     const skillDir = join(skillsDir, spec.name);
     if (existsSync(skillDir)) {
       await rm(skillDir, { recursive: true, force: true });
@@ -384,7 +429,8 @@ export async function removeCodexSkills(
 
 export async function listInstalledCodexSkills(
   roles: RoleDefinition[],
-  customDir?: string
+  customDir?: string,
+  surface: LongTableSkillSurface = "compact"
 ): Promise<InstalledCodexSkill[]> {
   const skillsDir = resolveCodexSkillsDir(customDir);
   if (!existsSync(skillsDir)) {
@@ -392,7 +438,7 @@ export async function listInstalledCodexSkills(
   }
 
   const entries = new Set(await readdir(skillsDir));
-  return buildCodexSkillSpecs(roles)
+  return buildCodexSkillSpecs(roles, surface)
     .filter((spec) => entries.has(spec.name) && existsSync(join(skillsDir, spec.name, "SKILL.md")))
     .map((spec) => ({
       name: spec.name,
