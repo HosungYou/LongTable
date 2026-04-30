@@ -93,6 +93,22 @@ const protectedOption = shapeQuestion.options.find((option) => option.value === 
 assertEqual(protectedOption?.label, "Keep the protected decision open", "protected-decision option should use a short UI label");
 assert(protectedOption?.description?.includes("what counts as calibration"), "protected-decision detail should move to the option description");
 
+const koreanShapeQuestion = buildFirstResearchShapeQuestion({
+  handle: "조직 AI adoption factors",
+  currentGoal: "고등교육 조직 단위 AI adoption factor 모델을 만든다.",
+  currentBlocker: "조직 단위 factor가 실제 문헌에서 충분히 코딩 가능한지 모른다.",
+  openQuestions: ["조직 단위 효과크기가 충분한가?"],
+  nextAction: "조직 단위 연구 20-30편을 pilot screening한다.",
+  confidence: "medium",
+  sourceHookId: "hook_korean"
+});
+assertEqual(koreanShapeQuestion.title, "First Research Shape 확인", "Korean shape question should use a Korean confirmation title");
+assertEqual(koreanShapeQuestion.question, "이 First Research Shape를 어떻게 처리할까요?", "Korean shape question should use a Korean confirmation question");
+assert(koreanShapeQuestion.options.some((option) => option.value === "stabilize_shape" && option.label === "저장/확정"), "Korean shape question should show save/confirm option");
+assert(koreanShapeQuestion.options.some((option) => option.value === "gather_context" && option.label === "한 질문 더"), "Korean shape question should show one-more-question option");
+assert(koreanShapeQuestion.options.some((option) => option.value === "revise_shape" && option.label === "수정"), "Korean shape question should show revise option");
+assert(koreanShapeQuestion.options.some((option) => option.value === "keep_open" && option.label === "열어두기"), "Korean shape question should show keep-open option");
+
 const workspaceTmp = mkdtempSync(join(tmpdir(), "longtable-codex-hook-runtime-"));
 const setupPath = join(workspaceTmp, "setup.json");
 const runtimePath = join(workspaceTmp, "runtime.toml");
@@ -257,12 +273,24 @@ const created = await createWorkspaceQuestion({
 const stopBlocked = await dispatchCodexHook({ hook_event_name: "Stop" }, workspaceTmp);
 assertEqual(stopBlocked, null, "Stop hook should let Codex wait for the researcher when a required question is pending");
 
-const promptWithPendingQuestion = await dispatchCodexHook({
+const quietPromptWithPendingQuestion = await dispatchCodexHook({
   hook_event_name: "UserPromptSubmit",
   prompt: "Continue the research work."
 }, workspaceTmp);
-const pendingQuestionContext = promptWithPendingQuestion?.hookSpecificOutput?.additionalContext ?? "";
-assert(pendingQuestionContext.includes("Required Researcher Checkpoint is still pending"), "UserPromptSubmit should surface pending required question context");
+assertEqual(quietPromptWithPendingQuestion, null, "UserPromptSubmit should not resurface pending checkpoints on ordinary continuation prompts");
+
+const productPromptWithPendingQuestion = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "LongTable interview hook UX를 조용하게 개선해줘."
+}, workspaceTmp);
+assertEqual(productPromptWithPendingQuestion, null, "LongTable product prompts should not be blocked by unrelated research checkpoints");
+
+const closurePromptWithPendingQuestion = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "Finalize and record the measurement definition for this study."
+}, workspaceTmp);
+const pendingQuestionContext = closurePromptWithPendingQuestion?.hookSpecificOutput?.additionalContext ?? "";
+assert(pendingQuestionContext.includes("Required Researcher Checkpoint is still pending"), "Research closure prompts should surface pending required question context");
 assert(pendingQuestionContext.includes("Do not choose or record an answer"), "Pending checkpoint context should preserve researcher choice");
 
 await answerWorkspaceQuestion({
@@ -326,6 +354,18 @@ writeFileSync(statePath, JSON.stringify(state, null, 2));
 const stopWithActiveInterview = await dispatchCodexHook({ hook_event_name: "Stop" }, workspaceTmp);
 assertEqual(stopWithActiveInterview, null, "Stop hook should not auto-continue while an interview is waiting for researcher input");
 
+const ordinaryPromptWithActiveInterview = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "Continue with the next source check."
+}, workspaceTmp);
+assertEqual(ordinaryPromptWithActiveInterview, null, "Active interview context should stay quiet on ordinary prompts");
+
+const explicitPromptWithActiveInterview = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "$longtable-interview"
+}, workspaceTmp);
+assert(explicitPromptWithActiveInterview?.hookSpecificOutput?.additionalContext?.includes("A LongTable interview is currently active"), "Explicit interview prompts should surface active interview context");
+
 state.questionObligations = [{
   id: "obligation_test",
   kind: "first_research_shape_confirmation",
@@ -339,6 +379,6 @@ state.questionObligations = [{
 writeFileSync(statePath, JSON.stringify(state, null, 2));
 
 const sessionStart = await dispatchCodexHook({ hook_event_name: "SessionStart" }, workspaceTmp);
-assert(sessionStart?.hookSpecificOutput?.additionalContext?.includes("Pending LongTable research obligation"), "SessionStart should surface pending obligation context");
+assert(sessionStart?.hookSpecificOutput?.additionalContext?.includes("Separate unresolved LongTable obligation"), "SessionStart should surface separate pending obligation context with an active interview");
 
 console.log("codex hook smoke passed");

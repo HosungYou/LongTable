@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 const repoRoot = resolve(new URL("..", import.meta.url).pathname);
 const cli = join(repoRoot, "packages", "longtable", "dist", "cli.js");
 const onboarding = await import(join(repoRoot, "packages", "longtable-setup", "dist", "onboarding.js"));
+const rootPackage = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
 const tmp = mkdtempSync(join(tmpdir(), "longtable-setup-smoke-"));
 
 function runCli(args, options = {}) {
@@ -160,6 +161,25 @@ if (!interviewSkill.includes("First Research Shape")) {
 }
 if (!interviewSkill.includes("Do not begin with reader/reviewer")) {
   throw new Error("longtable-interview skill should forbid early reader/reviewer prompts.");
+}
+if (!interviewSkill.includes("Closure Readiness") || !interviewSkill.includes("never stop merely because a fixed number of turns has passed")) {
+  throw new Error("longtable-interview skill should document content-based closure readiness.");
+}
+if (!interviewSkill.includes("append_interview_turn") || !interviewSkill.includes("readyToSummarize")) {
+  throw new Error("longtable-interview skill should document durable turn recording and readiness signals.");
+}
+if (!interviewSkill.includes("one main uncertainty") || !interviewSkill.includes("mini-questionnaire")) {
+  throw new Error("longtable-interview skill should softly document one-question-at-a-time behavior.");
+}
+const mcpInstall = JSON.parse(runCli([
+  "mcp",
+  "install",
+  "--provider", "codex",
+  "--checkpoint-ui", "strong",
+  "--json"
+]));
+if (mcpInstall.packageSpec !== `@longtable/mcp@${rootPackage.version}`) {
+  throw new Error(`MCP install snippet should use package version ${rootPackage.version}.`);
 }
 const fullSkillsDir = join(tmp, "codex-skills-full");
 const fullInstallOutput = runCli(["codex", "install-skills", "--surface", "full", "--dir", fullSkillsDir]);

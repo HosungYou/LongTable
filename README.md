@@ -536,6 +536,7 @@ Current MCP tools include:
 - `begin_interview`
 - `append_interview_turn`
 - `summarize_interview`
+- `cancel_interview`
 - `confirm_first_research_shape`
 - `pending_questions`
 - `evaluate_checkpoint`
@@ -565,7 +566,8 @@ Codex does not support or allow elicitation, LongTable keeps the same
 `longtable decide`.
 
 When the MCP tool surface is available, LongTable skills should call
-`confirm_first_research_shape` at the end of `$longtable-interview` and
+`confirm_first_research_shape` at the end of `$longtable-interview`,
+`cancel_interview` only when the researcher explicitly cancels the interview, and
 `elicit_question` for later Researcher Checkpoints. `longtable question --print`
 is the CLI fallback for clients that cannot show, accept, or approve MCP
 elicitation.

@@ -9,6 +9,8 @@ const mcpServer = join(repoRoot, "packages", "longtable-mcp", "dist", "server.js
 const { classifyCheckpointTrigger } = await import(join(repoRoot, "packages", "longtable-checkpoints", "dist", "index.js"));
 const {
   answerWorkspaceQuestion,
+  appendLongTableInterviewTurn,
+  beginLongTableInterview,
   createWorkspaceQuestion,
   loadProjectContextFromDirectory
 } = await import(join(repoRoot, "packages", "longtable", "dist", "index.js"));
@@ -18,7 +20,7 @@ const mcpSelfTest = JSON.parse(execFileSync("node", [mcpServer, "--self-test"], 
   cwd: repoRoot,
   encoding: "utf8"
 }));
-for (const tool of ["create_workspace", "begin_interview", "append_interview_turn", "summarize_interview", "confirm_first_research_shape"]) {
+for (const tool of ["create_workspace", "begin_interview", "append_interview_turn", "summarize_interview", "cancel_interview", "confirm_first_research_shape"]) {
   if (!mcpSelfTest.tools.includes(tool)) {
     throw new Error(`MCP self-test is missing interview tool: ${tool}`);
   }
@@ -129,6 +131,37 @@ const decided = await answerWorkspaceQuestion({
 });
 
 assertEqual(decided.question.answer?.surface, "mcp_elicitation", "accepted MCP surface");
+
+const interview = await beginLongTableInterview({
+  context,
+  provider: "codex",
+  openingQuestion: "What do you want to research?"
+});
+const firstTurn = await appendLongTableInterviewTurn({
+  context,
+  hookId: interview.hook.id,
+  question: "What do you want to research?",
+  answer: "I want to study whether organizational AI adoption depends on policy, leadership, infrastructure, and governance conditions.",
+  reflection: "The project concerns organizational adoption conditions.",
+  quality: "rich"
+});
+assertEqual(firstTurn.hook.depth, "forming_first_handle", "Interview should not become summary-ready from turn count alone");
+assertEqual(firstTurn.hook.status, "active", "Interview should stay active until content readiness is explicit");
+const readyTurn = await appendLongTableInterviewTurn({
+  context,
+  hookId: interview.hook.id,
+  question: "What makes this hard to inspect first?",
+  answer: "The hard part is whether higher education studies measure organization-level variables well enough to code factor families and outcomes.",
+  reflection: "The blocker is empirical codability of organization-level factors.",
+  quality: "rich",
+  readyToSummarize: true,
+  readinessRationale: [
+    "research object is analysis planning",
+    "focal uncertainty and next inspection target are explicit"
+  ]
+});
+assertEqual(readyTurn.hook.depth, "ready_to_summarize", "Explicit content readiness should mark the interview ready to summarize");
+assertEqual(readyTurn.hook.status, "ready_to_confirm", "Explicit content readiness should move the interview to confirmation status");
 
 const overridden = await createWorkspaceQuestion({
   context,

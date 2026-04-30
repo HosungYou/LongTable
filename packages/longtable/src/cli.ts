@@ -5,6 +5,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { execSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import type { Interface as ReadlineInterface } from "node:readline/promises";
+import { createRequire } from "node:module";
 import { stdin as input, stdout as output, cwd, env, exit } from "node:process";
 import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
@@ -256,8 +257,10 @@ const ANSI = {
   green: "\u001B[32m"
 };
 
+const require = createRequire(import.meta.url);
+const LONGTABLE_PACKAGE_VERSION = String((require("../package.json") as { version?: unknown }).version ?? "0.0.0");
 const LONGTABLE_MCP_SERVER_NAME = "longtable-state";
-const LONGTABLE_MCP_PACKAGE_VERSION = "0.1.39";
+const LONGTABLE_MCP_PACKAGE_VERSION = LONGTABLE_PACKAGE_VERSION;
 const LONGTABLE_MCP_MARKER_START = "# LongTable state MCP START";
 const LONGTABLE_MCP_MARKER_END = "# LongTable state MCP END";
 

@@ -45,7 +45,7 @@ longtable-state
 Direct run:
 
 ```bash
-npx -y @longtable/mcp@0.1.35
+npx -y @longtable/mcp@0.1.42
 longtable-state --self-test
 ```
 
@@ -98,8 +98,10 @@ The first tool set is intentionally narrow:
   `$longtable-interview`
 - `begin_interview`: create or resume the active LongTable interview hook
 - `append_interview_turn`: record one natural-language interview turn with
-  answer-quality metadata
+  answer-quality metadata and optional content-based readiness rationale
 - `summarize_interview`: store the provisional First Research Shape
+- `cancel_interview`: explicitly cancel an active interview without confirming a
+  First Research Shape
 - `confirm_first_research_shape`: request MCP form elicitation for the final
   First Research Shape confirmation; already-confirmed shapes return without
   opening a new form

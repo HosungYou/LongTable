@@ -79,10 +79,16 @@ Provider-native project start interview:
 
 - create or resume `.longtable/`
 - ask one natural-language question at a time
+- keep each follow-up focused on one main uncertainty, without turning the
+  interview into a mini-questionnaire
 - reflect with `LongTable hears: ...`
 - evaluate thin answers before classifying them
+- record each turn with `append_interview_turn` when MCP is available
+- summarize only from content-based readiness, not from a fixed turn count
 - build a provisional First Research Shape
 - use structured option UI only at final confirmation
+- mark the active interview `cancelled` only when the researcher explicitly
+  cancels the interview
 
 It creates:
 

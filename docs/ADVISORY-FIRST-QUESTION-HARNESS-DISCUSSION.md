@@ -38,6 +38,52 @@ The platform should prefer normal response questions for missing context and
 use checkpoints only when the assistant would otherwise settle a research
 commitment on behalf of the researcher.
 
+## Interview Handoff And Quiet Hook Policy
+
+The advisory-first principle also applies to `$longtable-interview`. A pending
+Researcher Checkpoint from another thread should not hijack the interview. It can
+be shown as a separate unresolved checkpoint, but it becomes blocking only when
+the researcher is confirming, saving, or recording a research decision.
+
+The interview should be quiet during normal turns. `UserPromptSubmit` should not
+repeat active-interview context after every researcher message. It should surface
+that context only for explicit `$longtable-interview` invocations, First Research
+Shape confirmation, or other research-state closure prompts.
+
+Each interview answer is recorded through `append_interview_turn` when MCP is
+available. The durable record stores the question, answer, reflection, quality,
+follow-up need, and any readiness rationale. This trace supports later work by
+making the eventual First Research Shape inspectable rather than treating it as a
+chat-only summary.
+
+Interview closure is content-based, not turn-count-based. LongTable should not
+summarize merely because three usable turns have occurred. It should summarize
+only when the trace contains enough context to support later research work:
+
+- research object
+- focal uncertainty
+- construct or boundary
+- evidence, material, or first inspection target
+- protected decision
+- concrete next action
+
+Some projects may be ready quickly; others may need ten or more turns. If these
+elements are still vague, LongTable should ask one more natural-language question
+instead of forcing a First Research Shape.
+
+The one-question-at-a-time rule is a soft interview norm, not a brittle
+validator. A follow-up should focus on one main uncertainty and wait for the
+researcher, while still allowing a short sentence that names nearby tensions for
+context. The failure to avoid is turning an interview turn into a numbered
+questionnaire or bundling several separately answerable questions into one
+prompt.
+
+The final confirmation should be the first structured option UI in the interview.
+When the researcher's language is Korean, labels should be shown in Korean, with
+options such as `저장/확정`, `한 질문 더`, `수정`, and `열어두기`. If the
+researcher explicitly cancels the interview, the active interview hook should be
+marked `cancelled`; casual topic shifts should not cancel durable state.
+
 The earlier eager checkpoint policy created false positives in product and
 tooling conversations. Examples included LongTable skill-surface design,
 hook-debugging, release work, and documentation requests. These should not

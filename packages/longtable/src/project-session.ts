@@ -94,6 +94,8 @@ export interface LongTableInterviewTurn {
   quality: InterviewTurnQuality;
   needsFollowUp: boolean;
   followUpQuestion?: string;
+  readyToSummarize?: boolean;
+  readinessRationale?: string[];
   rationale?: string[];
 }
 
@@ -706,7 +708,9 @@ function buildProjectAgentsMd(
     "",
     "## Research Behavior",
     "- Begin exploratory work with clarifying or tension questions before recommending a direction.",
-    "- For `$longtable-interview`, ask one natural-language question at a time, reflect with `LongTable hears: ...`, and avoid early reader/reviewer or theory/method/measurement classification.",
+    "- For `$longtable-interview`, ask one natural-language question at a time, reflect with `LongTable hears: ...`, record turns when MCP is available, and avoid early reader/reviewer or theory/method/measurement classification.",
+    "- Do not summarize `$longtable-interview` because a fixed number of turns has passed; wait for content-based readiness around research object, focal uncertainty, boundary, evidence/material, protected decision, and next action.",
+    "- Do not let unrelated pending Researcher Checkpoints interrupt `$longtable-interview`; mention them only as separate unresolved checkpoints unless the researcher is confirming, saving, or recording a research decision.",
     "- Use structured options only at the final First Research Shape confirmation or at true checkpoint boundaries.",
     "- If you foreground role perspectives, disclose them with `LongTable consulted: ...`.",
     "- Keep one accountable synthesis, but do not hide meaningful disagreement.",
@@ -890,10 +894,10 @@ function defaultFollowUpQuestion(answer: string): string {
 }
 
 function depthForInterview(turns: LongTableHookRun["turns"] = []): InterviewDepth {
-  const usableTurns = turns.filter((turn) => turn.quality !== "thin").length;
-  if (usableTurns >= 3) {
+  if (turns.some((turn) => turn.readyToSummarize === true && turn.quality !== "thin")) {
     return "ready_to_summarize";
   }
+  const usableTurns = turns.filter((turn) => turn.quality !== "thin").length;
   if (usableTurns >= 1) {
     return "forming_first_handle";
   }
@@ -933,6 +937,17 @@ export async function beginLongTableInterview(options: {
   const existing = activeInterviewHook(state);
   if (existing) {
     return { hook: existing, state };
+  }
+  const confirmedShape = state.firstResearchShape?.confirmedAt ? state.firstResearchShape : undefined;
+  if (confirmedShape) {
+    const confirmedHook = [...(state.hooks ?? [])].reverse().find((hook) =>
+      hook.kind === "longtable_interview" &&
+      hook.status === "confirmed" &&
+      hook.firstResearchShape?.handle === confirmedShape.handle
+    );
+    if (confirmedHook) {
+      return { hook: confirmedHook, state };
+    }
   }
 
   const timestamp = nowIso();
@@ -975,6 +990,8 @@ export async function appendLongTableInterviewTurn(options: {
   quality?: InterviewTurnQuality;
   needsFollowUp?: boolean;
   followUpQuestion?: string;
+  readyToSummarize?: boolean;
+  readinessRationale?: string[];
   rationale?: string[];
 }): Promise<{ hook: LongTableHookRun; turn: NonNullable<LongTableHookRun["turns"]>[number]; state: LongTableWorkspaceState }> {
   const state = await loadResearchState(options.context.stateFilePath);
@@ -988,6 +1005,10 @@ export async function appendLongTableInterviewTurn(options: {
   const followUpQuestion = needsFollowUp
     ? options.followUpQuestion ?? defaultFollowUpQuestion(options.answer)
     : options.followUpQuestion;
+  const readyToSummarize = options.readyToSummarize === true && quality !== "thin";
+  const readinessRationale = options.readinessRationale
+    ?.map((rationale) => rationale.trim())
+    .filter(Boolean);
   const timestamp = nowIso();
   const turns = existing.turns ?? [];
   const turn = {
@@ -1000,6 +1021,8 @@ export async function appendLongTableInterviewTurn(options: {
     quality,
     needsFollowUp,
     ...(followUpQuestion?.trim() ? { followUpQuestion: followUpQuestion.trim() } : {}),
+    ...(readyToSummarize ? { readyToSummarize } : {}),
+    ...(readinessRationale && readinessRationale.length > 0 ? { readinessRationale } : {}),
     ...(options.rationale && options.rationale.length > 0 ? { rationale: options.rationale } : {})
   };
   const nextTurns = [...turns, turn];
@@ -1012,7 +1035,10 @@ export async function appendLongTableInterviewTurn(options: {
     turns: nextTurns,
     qualityNotes: [
       ...(existing.qualityNotes ?? []),
-      ...(needsFollowUp ? [`Turn ${turn.index} needs follow-up: ${followUpQuestion}`] : [])
+      ...(needsFollowUp ? [`Turn ${turn.index} needs follow-up: ${followUpQuestion}`] : []),
+      ...(readyToSummarize
+        ? [`Turn ${turn.index} marked ready to summarize: ${(readinessRationale ?? ["content-based readiness signal"]).join("; ")}`]
+        : [])
     ]
   };
   const updated = upsertHook(state, hook);

@@ -41,6 +41,7 @@ const TOOL_NAMES = [
   "begin_interview",
   "append_interview_turn",
   "summarize_interview",
+  "cancel_interview",
   "confirm_first_research_shape",
   "pending_questions",
   "evaluate_checkpoint",
@@ -91,6 +92,8 @@ interface InterviewHookRun {
     quality: InterviewTurnQuality;
     needsFollowUp: boolean;
     followUpQuestion?: string;
+    readyToSummarize?: boolean;
+    readinessRationale?: string[];
     rationale?: string[];
   }>;
   firstResearchShape?: FirstResearchShape;
@@ -289,8 +292,10 @@ function resolveFirstResearchShapeObligation(
 }
 
 function interviewDepth(turns: InterviewHookRun["turns"]): InterviewDepth {
+  if (turns.some((turn) => turn.readyToSummarize === true && turn.quality !== "thin")) {
+    return "ready_to_summarize";
+  }
   const usableTurns = turns.filter((turn) => turn.quality !== "thin").length;
-  if (usableTurns >= 3) return "ready_to_summarize";
   if (usableTurns >= 1) return "forming_first_handle";
   return "gathering_context";
 }
@@ -373,6 +378,8 @@ async function appendInterviewTurn(
     quality?: InterviewTurnQuality;
     needsFollowUp?: boolean;
     followUpQuestion?: string;
+    readyToSummarize?: boolean;
+    readinessRationale?: string[];
     rationale?: string[];
   }
 ) {
@@ -386,6 +393,10 @@ async function appendInterviewTurn(
   const followUpQuestion = needsFollowUp
     ? options.followUpQuestion ?? defaultFollowUpQuestion(options.answer)
     : options.followUpQuestion;
+  const readyToSummarize = options.readyToSummarize === true && quality !== "thin";
+  const readinessRationale = options.readinessRationale
+    ?.map((rationale) => rationale.trim())
+    .filter(Boolean);
   const timestamp = new Date().toISOString();
   const turn = {
     id: createId("interview_turn"),
@@ -397,6 +408,8 @@ async function appendInterviewTurn(
     quality,
     needsFollowUp,
     ...(followUpQuestion?.trim() ? { followUpQuestion: followUpQuestion.trim() } : {}),
+    ...(readyToSummarize ? { readyToSummarize } : {}),
+    ...(readinessRationale && readinessRationale.length > 0 ? { readinessRationale } : {}),
     ...(options.rationale && options.rationale.length > 0 ? { rationale: options.rationale } : {})
   };
   const turns = [...existing.turns, turn];
@@ -409,7 +422,10 @@ async function appendInterviewTurn(
     turns,
     qualityNotes: [
       ...existing.qualityNotes,
-      ...(needsFollowUp ? [`Turn ${turn.index} needs follow-up: ${followUpQuestion}`] : [])
+      ...(needsFollowUp ? [`Turn ${turn.index} needs follow-up: ${followUpQuestion}`] : []),
+      ...(readyToSummarize
+        ? [`Turn ${turn.index} marked ready to summarize: ${(readinessRationale ?? ["content-based readiness signal"]).join("; ")}`]
+        : [])
     ]
   };
   const updated = upsertInterviewHook(state, hook);
@@ -486,6 +502,58 @@ async function summarizeInterviewHook(
   await writeFile(context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
   await syncCurrentWorkspaceView(context);
   return { hook, shape, state: updated, session };
+}
+
+async function cancelInterviewHook(
+  context: Awaited<ReturnType<typeof requireContext>>,
+  options: { hookId?: string; reason?: string }
+) {
+  const state = asInterviewState(await loadWorkspaceState(context));
+  const existing = activeInterviewHook(state, options.hookId);
+  if (!existing) {
+    throw new Error("No active LongTable interview hook was found to cancel.");
+  }
+
+  const timestamp = new Date().toISOString();
+  const hook: InterviewHookRun = {
+    ...existing,
+    status: "cancelled",
+    updatedAt: timestamp,
+    rationale: [
+      ...existing.rationale,
+      options.reason?.trim()
+        ? `Interview cancelled explicitly: ${options.reason.trim()}`
+        : "Interview cancelled explicitly by the researcher."
+    ]
+  };
+  const updated = upsertInterviewHook(state, hook);
+  const workingState = {
+    ...(updated.workingState ?? {})
+  } as Record<string, unknown>;
+  if (workingState.activeInterviewHookId === existing.id) {
+    delete workingState.activeInterviewHookId;
+    delete workingState.interviewSurface;
+    delete workingState.interviewOpeningQuestion;
+    delete workingState.interviewSeedAnswer;
+  }
+  updated.workingState = workingState as typeof updated.workingState;
+  updated.narrativeTraces = [
+    ...(updated.narrativeTraces ?? []),
+    {
+      id: createId("narrative_trace"),
+      timestamp,
+      source: "$longtable-interview",
+      traceType: "judgment",
+      summary: options.reason?.trim()
+        ? `LongTable interview cancelled: ${options.reason.trim()}.`
+        : "LongTable interview cancelled before First Research Shape confirmation.",
+      visibility: "explicit",
+      importance: "low"
+    }
+  ];
+  await writeFile(context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
+  await syncCurrentWorkspaceView(context);
+  return { hook, state: updated };
 }
 
 function findQuestion(records: QuestionRecord[], questionId?: string): QuestionRecord | null {
@@ -904,10 +972,12 @@ export function createLongTableMcpServer(): McpServer {
         quality: z.enum(["thin", "usable", "rich"]).optional(),
         needsFollowUp: z.boolean().optional(),
         followUpQuestion: z.string().optional(),
+        readyToSummarize: z.boolean().optional().describe("Set true only when the interview has content-based closure readiness; never infer this from turn count alone."),
+        readinessRationale: z.array(z.string()).optional().describe("Brief evidence that the interview has enough context for a First Research Shape."),
         rationale: z.array(z.string()).optional()
       })
     },
-    async ({ cwd: inputCwd, hookId, question, answer, reflection, quality, needsFollowUp, followUpQuestion, rationale }) => {
+    async ({ cwd: inputCwd, hookId, question, answer, reflection, quality, needsFollowUp, followUpQuestion, readyToSummarize, readinessRationale, rationale }) => {
       try {
         const context = await requireContext(inputCwd);
         const result = await appendInterviewTurn(context, {
@@ -918,6 +988,8 @@ export function createLongTableMcpServer(): McpServer {
           quality: quality as InterviewTurnQuality | undefined,
           needsFollowUp,
           followUpQuestion,
+          readyToSummarize,
+          readinessRationale,
           rationale
         });
         return textResult(result);
@@ -953,6 +1025,30 @@ export function createLongTableMcpServer(): McpServer {
             nextAction: result.session.nextAction,
             firstResearchShape: result.session.firstResearchShape
           }
+        });
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
+      }
+    }
+  );
+
+  server.registerTool(
+    "cancel_interview",
+    {
+      title: "Cancel LongTable Interview",
+      description: "Explicitly cancel the active $longtable-interview hook without confirming a First Research Shape.",
+      inputSchema: cwdSchema.extend({
+        hookId: z.string().optional(),
+        reason: z.string().optional()
+      })
+    },
+    async ({ cwd: inputCwd, hookId, reason }) => {
+      try {
+        const context = await requireContext(inputCwd);
+        const result = await cancelInterviewHook(context, { hookId, reason });
+        return textResult({
+          hook: compactInterviewHook(result.hook),
+          cancelled: true
         });
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));

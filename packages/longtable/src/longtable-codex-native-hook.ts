@@ -192,6 +192,36 @@ function looksLikeResearchCommitmentPrompt(prompt: string): boolean {
   return looksLikeResearchDomainPrompt(prompt) && looksLikeClosurePrompt(prompt);
 }
 
+function looksLikeExplicitInterviewPrompt(prompt: string): boolean {
+  const normalized = prompt.trim();
+  if (!normalized) {
+    return false;
+  }
+  if (/\$longtable-interview\b/i.test(normalized)) {
+    return true;
+  }
+  if (looksLikeLongTableProductOrToolingPrompt(normalized)) {
+    return false;
+  }
+  return /\bLongTable\b.*\binterview\b/i.test(normalized)
+    || /\bfirst research shape\b/i.test(normalized)
+    || /롱테이블.*인터뷰|LongTable.*인터뷰|First Research Shape/i.test(normalized);
+}
+
+function looksLikeResearchStateConfirmationPrompt(prompt: string): boolean {
+  if (looksLikeLongTableProductOrToolingPrompt(prompt) && !looksLikeExplicitInterviewPrompt(prompt)) {
+    return false;
+  }
+  return looksLikeResearchCommitmentPrompt(prompt)
+    || (looksLikeExplicitInterviewPrompt(prompt) && looksLikeClosurePrompt(prompt))
+    || /\b(confirm|summarize|save|store|record)\b.*\b(first research shape|research direction|research shape)\b/i.test(prompt)
+    || /(First Research Shape|연구\s*방향|연구\s*형태).*(확정|저장|기록|요약)/.test(prompt);
+}
+
+function shouldSurfaceInterviewContext(prompt: string): boolean {
+  return looksLikeExplicitInterviewPrompt(prompt) || looksLikeResearchStateConfirmationPrompt(prompt);
+}
+
 function buildResponseOnlyAdvisoryQuestions(prompt: string): QuestionOpportunity[] {
   if (looksLikeLongTableProductOrToolingPrompt(prompt)) {
     return [];
@@ -233,6 +263,15 @@ function isStateChangingBash(command: string): boolean {
   }
   return /\b(git\s+commit|npm\s+version|mv|cp|rm|sed\s+-i|perl\s+-i|tee|touch|mkdir|rmdir|apply_patch|patch)\b/.test(normalized)
     || />\s*\S+/.test(normalized);
+}
+
+function mutatesLongTableResearchState(command: string): boolean {
+  const normalized = command.trim();
+  if (!normalized) {
+    return false;
+  }
+  return /\.longtable(?:\/|\b)|\bCURRENT\.md\b/.test(normalized)
+    || /\blongtable\s+(?:start|question|clear-question|prune-questions|ask|clarify|panel|team)\b/.test(normalized);
 }
 
 async function loadLongTableRuntime(startPath: string): Promise<LongTableRuntime | null> {
@@ -278,6 +317,14 @@ function buildPendingQuestionContext(question: QuestionRecord): string {
   ].join("\n");
 }
 
+function buildSeparatePendingQuestionNotice(question: QuestionRecord): string {
+  return [
+    `Separate unresolved Researcher Checkpoint: ${question.prompt.title}.`,
+    `Question: ${question.prompt.question}`,
+    "This is not part of the active interview. Keep it visible, but do not answer or record it unless the researcher explicitly provides the selection."
+  ].join("\n");
+}
+
 function buildGeneratedQuestionsContext(questions: QuestionRecord[], created: boolean): string {
   const lines = [
     created
@@ -314,6 +361,13 @@ function buildPendingObligationContext(obligation: LongTableQuestionObligation):
   ].join("\n");
 }
 
+function buildSeparatePendingObligationNotice(obligation: LongTableQuestionObligation): string {
+  return [
+    `Separate unresolved LongTable obligation: ${obligation.prompt}`,
+    "This is not part of the active interview. Keep it visible only when the researcher is settling or saving the research direction."
+  ].join("\n");
+}
+
 function buildActiveInterviewContext(hook: LongTableHookRun): string {
   const turnCount = hook.turns?.length ?? 0;
   return [
@@ -331,12 +385,17 @@ function sessionStartContext(runtime: LongTableRuntime): string {
   const needsDetailedSummary = Boolean(blockingQuestion || blockingObligation);
   const sections = [buildWorkspaceSummary(runtime, needsDetailedSummary ? "full" : "compact").join("\n")];
 
-  if (blockingQuestion) {
+  if (interview) {
+    sections.push(buildActiveInterviewContext(interview));
+    if (blockingQuestion) {
+      sections.push(buildSeparatePendingQuestionNotice(blockingQuestion));
+    } else if (blockingObligation) {
+      sections.push(buildSeparatePendingObligationNotice(blockingObligation));
+    }
+  } else if (blockingQuestion) {
     sections.push(buildPendingQuestionContext(blockingQuestion));
   } else if (blockingObligation) {
     sections.push(buildPendingObligationContext(blockingObligation));
-  } else if (interview) {
-    sections.push(buildActiveInterviewContext(interview));
   }
 
   sections.push("Treat `.longtable/` state and `CURRENT.md` as the source of truth for this workspace.");
@@ -345,18 +404,31 @@ function sessionStartContext(runtime: LongTableRuntime): string {
 
 async function userPromptSubmitContext(runtime: LongTableRuntime, prompt: string): Promise<string | null> {
   const blockingQuestion = pendingRequiredQuestions(runtime.state)[0];
-  if (blockingQuestion) {
+  const blockingObligation = pendingObligations(runtime.state)[0];
+  const interview = activeInterviewHook(runtime.state);
+  const shouldSurfaceInterview = shouldSurfaceInterviewContext(prompt);
+  const shouldSurfaceBlockingState = looksLikeResearchStateConfirmationPrompt(prompt);
+
+  if (interview && shouldSurfaceInterview) {
+    const sections = [buildActiveInterviewContext(interview)];
+    if (blockingQuestion) {
+      sections.push(buildSeparatePendingQuestionNotice(blockingQuestion));
+    } else if (blockingObligation) {
+      sections.push(buildSeparatePendingObligationNotice(blockingObligation));
+    }
+    return sections.join("\n\n");
+  }
+
+  if (blockingQuestion && shouldSurfaceBlockingState) {
     return buildPendingQuestionContext(blockingQuestion);
   }
 
-  const blockingObligation = pendingObligations(runtime.state)[0];
-  if (blockingObligation) {
+  if (blockingObligation && shouldSurfaceBlockingState) {
     return buildPendingObligationContext(blockingObligation);
   }
 
-  const interview = activeInterviewHook(runtime.state);
   if (interview) {
-    return buildActiveInterviewContext(interview);
+    return null;
   }
 
   const generatedQuestions: QuestionRecord[] = [];
@@ -408,24 +480,25 @@ function preToolUseOutput(runtime: LongTableRuntime, payload: CodexHookPayload):
     return null;
   }
   const command = readCommandText(payload);
-  if (!isStateChangingBash(command)) {
+  const stateChangingCommand = isStateChangingBash(command) || mutatesLongTableResearchState(command);
+  if (!stateChangingCommand) {
     return null;
   }
 
   const blockingQuestion = pendingRequiredQuestions(runtime.state)[0];
-  if (blockingQuestion) {
+  if (blockingQuestion && mutatesLongTableResearchState(command)) {
     return buildBlockOutput(
       "PreToolUse",
-      "A required LongTable checkpoint is still pending before a state-changing Bash command.",
+      "A required LongTable checkpoint is still pending before a research-state Bash command.",
       buildPendingQuestionContext(blockingQuestion)
     );
   }
 
   const blockingObligation = pendingObligations(runtime.state)[0];
-  if (blockingObligation) {
+  if (blockingObligation && mutatesLongTableResearchState(command)) {
     return buildBlockOutput(
       "PreToolUse",
-      "A LongTable research obligation is still pending before a state-changing Bash command.",
+      "A LongTable research obligation is still pending before a research-state Bash command.",
       buildPendingObligationContext(blockingObligation)
     );
   }
@@ -444,10 +517,10 @@ function postToolUseOutput(runtime: LongTableRuntime, payload: CodexHookPayload)
   const blockingQuestion = pendingRequiredQuestions(runtime.state)[0];
   const blockingObligation = pendingObligations(runtime.state)[0];
 
-  if ((blockingQuestion || blockingObligation) && isStateChangingBash(command)) {
+  if ((blockingQuestion || blockingObligation) && mutatesLongTableResearchState(command)) {
     return buildBlockOutput(
       "PostToolUse",
-      "A state-changing Bash command completed while LongTable still had an unresolved checkpoint or obligation.",
+      "A research-state Bash command completed while LongTable still had an unresolved checkpoint or obligation.",
       blockingQuestion
         ? buildPendingQuestionContext(blockingQuestion)
         : buildPendingObligationContext(blockingObligation!)

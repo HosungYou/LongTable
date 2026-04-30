@@ -39,6 +39,7 @@ Provider guidance should use interview tools for `$longtable-interview`:
 - `begin_interview`
 - `append_interview_turn`
 - `summarize_interview`
+- `cancel_interview`
 - `confirm_first_research_shape`
 
 For later Researcher Checkpoints, provider guidance should use

@@ -486,6 +486,8 @@ export interface LongTableInterviewTurn {
   quality: InterviewTurnQuality;
   needsFollowUp: boolean;
   followUpQuestion?: string;
+  readyToSummarize?: boolean;
+  readinessRationale?: string[];
   rationale?: string[];
 }
 
