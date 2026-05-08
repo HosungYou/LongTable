@@ -4,7 +4,6 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { execSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
-import type { Interface as ReadlineInterface } from "node:readline/promises";
 import { createRequire } from "node:module";
 import { stdin as input, stdout as output, cwd, env, exit } from "node:process";
 import { dirname, join, resolve } from "node:path";
@@ -25,15 +24,15 @@ import { classifyCheckpointTrigger } from "@longtable/checkpoints";
 import {
   assessSearchSourceCapabilities,
   buildResearchSearchIntent,
-  buildSearchCapabilitySnapshot,
   parsePublisherTarget,
   probePublisherAccess,
   publisherConfigs,
   runResearchSearch,
-  searchCapabilitySnapshotPath,
+  SEARCH_SOURCES,
   summarizeConfiguredPublisherAccess,
   type EvidenceRun,
   type PublisherAccessRecord,
+  type SearchSource,
   type SearchSourceCapability
 } from "./search/index.js";
 import {
@@ -327,10 +326,11 @@ function usage(): string {
     "  longtable show [--json] [--path <file>]",
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
     "  longtable mcp install [--provider codex|claude|all] [--write] [--checkpoint-ui off|interactive|strong] [--json] [--codex-config <path>] [--claude-settings <path>] [--package <spec>]",
+    "  longtable access setup [--doi <doi>] [--json]",
+    "  longtable access status [--json]",
+    "  longtable access doctor [--doi <doi>] [--publisher auto|elsevier|springer_nature|wiley|taylor_francis|all] [--json]",
+    "  longtable access probe --doi <doi> [--publisher auto|elsevier|springer_nature|wiley|taylor_francis] [--json]",
     "  longtable search --query <text> [--intent literature|theory|measurement|citation|metadata|venue] [--field <text>] [--source all|crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj,unpaywall] [--must <term[,term]>] [--exclude <term[,term]>] [--limit <n>] [--allow-partial] [--publisher-access] [--record] [--cwd <path>] [--json]",
-    "  longtable search setup [--doi <doi>] [--json]",
-    "  longtable search doctor [--doi <doi>] [--publisher auto|elsevier|springer_nature|wiley|taylor_francis|all] [--json]",
-    "  longtable search probe --doi <doi> [--publisher auto|elsevier|springer_nature|wiley|taylor_francis] [--json]",
     "  longtable sentinel --prompt <text> [--cwd <path>] [--json] [--record]",
     "  longtable team --prompt <text> [--role <role[,role]>] [--debate] [--rounds 3|5] [--cwd <path>] [--json]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
@@ -375,7 +375,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "decide", "sentinel", "team", "search"].includes(command);
+    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "decide", "sentinel", "team", "access", "search"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -383,7 +383,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     startIndex = 1;
   } else if (command === "codex" || command === "claude" || command === "mcp") {
     startIndex = 2;
-  } else if (command === "search" && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
+  } else if ((command === "access" || command === "search") && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
     subcommand = maybeSubcommand;
     startIndex = 2;
   } else if (command === "audit" && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
@@ -2390,6 +2390,11 @@ const QUESTION_AUDIT_FIXTURES: Array<{
     expectedKinds: ["research_commitment"]
   },
   {
+    id: "scholarly_access_policy",
+    prompt: "메타분석 논문들의 PDF와 full text를 수집해서 원문 기반으로 코딩해줘.",
+    expectedKinds: ["evidence_risk"]
+  },
+  {
     id: "low_stakes_copyedit",
     prompt: "문장 끝 공백만 정리해줘.",
     expectedKinds: []
@@ -3050,6 +3055,129 @@ async function recordEvidenceRun(run: EvidenceRun, workingDirectory: string): Pr
   return evidencePath;
 }
 
+type AccessReadinessStatus = "configured" | "deferred" | "disabled";
+type AccessRoute = "metadata" | "oa_full_text" | "institutional" | "publisher_tdm" | "manual_pdf" | "unknown";
+type InstitutionalAccessMode = "vpn" | "library_proxy" | "browser_sso" | "unknown";
+type PublisherTdmReadiness = "configured" | "not_configured" | "deferred" | "unknown";
+
+interface AccessReadinessProfile {
+  version: 1;
+  updatedAt: string;
+  readiness: AccessReadinessStatus;
+  metadataSources: SearchSource[];
+  routes: AccessRoute[];
+  institutionalAccess?: {
+    available: boolean;
+    mode: InstitutionalAccessMode;
+    verified: false;
+    note: string;
+  };
+  publisherTdm: PublisherTdmReadiness;
+  oaOnly: boolean;
+  manualPdfAllowed: boolean;
+  storesSecrets: false;
+  requiresCheckpointBeforeSearch: boolean;
+  requiresCheckpointBeforeFullText: boolean;
+  publisherAccess?: {
+    contactEmailPresent: boolean;
+    records: PublisherAccessRecord[];
+  };
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+function uniqueAccessRoutes(routes: AccessRoute[]): AccessRoute[] {
+  return [...new Set(routes)];
+}
+
+function accessReadinessPath(home = homedir()): string {
+  return join(home, ".longtable", "access-readiness.json");
+}
+
+function readAccessReadinessProfile(): AccessReadinessProfile | undefined {
+  const path = accessReadinessPath();
+  if (!existsSync(path)) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(readFileSync(path, "utf8")) as AccessReadinessProfile;
+  } catch {
+    return undefined;
+  }
+}
+
+function hasPublisherCredentialSignal(records: PublisherAccessRecord[]): boolean {
+  return records.some((record) => record.presentEnv.length > 0 || record.credentialStatus !== "missing");
+}
+
+function readinessPublisherRecord(record: PublisherAccessRecord): PublisherAccessRecord {
+  const safeRecord = { ...record };
+  delete safeRecord.evidenceSnippet;
+  return safeRecord;
+}
+
+function inferAccessRoutes(records: PublisherAccessRecord[]): AccessRoute[] {
+  const routes: AccessRoute[] = ["metadata"];
+  if (hasPublisherCredentialSignal(records)) {
+    routes.push("publisher_tdm");
+  }
+  return routes;
+}
+
+function buildAccessReadinessProfile(options: {
+  readiness: AccessReadinessStatus;
+  routes?: AccessRoute[];
+  institutionalAccessMode?: InstitutionalAccessMode;
+  publisherRecords?: PublisherAccessRecord[];
+}): AccessReadinessProfile {
+  const publisherRecords = options.publisherRecords ?? summarizeConfiguredPublisherAccess(env);
+  const routes = uniqueAccessRoutes(options.routes?.length ? options.routes : inferAccessRoutes(publisherRecords));
+  const disabled = options.readiness === "disabled";
+  const institutionalMode = options.institutionalAccessMode;
+  const institutionalAccess = routes.includes("institutional")
+    ? {
+        available: true,
+        mode: institutionalMode ?? ("unknown" as InstitutionalAccessMode),
+        verified: false as const,
+        note: "LongTable records institutional access readiness only. The researcher must complete VPN/proxy/library login directly."
+      }
+    : undefined;
+
+  return {
+    version: 1,
+    updatedAt: nowIso(),
+    readiness: options.readiness,
+    metadataSources: [...SEARCH_SOURCES],
+    routes: disabled ? [] : routes,
+    ...(institutionalAccess ? { institutionalAccess } : {}),
+    publisherTdm: disabled
+      ? "deferred"
+      : routes.includes("publisher_tdm")
+        ? hasPublisherCredentialSignal(publisherRecords) ? "configured" : "unknown"
+        : "not_configured",
+    oaOnly: !disabled && routes.includes("oa_full_text") && !routes.includes("institutional") && !routes.includes("publisher_tdm"),
+    manualPdfAllowed: !disabled && routes.includes("manual_pdf"),
+    storesSecrets: false,
+    requiresCheckpointBeforeSearch: options.readiness === "deferred",
+    requiresCheckpointBeforeFullText: options.readiness !== "disabled",
+    ...(disabled ? {} : {
+      publisherAccess: {
+        contactEmailPresent: Boolean(env.LONGTABLE_CONTACT_EMAIL?.trim()),
+        records: publisherRecords.map(readinessPublisherRecord)
+      }
+    })
+  };
+}
+
+async function saveAccessReadinessProfile(profile: AccessReadinessProfile): Promise<string> {
+  const profilePath = accessReadinessPath();
+  await mkdir(dirname(profilePath), { recursive: true });
+  await writeJsonFile(profilePath, profile);
+  return profilePath;
+}
+
 function renderPublisherAccessRecord(record: PublisherAccessRecord): string {
   const envSummary = record.missingEnv.length > 0
     ? `missing ${record.missingEnv.join(", ")}`
@@ -3086,13 +3214,6 @@ function renderPublisherAccessRecords(title: string, records: PublisherAccessRec
   return lines.join("\n");
 }
 
-async function saveSearchCapabilityRecords(records: PublisherAccessRecord[]): Promise<string> {
-  const snapshotPath = searchCapabilitySnapshotPath();
-  await mkdir(dirname(snapshotPath), { recursive: true });
-  await writeJsonFile(snapshotPath, buildSearchCapabilitySnapshot(records, env));
-  return snapshotPath;
-}
-
 async function probeAllPublishers(doi: string): Promise<PublisherAccessRecord[]> {
   const records: PublisherAccessRecord[] = [];
   for (const publisher of publisherConfigs()) {
@@ -3105,9 +3226,50 @@ async function probeAllPublishers(doi: string): Promise<PublisherAccessRecord[]>
   return records;
 }
 
-async function runSearchProbe(args: Record<string, string | boolean>): Promise<PublisherAccessRecord[]> {
+function renderAccessReadinessProfile(profile: AccessReadinessProfile, profilePath = accessReadinessPath()): string {
+  const lines = [
+    "LongTable Scholarly Access Readiness",
+    `- profile: ${profilePath}`,
+    `- readiness: ${profile.readiness}`,
+    `- routes: ${profile.routes.length > 0 ? profile.routes.join(", ") : "none"}`,
+    `- metadata sources: ${profile.metadataSources.join(", ")}`,
+    `- OA-only: ${profile.oaOnly ? "yes" : "no"}`,
+    `- manual PDF allowed: ${profile.manualPdfAllowed ? "yes" : "no"}`,
+    `- publisher/TDM: ${profile.publisherTdm}`,
+    `- stores secrets: ${profile.storesSecrets ? "yes" : "no"}`,
+    `- checkpoint before search: ${profile.requiresCheckpointBeforeSearch ? "yes" : "no"}`,
+    `- checkpoint before full text: ${profile.requiresCheckpointBeforeFullText ? "yes" : "no"}`
+  ];
+  if (profile.institutionalAccess) {
+    lines.push(`- institutional access: ${profile.institutionalAccess.mode}; verified: no`);
+    lines.push(`  note: ${profile.institutionalAccess.note}`);
+  }
+  if (profile.publisherAccess) {
+    lines.push(`- contact email: ${profile.publisherAccess.contactEmailPresent ? "present" : "missing"}`);
+    lines.push(`- publisher adapters: ${profile.publisherAccess.records.length}`);
+  }
+  return lines.join("\n");
+}
+
+function renderAccessDoctor(profile: AccessReadinessProfile | undefined, records: PublisherAccessRecord[], profilePath: string): string {
+  const metadataCapabilities = assessSearchSourceCapabilities([...SEARCH_SOURCES], env);
+  const lines = [
+    "LongTable Scholarly Access Doctor",
+    `- readiness profile: ${profile ? "present" : "missing"} (${profilePath})`,
+    `- metadata sources: ${metadataCapabilities.map((capability) => `${capability.source}:${capability.enabled ? "available" : "needs_config"}`).join(", ")}`,
+    "- institutional access: LongTable cannot verify VPN/proxy/SSO until the researcher logs in.",
+    "- secrets: LongTable stores env var names and capability status only, never credential values.",
+    renderPublisherAccessRecords("Publisher API/TDM adapters", records)
+  ];
+  if (!profile) {
+    lines.push("- next: run `longtable access setup` before PDF collection or full-text extraction.");
+  }
+  return lines.join("\n");
+}
+
+async function runAccessProbe(args: Record<string, string | boolean>): Promise<PublisherAccessRecord[]> {
   if (typeof args.doi !== "string" || !args.doi.trim()) {
-    throw new Error("`longtable search probe` requires --doi <doi>.");
+    throw new Error("`longtable access probe` requires --doi <doi>.");
   }
   const publisher = parsePublisherTarget(args.publisher);
   const record = await probePublisherAccess({
@@ -3123,7 +3285,7 @@ async function runSearchProbe(args: Record<string, string | boolean>): Promise<P
   return [record];
 }
 
-async function runSearchDoctor(args: Record<string, string | boolean>): Promise<PublisherAccessRecord[]> {
+async function collectAccessDoctorRecords(args: Record<string, string | boolean>): Promise<PublisherAccessRecord[]> {
   let records: PublisherAccessRecord[];
   if (typeof args.doi === "string" && args.doi.trim()) {
     if (args.publisher === "all") {
@@ -3139,106 +3301,157 @@ async function runSearchDoctor(args: Record<string, string | boolean>): Promise<
   } else {
     records = summarizeConfiguredPublisherAccess(env);
   }
+  return records;
+}
 
-  const snapshotPath = searchCapabilitySnapshotPath();
-  const snapshotExists = existsSync(snapshotPath);
+async function runAccessDoctor(args: Record<string, string | boolean>): Promise<PublisherAccessRecord[]> {
+  const records = await collectAccessDoctorRecords(args);
+  const profilePath = accessReadinessPath();
+  const profile = readAccessReadinessProfile();
   if (args.json === true) {
     console.log(JSON.stringify({
-      capabilityFile: snapshotPath,
-      capabilityFileExists: snapshotExists,
+      readinessFile: profilePath,
+      readinessFileExists: Boolean(profile),
+      readiness: profile,
+      metadataSources: assessSearchSourceCapabilities([...SEARCH_SOURCES], env),
       records
     }, null, 2));
   } else {
-    console.log(renderPublisherAccessRecords("LongTable Search Publisher Access Doctor", records, snapshotPath));
-    if (!snapshotExists) {
-      console.log("- saved capabilities: none yet; run `longtable search setup` to record non-secret capability status.");
-    }
+    console.log(renderAccessDoctor(profile, records, profilePath));
   }
   return records;
 }
 
-async function promptPublisherDoi(rl: ReadlineInterface, label: string, defaultDoi?: string): Promise<string | undefined> {
-  const prompt = defaultDoi
-    ? `${label} test DOI [${defaultDoi}, Enter to reuse, skip to skip]: `
-    : `${label} test DOI (Enter to skip): `;
-  const answer = (await rl.question(prompt)).trim();
-  if (!answer && defaultDoi) {
-    return defaultDoi;
-  }
-  if (!answer || /^skip$/i.test(answer)) {
-    return undefined;
-  }
-  return answer;
-}
-
-async function runInteractiveSearchSetup(defaultDoi?: string): Promise<PublisherAccessRecord[]> {
-  const rl = createInterface({ input, output });
-  const records: PublisherAccessRecord[] = [];
-  try {
-    console.log("LongTable publisher access setup");
-    console.log("LongTable does not store API keys or TDM tokens. It reads environment variables and records only non-secret capability results.");
-    console.log("");
-    for (const publisher of publisherConfigs()) {
-      console.log(`${publisher.label}`);
-      console.log(`  required env: ${publisher.requiredEnv.join(", ")}`);
-      if (publisher.optionalEnv.length > 0) {
-        console.log(`  optional env: ${publisher.optionalEnv.join(", ")}`);
-      }
-      console.log(`  ${publisher.setupHint}`);
-      const doi = await promptPublisherDoi(rl, publisher.label, defaultDoi);
-      if (doi) {
-        records.push(await probePublisherAccess({
-          doi,
-          publisher: publisher.publisher,
-          env
-        }));
-      } else {
-        const summary = summarizeConfiguredPublisherAccess(env)
-          .find((record) => record.publisher === publisher.publisher);
-        if (summary) {
-          records.push(summary);
-        }
-      }
-      console.log(renderPublisherAccessRecord(records[records.length - 1]));
-      console.log("");
-    }
-  } finally {
-    rl.close();
-  }
-  return records;
-}
-
-async function runSearchSetup(args: Record<string, string | boolean>): Promise<void> {
+async function publisherRecordsForAccessSetup(args: Record<string, string | boolean>, routes: AccessRoute[]): Promise<PublisherAccessRecord[]> {
   const defaultDoi = typeof args.doi === "string" ? args.doi : undefined;
-  const records = input.isTTY && output.isTTY && args.json !== true
-    ? await runInteractiveSearchSetup(defaultDoi)
-    : defaultDoi
-      ? await probeAllPublishers(defaultDoi)
+  if (!routes.includes("publisher_tdm")) {
+    return summarizeConfiguredPublisherAccess(env);
+  }
+  if (defaultDoi) {
+    return probeAllPublishers(defaultDoi);
+  }
+  if (input.isTTY && output.isTTY && args.json !== true) {
+    const doi = await promptText("Optional DOI for publisher/TDM probing. Leave blank to record env-var readiness only.", false);
+    return doi
+      ? await probeAllPublishers(doi)
       : summarizeConfiguredPublisherAccess(env);
-  const snapshotPath = await saveSearchCapabilityRecords(records);
+  }
+  return summarizeConfiguredPublisherAccess(env);
+}
+
+async function runInteractiveAccessSetup(args: Record<string, string | boolean>): Promise<AccessReadinessProfile> {
+  const readiness = await promptChoice("Scholarly Access Readiness\n\nWill this machine/account use scholarly search or full-text access?", [
+    { id: "configured", label: "Configure now", description: "Record access capability without storing secrets." },
+    { id: "deferred", label: "Ask later", description: "Defer setup and require an access checkpoint before search or extraction." },
+    { id: "disabled", label: "Do not use", description: "This project will use metadata/manual notes without scholarly full-text access." }
+  ]) as AccessReadinessStatus;
+
+  if (readiness !== "configured") {
+    return buildAccessReadinessProfile({ readiness, routes: [] });
+  }
+
+  const routeSelections = await promptMultiChoice("Select every scholarly access route that is available or intended. Secrets are never stored.", [
+    { id: "metadata", label: "Open metadata", description: "Crossref, OpenAlex, Semantic Scholar, PubMed, ERIC, DOAJ, Unpaywall." },
+    { id: "oa_full_text", label: "OA full text", description: "Use open-access PDF/full-text when legally available." },
+    { id: "institutional", label: "Institutional access", description: "VPN, library proxy, or browser SSO handled by the researcher." },
+    { id: "publisher_tdm", label: "Publisher API/TDM", description: "Use configured publisher API/TDM environment variables." },
+    { id: "manual_pdf", label: "Manual PDFs", description: "Researcher supplies PDFs; LongTable organizes/probes allowed extraction." },
+    { id: "unknown", label: "Unknown", description: "Keep access uncertain and require a checkpoint before full-text work." }
+  ]) as AccessRoute[];
+  const routes = uniqueAccessRoutes(routeSelections.length > 0 ? routeSelections : ["metadata"]);
+  const institutionalAccessMode = routes.includes("institutional")
+    ? await promptChoice("How will institutional access be completed? The researcher handles login/MFA directly.", [
+        { id: "vpn", label: "VPN", description: "Researcher connects through school or institutional VPN." },
+        { id: "library_proxy", label: "Library proxy", description: "Researcher uses proxy links or library resolver." },
+        { id: "browser_sso", label: "Browser SSO", description: "Researcher logs into library/publisher SSO in the browser." },
+        { id: "unknown", label: "Unknown", description: "The route exists but is not yet specified." }
+      ]) as InstitutionalAccessMode
+    : undefined;
+  const publisherRecords = await publisherRecordsForAccessSetup(args, routes);
+  return buildAccessReadinessProfile({
+    readiness,
+    routes,
+    institutionalAccessMode,
+    publisherRecords
+  });
+}
+
+async function runAccessSetup(args: Record<string, string | boolean>): Promise<void> {
+  const records = typeof args.doi === "string" && args.doi.trim()
+    ? await probeAllPublishers(args.doi)
+    : summarizeConfiguredPublisherAccess(env);
+  const profile = input.isTTY && output.isTTY && args.json !== true
+    ? await runInteractiveAccessSetup(args)
+    : buildAccessReadinessProfile({
+        readiness: "configured",
+        routes: inferAccessRoutes(records),
+        publisherRecords: records
+      });
+  const profilePath = await saveAccessReadinessProfile(profile);
 
   if (args.json === true) {
     console.log(JSON.stringify({
-      capabilityFile: snapshotPath,
-      snapshot: buildSearchCapabilitySnapshot(records, env)
+      readinessFile: profilePath,
+      profile
     }, null, 2));
     return;
   }
-  console.log(renderPublisherAccessRecords("LongTable Search Publisher Access Setup", records, snapshotPath));
+  console.log(renderAccessReadinessProfile(profile, profilePath));
+}
+
+async function runAccessStatus(args: Record<string, string | boolean>): Promise<void> {
+  const profilePath = accessReadinessPath();
+  const profile = readAccessReadinessProfile();
+  if (args.json === true) {
+    console.log(JSON.stringify({
+      readinessFile: profilePath,
+      readinessFileExists: Boolean(profile),
+      readiness: profile
+    }, null, 2));
+    return;
+  }
+  if (!profile) {
+    console.log([
+      "LongTable Scholarly Access Readiness",
+      `- profile: missing (${profilePath})`,
+      "- next: run `longtable access setup` before PDF collection or full-text extraction."
+    ].join("\n"));
+    return;
+  }
+  console.log(renderAccessReadinessProfile(profile, profilePath));
+}
+
+async function runAccess(subcommand: string | undefined, args: Record<string, string | boolean>): Promise<void> {
+  if (subcommand === "setup") {
+    await runAccessSetup(args);
+    return;
+  }
+  if (subcommand === "status") {
+    await runAccessStatus(args);
+    return;
+  }
+  if (subcommand === "doctor") {
+    await runAccessDoctor(args);
+    return;
+  }
+  if (subcommand === "probe") {
+    await runAccessProbe(args);
+    return;
+  }
+  if (!subcommand) {
+    await runAccessStatus(args);
+    return;
+  }
+  throw new Error(`Unknown access subcommand: ${subcommand}`);
+}
+
+function movedSearchAccessCommand(subcommand: string): Error {
+  return new Error(`\`longtable search ${subcommand}\` has moved. Use \`longtable access ${subcommand}\`.`);
 }
 
 async function runSearch(subcommand: string | undefined, args: Record<string, string | boolean>): Promise<void> {
-  if (subcommand === "probe") {
-    await runSearchProbe(args);
-    return;
-  }
-  if (subcommand === "doctor" || subcommand === "status") {
-    await runSearchDoctor(args);
-    return;
-  }
-  if (subcommand === "setup") {
-    await runSearchSetup(args);
-    return;
+  if (subcommand === "setup" || subcommand === "doctor" || subcommand === "status" || subcommand === "probe") {
+    throw movedSearchAccessCommand(subcommand);
   }
   if (subcommand) {
     throw new Error(`Unknown search subcommand: ${subcommand}`);
@@ -4415,6 +4628,11 @@ async function main(): Promise<void> {
 
   if (command === "mcp") {
     await runMcpSubcommand(subcommand, values);
+    return;
+  }
+
+  if (command === "access") {
+    await runAccess(subcommand, values);
     return;
   }
 

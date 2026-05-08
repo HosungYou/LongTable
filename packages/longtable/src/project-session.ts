@@ -464,6 +464,15 @@ function renderResearchSpecificationSummary(
   if (specification.methodAnalysis.analysisOptions.length > 0) {
     lines.push(`- ${korean ? "분석 옵션" : "Analysis options"}: ${specification.methodAnalysis.analysisOptions.join("; ")}`);
   }
+  if (specification.evidenceAccess.requiredSources?.length) {
+    lines.push(`- ${korean ? "필요 근거원" : "Required sources"}: ${specification.evidenceAccess.requiredSources.join("; ")}`);
+  }
+  if (specification.evidenceAccess.accessRequirements?.length) {
+    lines.push(`- ${korean ? "Corpus and Access Plan" : "Corpus and Access Plan"}: ${specification.evidenceAccess.accessRequirements.join("; ")}`);
+  }
+  if (specification.evidenceAccess.evidenceStandards?.length) {
+    lines.push(`- ${korean ? "근거 기준" : "Evidence standards"}: ${specification.evidenceAccess.evidenceStandards.join("; ")}`);
+  }
   if (specification.epistemicAlignment.conflictResolutionRule) {
     lines.push(`- ${korean ? "충돌 조정 규칙" : "Conflict rule"}: ${specification.epistemicAlignment.conflictResolutionRule}`);
   }
@@ -1707,9 +1716,9 @@ function followUpQuestionOptions(
   first: QuestionOption,
   second: QuestionOption,
   third: QuestionOption,
-  fourth?: QuestionOption
+  ...rest: QuestionOption[]
 ): QuestionOption[] {
-  return [first, second, third, ...(fourth ? [fourth] : [])];
+  return [first, second, third, ...rest];
 }
 
 export function buildQuestionOpportunitySpecs(
@@ -1783,8 +1792,33 @@ export function buildQuestionOpportunitySpecs(
     /\brandom[- ]?effects\b/i,
     /분석\s*계획|분석\s*방법|메타\s*분석|분석\s*(?:모형|모델)|통계\s*(?:모형|모델)|구조\s*방정식|경로\s*모형|조절효과|랜덤\s*효과/
   ]);
+  const accessCue = includesAny(normalized, [
+    /\b(pdf|full[- ]?text|tdm|publisher api|institutional access|library login|vpn|proxy|subscription|paper collection|source collection|corpus|download)\b/i,
+    /PDF|원문|전문|기관\s*구독|기관구독|구독|VPN|프록시|도서관|라이브러리|TDM|논문\s*수집|문헌\s*수집|코퍼스|다운로드/
+  ]);
   const decisionFamilyCount = [scopeCue, theoryCue, measurementCodingCue, methodCue, analysisCue]
     .filter(Boolean).length;
+
+  if (accessCue) {
+    push({
+      key: "scholarly_access_policy",
+      kind: "evidence_risk",
+      title: "Scholarly access policy",
+      question: "What scholarly access route should LongTable use before collecting PDFs, full text, or subscription-only evidence?",
+      whyNow: "Full-text access decisions can change the corpus, inclusion bias, reproducibility, and TDM permission boundary.",
+      options: followUpQuestionOptions(
+        { value: "oa_only", label: "OA-only", description: "Use only open-access PDF or full text.", recommended: true },
+        { value: "institutional_access", label: "Institutional access", description: "Include VPN/proxy/library-login access after the researcher completes login." },
+        { value: "publisher_tdm", label: "Publisher API/TDM", description: "Use configured publisher API/TDM credentials and record entitlement checks." },
+        { value: "manual_pdf", label: "Manual PDFs", description: "Use PDFs supplied by the researcher and record provenance." },
+        { value: "metadata_only", label: "Metadata only", description: "Do not collect full text yet." }
+      ),
+      confidence: "high",
+      autoEligible: true,
+      required: true,
+      cues: ["scholarly_access", "full_text", "corpus"]
+    });
+  }
 
   if (decisionActionCue && decisionFamilyCount >= 2) {
     push({
@@ -2236,7 +2270,7 @@ export function buildQuestionOpportunitySpecs(
 
   let selected = options.autoOnly === true ? specs.filter((spec) => spec.autoEligible) : specs;
   if (options.requiredOnly === true) {
-    selected = selected.filter((spec) => spec.kind === "research_commitment");
+    selected = selected.filter((spec) => spec.kind === "research_commitment" || spec.required);
   }
   if (normalized.includes("protected decision closure pressure")) {
     selected = selected.filter((spec) => spec.key === "protected_decision_closure");

@@ -96,9 +96,10 @@ Supported setup posture:
 | Wiley | `WILEY_TDM_TOKEN` or `WILEY_TDM_CLIENT_TOKEN` | TDM token response for a DOI |
 | Taylor & Francis | `TANDF_TDM_TOKEN`/`TANDF_TDM_ENDPOINT` or `TAYLOR_FRANCIS_*` equivalents | configured institutional TDM endpoint, otherwise license-review status |
 
-`longtable search setup` stores only non-secret capability results under
-`~/.longtable/search-capabilities.json`; it does not store keys, tokens, or full
-text.
+`longtable access setup` stores only non-secret scholarly access readiness under
+`~/.longtable/access-readiness.json`; it does not store keys, tokens, passwords,
+SSO credentials, PDFs, or full text. Search remains the evidence discovery
+surface; access setup is the readiness and full-text boundary surface.
 
 ### General web fallback
 
@@ -151,7 +152,7 @@ Derived use:
 - OpenAlex should use an API key for reliable API usage.
 - Semantic Scholar and NCBI can run without keys in light use, but keys improve reliability or rate limits.
 - Publisher credentials are optional and are read from environment variables.
-- `longtable search setup` and `longtable search probe` verify credentials with
+- `longtable access setup` and `longtable access probe` verify credentials with
   DOI probes and record only capability status.
 
 Do not store credentials in project `CURRENT.md`, `AGENTS.md`, or researcher-facing summaries.
@@ -288,8 +289,9 @@ Unpaywall, then normalize results as `EvidenceCard` records.
 V1 behavior:
 
 - environment-variable credentials only; project files do not store API keys
-- `longtable search setup`, `search doctor`, and `search probe` verify
-  publisher credentials and entitlement scope without storing secrets
+- `longtable access setup`, `access doctor`, and `access probe` verify
+  scholarly access readiness, publisher credentials, and entitlement scope
+  without storing secrets
 - publisher adapters cover Elsevier, Springer Nature, Wiley, and Taylor &
   Francis with graceful metadata-only fallback
 - partial-search confirmation when requested sources are unavailable
@@ -308,7 +310,7 @@ V1 behavior:
    and Unpaywall routes behind capability checks.
 4. Done: add metadata/abstract-based citation support labels.
 5. Done: record search outputs as evidence artifacts.
-6. Done: add publisher access setup, doctor, DOI probe, and entitlement status.
+6. Done: add `longtable access` setup, doctor, DOI probe, and entitlement status.
 7. Next: connect evidence cards directly into panel results and decision records.
 
 ## Non-Goals

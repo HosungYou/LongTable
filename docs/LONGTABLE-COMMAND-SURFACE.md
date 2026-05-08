@@ -235,9 +235,9 @@ publication metadata, and research decisions that need external support.
 Examples:
 
 ```bash
-longtable search setup
-longtable search doctor --json
-longtable search probe --doi "10.1016/example" --publisher elsevier
+longtable access setup
+longtable access doctor --json
+longtable access probe --doi "10.1016/example" --publisher elsevier
 longtable search --query "trust calibration measurement" --intent measurement
 longtable search --query "trust calibration measurement" --publisher-access --json
 longtable search --query "trust calibration citation support" --intent citation --record
@@ -248,10 +248,17 @@ evidence cards, deduplicates and ranks them, and optionally records the run
 under `.longtable/evidence/`. Missing credentials block non-interactive full
 router runs unless `--allow-partial` is supplied.
 
-`search setup`, `search doctor`, and `search probe` configure publisher access
+### `longtable access`
+
+Scholarly access readiness for systematic reviews, meta-analyses, PDF
+collection, full-text extraction, and publisher/TDM probing.
+
+`access setup`, `access doctor`, and `access probe` configure scholarly access
 without storing secrets. They read environment variables for Elsevier, Springer
 Nature, Wiley, and Taylor & Francis, verify DOI entitlement where possible, and
-store only non-secret capability status under `~/.longtable/search-capabilities.json`.
+store only non-secret readiness status under `~/.longtable/access-readiness.json`.
+`longtable search setup`, `longtable search doctor`, and `longtable search probe`
+are removed; access decisions now live under the access namespace.
 
 ### `longtable roles`
 

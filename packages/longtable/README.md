@@ -269,16 +269,17 @@ deduplicates, ranks, and labels results as evidence cards. Some sources work
 without keys, some require a contact email, and some need API keys for reliable
 use.
 
-Publisher access is configured separately through environment variables and
-DOI probes. `longtable search setup` checks Elsevier, Springer Nature, Wiley,
-and Taylor & Francis credentials or TDM tokens without storing secrets.
+Scholarly access is configured separately through `longtable access setup`.
+It records readiness for metadata, OA full text, institutional access,
+publisher API/TDM credentials, and manual PDFs without storing secrets.
+Publisher probes cover Elsevier, Springer Nature, Wiley, and Taylor & Francis.
 
 Citation support should be checked explicitly. A reference can be useful as
 background while still failing to support the specific claim attached to it.
 
 ```bash
-longtable search setup
-longtable search probe --doi "10.1016/example" --publisher elsevier
+longtable access setup
+longtable access probe --doi "10.1016/example" --publisher elsevier
 longtable search --query "trust calibration measurement" --intent measurement
 longtable search --query "trust calibration measurement" --publisher-access --json
 longtable search --query "trust calibration citation support" --intent citation --record

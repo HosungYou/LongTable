@@ -23,6 +23,7 @@ assert(byId.get("harness_philosophy")?.observedKinds.includes("philosophical_ref
 assert(byId.get("all_needed_questions")?.observedKinds.includes("question_policy"), "needed-questions prompt should trigger question policy");
 assert(byId.get("trust_calibration_construct")?.observedKinds.includes("research_commitment"), "trust calibration prompt should trigger construct-boundary question");
 assert(byId.get("protected_decision_closure")?.observedKinds.includes("research_commitment"), "protected-decision closure prompt should trigger research commitment");
+assert(byId.get("scholarly_access_policy")?.observedKinds.includes("evidence_risk"), "PDF/full-text collection should trigger access evidence risk");
 assert((byId.get("low_stakes_copyedit")?.observedKinds ?? []).length === 0, "low-stakes copyedit should not auto-create blocking questions");
 
 console.log("question audit smoke passed");

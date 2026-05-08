@@ -164,6 +164,18 @@ const RULES: CueRule[] = [
     rationale: "Evidence-sensitive claims need provenance before synthesis."
   },
   {
+    family: "evidence",
+    checkpointKey: "scholarly_access_policy",
+    stage: "method_design",
+    mode: "commit",
+    level: "adaptive_required",
+    cues: [
+      /\b(pdf|full[- ]?text|tdm|publisher api|institutional access|library login|vpn|proxy|subscription|paper collection|source collection|corpus|download)\b/i,
+      /PDF|원문|전문|기관\s*구독|기관구독|구독|VPN|프록시|도서관|라이브러리|TDM|논문\s*수집|문헌\s*수집|코퍼스|다운로드/
+    ],
+    rationale: "Full-text access decisions change corpus coverage, inclusion bias, reproducibility, and TDM permission."
+  },
+  {
     family: "authorship",
     checkpointKey: "authorship_voice",
     stage: "writing",

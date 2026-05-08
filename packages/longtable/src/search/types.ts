@@ -263,13 +263,6 @@ export interface PublisherAccessRecord {
   crossref?: CrossrefTdmDiscovery;
 }
 
-export interface SearchCapabilitySnapshot {
-  version: 1;
-  updatedAt: string;
-  contactEmailPresent: boolean;
-  records: PublisherAccessRecord[];
-}
-
 export interface PublisherProbeInput {
   doi: string;
   publisher?: PublisherProbeTarget;

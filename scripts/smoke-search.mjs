@@ -299,7 +299,7 @@ assertEqual(cliBlocked.run.status, "blocked", "CLI non-TTY missing credential st
 
 const cliDoctor = JSON.parse(execFileSync("node", [
   cli,
-  "search",
+  "access",
   "doctor",
   "--json"
 ], {
@@ -310,7 +310,48 @@ const cliDoctor = JSON.parse(execFileSync("node", [
     HOME: process.env.HOME ?? ""
   }
 }));
-assertEqual(cliDoctor.records.length, 4, "CLI search doctor should report four publisher adapters");
+assertEqual(cliDoctor.records.length, 4, "CLI access doctor should report four publisher adapters");
 assert(cliDoctor.records.every((record) => !JSON.stringify(record).includes("test-elsevier")), "doctor output should not leak key values");
+
+const setupHome = join(repoRoot, ".tmp-access-home");
+execFileSync("rm", ["-rf", setupHome], { cwd: repoRoot });
+const cliSetup = JSON.parse(execFileSync("node", [
+  cli,
+  "access",
+  "setup",
+  "--json"
+], {
+  cwd: repoRoot,
+  encoding: "utf8",
+  env: {
+    PATH: process.env.PATH ?? "",
+    HOME: setupHome
+  }
+}));
+assert(cliSetup.readinessFile.endsWith(".longtable/access-readiness.json"), "access setup should write access-readiness profile");
+assertEqual(cliSetup.profile.storesSecrets, false, "access setup should not store secrets");
+assert(!JSON.stringify(cliSetup).includes("test-elsevier"), "access setup output should not leak key values");
+
+let movedSearchSetup = "";
+try {
+  execFileSync("node", [
+    cli,
+    "search",
+    "setup",
+    "--json"
+  ], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    env: {
+      PATH: process.env.PATH ?? "",
+      HOME: setupHome
+    }
+  });
+} catch (error) {
+  movedSearchSetup = String(error.stderr ?? error.message ?? "");
+}
+assert(movedSearchSetup.includes("longtable access setup"), "removed search setup should point to access setup");
+execFileSync("rm", ["-rf", setupHome], { cwd: repoRoot });
 
 console.log("search smoke passed");

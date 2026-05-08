@@ -640,19 +640,26 @@ and NCBI can use optional keys for more reliable or higher-rate access.
 Publisher access is access-aware rather than OA-only: Elsevier, Springer
 Nature, Wiley, and Taylor & Francis can be probed through user-provided
 API/TDM credentials and institutional entitlement, while LongTable records only
-non-secret capability status and short verification snippets.
+non-secret capability status and short verification snippets. For systematic
+reviews, meta-analyses, PDF collection, or full-text extraction, use
+`longtable access setup` before corpus work. Access setup records readiness and
+non-secret capability status only; it never stores passwords, SSO credentials,
+API keys, tokens, or PDFs.
 
 The important policy is claim-level support. A source can be useful background
 while still failing to support the specific sentence attached to it.
 
 ```bash
-longtable search setup
-longtable search doctor --json
-longtable search probe --doi "10.1016/example" --publisher elsevier
+longtable access setup
+longtable access doctor --json
+longtable access probe --doi "10.1016/example" --publisher elsevier
 longtable search --query "trust calibration measurement" --intent measurement --record
 longtable search --query "trust calibration measurement" --publisher-access --json
 longtable search --query "does this citation support my claim?" --intent citation --source all --json
 ```
+
+See `docs/SCHOLARLY-ACCESS.md` for the boundary between access readiness,
+institutional login, TDM permission, and full-text extraction.
 
 ## Health Checks
 

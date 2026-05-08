@@ -194,6 +194,12 @@ function looksLikeResearchCommitmentPrompt(prompt: string): boolean {
   );
 }
 
+function looksLikeAccessSensitiveResearchAction(prompt: string): boolean {
+  const normalized = prompt.trim();
+  return /\b(pdf|full[- ]?text|tdm|publisher api|institutional access|library login|vpn|proxy|subscription|paper collection|source collection|corpus|download)\b/i.test(normalized)
+    || /PDF|원문|전문|기관\s*구독|기관구독|구독|VPN|프록시|도서관|라이브러리|TDM|논문\s*수집|문헌\s*수집|코퍼스|다운로드/.test(normalized);
+}
+
 function looksLikeQuestionGenerationPrompt(prompt: string): boolean {
   return /\b(needed questions?|necessary questions?|question generation|clarifying questions?|ask questions?)\b/i.test(prompt)
     || /필요한\s*질문|질문을\s*(모두|많이|생성)|질문\s*생성|물어봐|질문해/.test(prompt);
@@ -252,12 +258,13 @@ function shouldSurfaceInterviewContext(prompt: string): boolean {
 }
 
 function shouldCreateRequiredQuestionsForPrompt(prompt: string): boolean {
-  return !looksLikeLongTableProductOrToolingPrompt(prompt) && looksLikeResearchCommitmentPrompt(prompt);
+  return !looksLikeLongTableProductOrToolingPrompt(prompt) &&
+    (looksLikeResearchCommitmentPrompt(prompt) || looksLikeAccessSensitiveResearchAction(prompt));
 }
 
 function shouldApplyProtectedDecisionClosure(runtime: LongTableRuntime, prompt: string): boolean {
   return Boolean(runtime.context.session.protectedDecision) &&
-    shouldCreateRequiredQuestionsForPrompt(prompt) &&
+    looksLikeResearchCommitmentPrompt(prompt) &&
     !looksLikeQuestionGenerationPrompt(prompt) &&
     !looksLikeMultiCommitmentChangePrompt(prompt);
 }

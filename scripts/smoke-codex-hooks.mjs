@@ -247,6 +247,26 @@ for (const question of directionChangeQuestions) {
   });
 }
 
+const accessPolicyHook = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "메타분석 논문들의 PDF와 full text를 수집해서 원문 기반으로 코딩해줘."
+}, workspaceTmp);
+const accessPolicyContext = accessPolicyHook?.hookSpecificOutput?.additionalContext ?? "";
+assert(accessPolicyContext.includes("Scholarly access policy"), "PDF/full-text collection should create an access policy checkpoint");
+const accessPolicyState = JSON.parse(readFileSync(join(workspaceTmp, ".longtable", "state.json"), "utf8"));
+const accessPolicyQuestions = (accessPolicyState.questionLog ?? []).filter((question) =>
+  question.status === "pending" &&
+  question.prompt.checkpointKey === "follow_up_scholarly_access_policy"
+);
+assertEqual(accessPolicyQuestions.length, 1, "Access-sensitive corpus work should persist exactly one access checkpoint");
+for (const question of accessPolicyQuestions) {
+  await clearWorkspaceQuestion({
+    context,
+    questionId: question.id,
+    reason: "Cleared after verifying scholarly access policy checkpoint generation in smoke test."
+  });
+}
+
 const falsePositiveQuestion = await createWorkspaceQuestion({
   context,
   prompt: "False-positive hook record created for prune smoke coverage.",

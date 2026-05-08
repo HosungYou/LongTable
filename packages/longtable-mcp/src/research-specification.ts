@@ -100,6 +100,8 @@ export function renderResearchSpecificationPreview(specification: ResearchSpecif
     `${korean ? "이론 앵커" : "Theory anchors"}: ${compactList(specification.theoryAndFraming.anchors)}`,
     `${korean ? "코딩 규칙" : "Coding rules"}: ${compactList(specification.measurementCoding.codingRules)}`,
     `${korean ? "분석 옵션" : "Analysis options"}: ${compactList(specification.methodAnalysis.analysisOptions)}`,
+    `${korean ? "Corpus and Access Plan" : "Corpus and Access Plan"}: ${compactList(specification.evidenceAccess.accessRequirements ?? [])}`,
+    `${korean ? "근거 기준" : "Evidence standards"}: ${compactList(specification.evidenceAccess.evidenceStandards ?? [])}`,
     specification.epistemicAlignment.conflictResolutionRule
       ? `${korean ? "충돌 조정" : "Conflict rule"}: ${specification.epistemicAlignment.conflictResolutionRule}`
       : undefined,
@@ -117,6 +119,7 @@ function renderResearchSpecificationDecisionContext(specification: ResearchSpeci
     `${korean ? "제목" : "Title"}: ${specification.title}`,
     `${korean ? "목적" : "Purpose"}: ${specification.researchDirection.purpose}`,
     `${korean ? "핵심 construct" : "Core constructs"}: ${compactList(specification.constructOntology.coreConstructs, 2)}`,
+    `${korean ? "접근 계획" : "Access plan"}: ${compactList(specification.evidenceAccess.accessRequirements ?? [], 1)}`,
     `${korean ? "열린 질문" : "Open questions"}: ${compactList(specification.openQuestions, 1)}`,
     `${korean ? "다음 행동" : "Next actions"}: ${compactList(specification.nextActions, 1)}`,
     korean

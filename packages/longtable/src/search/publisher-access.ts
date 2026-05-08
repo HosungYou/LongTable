@@ -1,5 +1,3 @@
-import { join } from "node:path";
-import { homedir } from "node:os";
 import {
   PUBLISHERS,
   type CollectionDepth,
@@ -11,7 +9,6 @@ import {
   type PublisherAccessRecord,
   type PublisherProbeInput,
   type PublisherProbeTarget,
-  type SearchCapabilitySnapshot,
   type SearchFetch,
   type TdmStatus
 } from "./types.js";
@@ -621,19 +618,6 @@ export function summarizeConfiguredPublisherAccess(env: Record<string, string | 
         : "Required publisher credential environment variables are missing."
     });
   });
-}
-
-export function buildSearchCapabilitySnapshot(records: PublisherAccessRecord[], env: Record<string, string | undefined> = process.env): SearchCapabilitySnapshot {
-  return {
-    version: 1,
-    updatedAt: now(),
-    contactEmailPresent: Boolean(env.LONGTABLE_CONTACT_EMAIL?.trim()),
-    records
-  };
-}
-
-export function searchCapabilitySnapshotPath(home = homedir()): string {
-  return join(home, ".longtable", "search-capabilities.json");
 }
 
 function bestAccessStatus(record: PublisherAccessRecord): EvidenceCard["accessStatus"] {
