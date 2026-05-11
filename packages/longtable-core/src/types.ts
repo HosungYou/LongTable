@@ -280,6 +280,22 @@ export interface InferredHypothesis {
   status: HypothesisStatus;
 }
 
+export type QuestionCommitmentFamily =
+  | "scope"
+  | "construct"
+  | "coding"
+  | "method"
+  | "evidence"
+  | "epistemic_authority"
+  | "product_policy";
+
+export type QuestionEpistemicBasis =
+  | "researcher_knowledge"
+  | "project_state"
+  | "external_evidence"
+  | "ai_inference"
+  | "mixed";
+
 export interface DecisionRecord {
   id: string;
   timestamp: string;
@@ -287,6 +303,8 @@ export interface DecisionRecord {
   level: CheckpointLevel;
   mode: InteractionMode;
   summary: string;
+  commitmentFamily?: QuestionCommitmentFamily;
+  epistemicBasis?: QuestionEpistemicBasis;
   selectedOption?: string;
   rationale?: string;
   explicitStateUpdates?: Record<string, unknown>;
@@ -424,6 +442,8 @@ export interface QuestionRecord {
   createdAt: string;
   updatedAt: string;
   status: QuestionRecordStatus;
+  commitmentFamily?: QuestionCommitmentFamily;
+  epistemicBasis?: QuestionEpistemicBasis;
   prompt: QuestionPrompt;
   transportStatus?: QuestionTransportState;
   answer?: QuestionAnswer;

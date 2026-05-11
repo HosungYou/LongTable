@@ -213,8 +213,8 @@ by provider personality or a hidden prompt.
 |---|---|---|
 | First Research Shape | Short handle for resume and orientation | Useful but optional; not closure |
 | Research Specification | Scope, constructs, distinctions, coding, evidence/access, epistemic alignment | Default substantive interview artifact |
-| QuestionRecord | A focused human judgment that must be answered before a research commitment moves | Use only for research commitments |
-| DecisionRecord | The selected answer and rationale that changed state | Must link to the commitment it settles |
+| QuestionRecord | A focused human judgment that must be answered before a research commitment moves | Use only for research commitments; optional `commitmentFamily` and `epistemicBasis` help audit the commitment without creating a full ontology layer |
+| DecisionRecord | The selected answer and rationale that changed state | Must link to the commitment it settles and copy the question metadata when present |
 | CURRENT.md | Researcher-readable projection of current state | Must expose missing or draft specification state |
 | MCP/provider UI | Transport for state changes and elicitation | Must not own semantics |
 

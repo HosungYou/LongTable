@@ -34,7 +34,13 @@ Researcher Checkpoint -> QuestionRecord -> DecisionRecord
 
 `QuestionAnswer` is normalized. Claude native choices, Codex numbered responses, and future web form selections should all become the same shape before they update LongTable state.
 
-`QuestionRecord` is durable lifecycle state. It exists so a required question is not inferred from prompt text alone.
+`QuestionRecord` is durable lifecycle state. It exists so a required question is not inferred from prompt text alone. It may carry two optional inspection fields, `commitmentFamily` and `epistemicBasis`, when LongTable can state them without pretending to know more than it does.
+
+Those fields are AI-engineering metadata, not a new always-on ontology layer:
+they make logs easier to audit by showing what kind of commitment is being
+settled and what kind of knowledge the prompt appears to rely on. If the basis
+is not clear, the fields should stay absent. When a question is answered, the
+same metadata is copied into the linked `DecisionRecord`.
 
 LongTable may also keep a lightweight pending obligation record when the runtime
 must remember that a research-facing checkpoint is still owed even before a

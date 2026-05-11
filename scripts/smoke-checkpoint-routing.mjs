@@ -126,6 +126,7 @@ const created = JSON.parse(runCli([
 
 assertEqual(created.question.prompt.checkpointKey, "panel_disagreement_resolution", "created question checkpoint key");
 assertEqual(created.question.prompt.preferredSurfaces[0], "mcp_elicitation", "codex preferred surface");
+assertEqual(created.question.commitmentFamily, "method", "created question commitment family");
 
 const context = await loadProjectContextFromDirectory(tmp);
 if (!context) {
@@ -141,6 +142,7 @@ const decided = await answerWorkspaceQuestion({
 });
 
 assertEqual(decided.question.answer?.surface, "mcp_elicitation", "accepted MCP surface");
+assertEqual(decided.decision.commitmentFamily, "method", "decision copies commitment family");
 
 const interview = await beginLongTableInterview({
   context,
@@ -184,10 +186,14 @@ const overridden = await createWorkspaceQuestion({
   ],
   displayReason: "The UI should ask the concrete decision instead of exposing internal trigger rationale.",
   required: false,
-  provider: "codex"
+  provider: "codex",
+  commitmentFamily: "construct",
+  epistemicBasis: "project_state"
 });
 assertEqual(overridden.question.prompt.checkpointKey, "explore_runtime_guidance", "explicit checkpoint override");
 assertEqual(overridden.question.prompt.options[0]?.value, "surface_tensions", "explicit option override");
+assertEqual(overridden.question.commitmentFamily, "construct", "explicit commitment family override");
+assertEqual(overridden.question.epistemicBasis, "project_state", "explicit epistemic basis override");
 const rendered = renderQuestionRecordPrompt(overridden.question).prompt;
 if (rendered.includes("Why now:")) {
   throw new Error("Codex question fallback should not render repeated Why now lines.");
@@ -195,6 +201,15 @@ if (rendered.includes("Why now:")) {
 if (!rendered.includes("Decision context: The UI should ask the concrete decision")) {
   throw new Error("Codex question fallback should render the display reason.");
 }
+const overriddenDecision = await answerWorkspaceQuestion({
+  context,
+  questionId: overridden.question.id,
+  answer: "surface_tensions",
+  provider: "codex",
+  surface: "numbered"
+});
+assertEqual(overriddenDecision.decision.commitmentFamily, "construct", "decision copies explicit commitment family");
+assertEqual(overriddenDecision.decision.epistemicBasis, "project_state", "decision copies explicit epistemic basis");
 
 const teamTmp = mkdtempSync(join(tmpdir(), "longtable-team-cross-review-"));
 const team = JSON.parse(execFileSync("node", [

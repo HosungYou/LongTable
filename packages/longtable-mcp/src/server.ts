@@ -11,7 +11,14 @@ import { z } from "zod";
 import { classifyCheckpointTrigger } from "@longtable/checkpoints";
 import { renderQuestionRecordInput } from "@longtable/provider-claude";
 import { renderQuestionRecordPrompt } from "@longtable/provider-codex";
-import type { ProviderKind, QuestionOption, QuestionRecord, QuestionTransportStatus } from "@longtable/core";
+import type {
+  ProviderKind,
+  QuestionCommitmentFamily,
+  QuestionEpistemicBasis,
+  QuestionOption,
+  QuestionRecord,
+  QuestionTransportStatus
+} from "@longtable/core";
 import { loadSetupOutput } from "@longtable/setup";
 import {
   answerWorkspaceQuestion,
@@ -195,6 +202,24 @@ const questionOptionSchema = z.object({
   description: z.string().optional(),
   recommended: z.boolean().optional()
 });
+
+const commitmentFamilySchema = z.enum([
+  "scope",
+  "construct",
+  "coding",
+  "method",
+  "evidence",
+  "epistemic_authority",
+  "product_policy"
+]);
+
+const epistemicBasisSchema = z.enum([
+  "researcher_knowledge",
+  "project_state",
+  "external_evidence",
+  "ai_inference",
+  "mixed"
+]);
 
 const firstResearchShapeSchema = z.object({
   handle: z.string().min(1),
@@ -1875,10 +1900,12 @@ export function createLongTableMcpServer(): McpServer {
         options: z.array(questionOptionSchema).optional(),
         displayReason: z.string().optional(),
         provider: z.enum(["codex", "claude"]).optional(),
-        required: z.boolean().optional()
+        required: z.boolean().optional(),
+        commitmentFamily: commitmentFamilySchema.optional(),
+        epistemicBasis: epistemicBasisSchema.optional()
       })
     },
-    async ({ cwd: inputCwd, prompt, title, question, checkpointKey, options, displayReason, provider, required }) => {
+    async ({ cwd: inputCwd, prompt, title, question, checkpointKey, options, displayReason, provider, required, commitmentFamily, epistemicBasis }) => {
       try {
         const context = await requireContext(inputCwd);
         const result = await createWorkspaceQuestion({
@@ -1890,7 +1917,9 @@ export function createLongTableMcpServer(): McpServer {
           questionOptions: options as QuestionOption[] | undefined,
           displayReason,
           provider,
-          required
+          required,
+          commitmentFamily: commitmentFamily as QuestionCommitmentFamily | undefined,
+          epistemicBasis: epistemicBasis as QuestionEpistemicBasis | undefined
         });
         return textResult({
           question: result.question,
@@ -1916,10 +1945,12 @@ export function createLongTableMcpServer(): McpServer {
         displayReason: z.string().optional(),
         provider: z.enum(["codex", "claude"]).default("codex"),
         required: z.boolean().optional(),
+        commitmentFamily: commitmentFamilySchema.optional(),
+        epistemicBasis: epistemicBasisSchema.optional(),
         fallbackOnly: z.boolean().default(false).describe("Create and render the checkpoint without calling MCP elicitation.")
       })
     },
-    async ({ cwd: inputCwd, prompt, title, question, checkpointKey, options, displayReason, provider, required, fallbackOnly }) => {
+    async ({ cwd: inputCwd, prompt, title, question, checkpointKey, options, displayReason, provider, required, commitmentFamily, epistemicBasis, fallbackOnly }) => {
       try {
         const context = await requireContext(inputCwd);
         const created = await createWorkspaceQuestion({
@@ -1931,7 +1962,9 @@ export function createLongTableMcpServer(): McpServer {
           questionOptions: options as QuestionOption[] | undefined,
           displayReason,
           provider,
-          required
+          required,
+          commitmentFamily: commitmentFamily as QuestionCommitmentFamily | undefined,
+          epistemicBasis: epistemicBasis as QuestionEpistemicBasis | undefined
         });
         const fallback = renderQuestionFallback(created.question, provider as ProviderKind);
         if (fallbackOnly) {

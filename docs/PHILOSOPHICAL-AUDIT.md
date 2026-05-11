@@ -75,6 +75,7 @@
 - 기록은 개발자 친화적 로그가 아니라 연구자 친화적 문서로도 남아야 한다.
 - Research Specification은 `.longtable/` state에만 숨어 있으면 안 되며, `CURRENT.md`와 문서화된 preview를 통해 later agent와 연구자가 함께 읽을 수 있어야 한다.
 - product/docs/release 결정은 연구 workspace의 `QuestionRecord`로 저장하지 않는다. 다만 그 결정이 checkpoint policy나 ontology harness를 바꾸면 response-only product governance discussion으로 명시해야 한다.
+- QuestionRecord/DecisionRecord의 `commitmentFamily`와 `epistemicBasis`는 full ontology가 아니라 AI engineering audit metadata로 유지한다. 불확실한 경우 추론값을 억지로 채우지 않는다.
 
 ## Near-Term Actions
 

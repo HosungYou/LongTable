@@ -77,6 +77,12 @@ LongTable currently stores checkpoints through these records:
 - `DecisionRecord`: durable commitment made from the answer
 - `InvocationRecord`: panel or role call that produced the checkpoint
 
+`QuestionRecord` and the linked `DecisionRecord` may also carry
+`commitmentFamily` and `epistemicBasis`. These are lightweight audit tags for
+workflow reliability and reproducibility; they are not a substitute for the
+Research Specification, and they should be omitted when LongTable cannot infer
+them conservatively.
+
 The technical name may stay `QuestionRecord`. The product name should be
 Researcher Checkpoint.
 

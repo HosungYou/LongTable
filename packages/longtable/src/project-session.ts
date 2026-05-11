@@ -16,6 +16,8 @@ import type {
   ProviderKind,
   QuestionOption,
   QuestionAnswer,
+  QuestionCommitmentFamily,
+  QuestionEpistemicBasis,
   QuestionGenerationResult,
   QuestionOpportunity,
   QuestionSurface,
@@ -278,6 +280,8 @@ export interface LongTableWorkspaceInspection {
     id: string;
     title: string;
     question: string;
+    commitmentFamily?: QuestionCommitmentFamily;
+    epistemicBasis?: QuestionEpistemicBasis;
     options: string[];
     required: boolean;
   }>;
@@ -292,6 +296,8 @@ export interface LongTableWorkspaceInspection {
     id: string;
     checkpointKey: string;
     summary: string;
+    commitmentFamily?: QuestionCommitmentFamily;
+    epistemicBasis?: QuestionEpistemicBasis;
     selectedOption?: string;
     timestamp: string;
   }>;
@@ -587,7 +593,7 @@ function buildCurrentGuide(
             "## 대기 중인 결정 질문",
             ...pendingQuestions.map((record) => {
               const options = formatQuestionOptionValues(record).join("/");
-              return `- ${record.id}: ${record.prompt.question} (${options})`;
+              return `- ${record.id}: ${record.prompt.question}${formatQuestionMetadata(record)} (${options})`;
             }),
             "- 답변 기록: `longtable decide --question <id> --answer <value>`"
           ]
@@ -664,7 +670,7 @@ function buildCurrentGuide(
           "## Pending Decision Questions",
           ...pendingQuestions.map((record) => {
             const options = formatQuestionOptionValues(record).join("/");
-            return `- ${record.id}: ${record.prompt.question} (${options})`;
+            return `- ${record.id}: ${record.prompt.question}${formatQuestionMetadata(record)} (${options})`;
           }),
           "- Record an answer: `longtable decide --question <id> --answer <value>`"
         ]
@@ -767,6 +773,14 @@ function formatQuestionOptionValues(record: QuestionRecord): string[] {
   return values;
 }
 
+function formatQuestionMetadata(record: Pick<QuestionRecord, "commitmentFamily" | "epistemicBasis">): string {
+  const parts = [
+    record.commitmentFamily ? `commitment: ${record.commitmentFamily}` : "",
+    record.epistemicBasis ? `basis: ${record.epistemicBasis}` : ""
+  ].filter(Boolean);
+  return parts.length > 0 ? ` [${parts.join("; ")}]` : "";
+}
+
 function summarizeWorkspaceInspection(
   context: LongTableProjectContext,
   state: ResearchState
@@ -831,6 +845,8 @@ function summarizeWorkspaceInspection(
       id: record.id,
       title: record.prompt.title,
       question: record.prompt.question,
+      ...(record.commitmentFamily ? { commitmentFamily: record.commitmentFamily } : {}),
+      ...(record.epistemicBasis ? { epistemicBasis: record.epistemicBasis } : {}),
       options: formatQuestionOptionValues(record),
       required: record.prompt.required
     })),
@@ -845,6 +861,8 @@ function summarizeWorkspaceInspection(
       id: record.id,
       checkpointKey: record.checkpointKey,
       summary: record.summary,
+      ...(record.commitmentFamily ? { commitmentFamily: record.commitmentFamily } : {}),
+      ...(record.epistemicBasis ? { epistemicBasis: record.epistemicBasis } : {}),
       ...(record.selectedOption ? { selectedOption: record.selectedOption } : {}),
       timestamp: record.timestamp
     })),
@@ -2347,6 +2365,100 @@ export function generateQuestionOpportunities(
 
 const FOLLOW_UP_PROMPT_PREFIX = "Follow-up prompt:";
 
+function compactMetadataText(parts: Array<string | string[] | undefined>): string {
+  return parts
+    .flatMap((part) => Array.isArray(part) ? part : [part])
+    .filter((part): part is string => Boolean(part && part.trim()))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function textMatchesAny(text: string, patterns: RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+const COMMITMENT_FAMILY_BY_CHECKPOINT: Array<[RegExp, QuestionCommitmentFamily]> = [
+  [/product|meta_decision/, "product_policy"],
+  [/research_question|research_direction|scope|boundary|inclusion|exclusion/, "scope"],
+  [/theory|construct|conceptual/, "construct"],
+  [/measurement|coding|codebook|extraction/, "coding"],
+  [/method|analysis|panel_disagreement|team_debate|review/, "method"],
+  [/evidence|scholarly_access|source_authority/, "evidence"],
+  [/knowledge_gap|tacit_assumption|epistemic/, "epistemic_authority"]
+];
+
+function inferCommitmentFamily(input: {
+  checkpointKey?: string;
+  triggerFamily?: string;
+  title?: string;
+  question?: string;
+  prompt?: string;
+  rationale?: string[];
+}): QuestionCommitmentFamily | undefined {
+  const checkpointKey = (input.checkpointKey ?? "").toLowerCase();
+  const matched = COMMITMENT_FAMILY_BY_CHECKPOINT.find(([pattern]) => pattern.test(checkpointKey));
+  if (matched) return matched[1];
+
+  if (input.triggerFamily === "meta_decision") return "product_policy";
+  if (input.triggerFamily === "evidence") return "evidence";
+
+  const text = compactMetadataText([input.title, input.question, input.prompt, input.rationale]);
+  if (textMatchesAny(text, [/checkpoint policy/, /hook ux/, /product language/, /\breadme\b/, /제품 언어|체크포인트 정책|훅|리드미/])) {
+    return "product_policy";
+  }
+  return undefined;
+}
+
+function inferEpistemicBasis(input: {
+  title?: string;
+  question?: string;
+  prompt?: string;
+  rationale?: string[];
+}): QuestionEpistemicBasis | undefined {
+  const text = compactMetadataText([input.title, input.question, input.prompt, input.rationale]);
+  const bases: QuestionEpistemicBasis[] = [];
+
+  if (textMatchesAny(text, [/\bresearcher\b/, /\bhuman\b/, /\byour judgment\b/, /\byour knowledge\b/, /연구자|인간|사람|너의\s*판단|당신의\s*판단|내\s*지식|사용자/])) {
+    bases.push("researcher_knowledge");
+  }
+  if (textMatchesAny(text, [/\bproject state\b/, /\bworkspace\b/, /\bcurrent\.md\b/, /\.longtable\b/, /\bstate\.json\b/, /\bdataset\b/, /\bcodebook\b/, /\bcoding sheet\b/, /프로젝트\s*상태|워크스페이스|데이터셋|코드북|코딩\s*시트/])) {
+    bases.push("project_state");
+  }
+  if (textMatchesAny(text, [/\bexternal evidence\b/, /\bliterature\b/, /\bpaper\b/, /\bpdf\b/, /\bsource\b/, /\bcitation\b/, /\breference\b/, /\bfull[- ]?text\b/, /외부\s*근거|문헌|논문|원문|전문|출처|인용|레퍼런스/])) {
+    bases.push("external_evidence");
+  }
+  if (textMatchesAny(text, [/\bcodex\b/, /\bllm\b/, /\blanguage model\b/, /\bmodel judgment\b/, /\bai inference\b/, /\bassistant judgment\b/, /코덱스|언어\s*모델|모델\s*판단|AI\s*추론|LLM/])) {
+    bases.push("ai_inference");
+  }
+
+  const unique = [...new Set(bases)];
+  if (unique.length > 1) return "mixed";
+  return unique[0];
+}
+
+function resolveQuestionRecordMetadata(input: {
+  checkpointKey?: string;
+  triggerFamily?: string;
+  title?: string;
+  question?: string;
+  prompt?: string;
+  rationale?: string[];
+  commitmentFamily?: QuestionCommitmentFamily;
+  epistemicBasis?: QuestionEpistemicBasis;
+}): {
+  commitmentFamily?: QuestionCommitmentFamily;
+  epistemicBasis?: QuestionEpistemicBasis;
+} {
+  const commitmentFamily = input.commitmentFamily ?? inferCommitmentFamily(input);
+  const epistemicBasis = input.epistemicBasis ?? inferEpistemicBasis(input);
+  return {
+    ...(commitmentFamily ? { commitmentFamily } : {}),
+    ...(epistemicBasis ? { epistemicBasis } : {})
+  };
+}
+
 function hasFollowUpPrompt(record: QuestionRecord, prompt: string): boolean {
   return record.prompt.rationale.includes(`${FOLLOW_UP_PROMPT_PREFIX} ${prompt}`);
 }
@@ -2403,31 +2515,43 @@ export async function createWorkspaceFollowUpQuestions(options: {
     return { questions: pendingMatches, state, created: false, alreadyAnswered: false };
   }
 
-  const questions: QuestionRecord[] = specsToCreate.map((spec) => ({
-    id: createId("question_record"),
-    createdAt,
-    updatedAt: createdAt,
-    status: "pending",
-    prompt: {
-      id: createId("question_prompt"),
-      checkpointKey: `follow_up_${spec.key}`,
+  const questions: QuestionRecord[] = specsToCreate.map((spec) => {
+    const checkpointKey = `follow_up_${spec.key}`;
+    const rationale = [
+      spec.whyNow,
+      `Question kind: ${spec.kind}`,
+      `Question confidence: ${spec.confidence}`,
+      `${FOLLOW_UP_PROMPT_PREFIX} ${options.prompt}`
+    ];
+    const metadata = resolveQuestionRecordMetadata({
+      checkpointKey,
       title: spec.title,
       question: spec.question,
-      type: "single_choice",
-      options: spec.options,
-      allowOther: true,
-      otherLabel: "Other",
-      required: options.required ?? spec.required,
-      source: "runtime_guidance",
-      rationale: [
-        spec.whyNow,
-        `Question kind: ${spec.kind}`,
-        `Question confidence: ${spec.confidence}`,
-        `${FOLLOW_UP_PROMPT_PREFIX} ${options.prompt}`
-      ],
-      preferredSurfaces: preferredSurfaces as QuestionSurface[]
-    }
-  }));
+      prompt: options.prompt,
+      rationale
+    });
+    return {
+      id: createId("question_record"),
+      createdAt,
+      updatedAt: createdAt,
+      status: "pending",
+      ...metadata,
+      prompt: {
+        id: createId("question_prompt"),
+        checkpointKey,
+        title: spec.title,
+        question: spec.question,
+        type: "single_choice",
+        options: spec.options,
+        allowOther: true,
+        otherLabel: "Other",
+        required: options.required ?? spec.required,
+        source: "runtime_guidance",
+        rationale,
+        preferredSurfaces: preferredSurfaces as QuestionSurface[]
+      }
+    };
+  });
 
   const updated = appendQuestionRecords(state, questions);
   await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
@@ -2446,6 +2570,8 @@ export async function createWorkspaceQuestion(options: {
   displayReason?: string;
   provider?: ProviderKind;
   required?: boolean;
+  commitmentFamily?: QuestionCommitmentFamily;
+  epistemicBasis?: QuestionEpistemicBasis;
 }): Promise<{
   question: QuestionRecord;
   state: ResearchState;
@@ -2457,16 +2583,35 @@ export async function createWorkspaceQuestion(options: {
   });
   const checkpointKey = options.checkpointKey ?? trigger.signal.checkpointKey;
   const createdAt = nowIso();
+  const title = options.title ?? questionTitleForCheckpoint(trigger.family, checkpointKey);
+  const questionText = options.question ?? questionTextForCheckpoint(trigger.family, options.prompt, checkpointKey);
+  const rationale = [
+    ...trigger.rationale,
+    `Trigger family: ${trigger.family}.`,
+    `Trigger confidence: ${trigger.confidence}.`,
+    `Original prompt: ${options.prompt}`
+  ];
+  const metadata = resolveQuestionRecordMetadata({
+    checkpointKey,
+    triggerFamily: trigger.family,
+    title,
+    question: questionText,
+    prompt: options.prompt,
+    rationale,
+    commitmentFamily: options.commitmentFamily,
+    epistemicBasis: options.epistemicBasis
+  });
   const question: QuestionRecord = {
     id: createId("question_record"),
     createdAt,
     updatedAt: createdAt,
     status: "pending",
+    ...metadata,
     prompt: {
       id: createId("question_prompt"),
       checkpointKey,
-      title: options.title ?? questionTitleForCheckpoint(trigger.family, checkpointKey),
-      question: options.question ?? questionTextForCheckpoint(trigger.family, options.prompt, checkpointKey),
+      title,
+      question: questionText,
       type: "single_choice",
       options: options.questionOptions ?? optionsForCheckpointTrigger(trigger.family, checkpointKey),
       allowOther: true,
@@ -2474,12 +2619,7 @@ export async function createWorkspaceQuestion(options: {
       required: options.required ?? trigger.requiresQuestionBeforeClosure,
       source: "checkpoint",
       displayReason: options.displayReason ?? trigger.rationale[0],
-      rationale: [
-        ...trigger.rationale,
-        `Trigger family: ${trigger.family}.`,
-        `Trigger confidence: ${trigger.confidence}.`,
-        `Original prompt: ${options.prompt}`
-      ],
+      rationale,
       preferredSurfaces: options.provider === "claude"
         ? ["native_structured", "numbered"]
         : ["mcp_elicitation", "numbered"]
@@ -2649,6 +2789,8 @@ export async function answerWorkspaceQuestion(options: {
     level: question.prompt.required ? "adaptive_required" : "recommended",
     mode: "commit",
     summary: `Answered ${question.prompt.title}: ${answer.selectedLabels.join(", ")}`,
+    ...(question.commitmentFamily ? { commitmentFamily: question.commitmentFamily } : {}),
+    ...(question.epistemicBasis ? { epistemicBasis: question.epistemicBasis } : {}),
     selectedOption: answer.selectedValues[0],
     ...(rationale ? { rationale } : {})
   };

@@ -45,7 +45,7 @@ longtable-state
 Direct run:
 
 ```bash
-npx -y @longtable/mcp@0.1.44
+npx -y @longtable/mcp@0.1.47
 longtable-state --self-test
 ```
 
@@ -116,11 +116,13 @@ The first tool set is intentionally narrow:
 - `pending_questions`: list pending Researcher Checkpoints
 - `evaluate_checkpoint`: classify natural-language context without writing
   state
-- `create_question`: create a pending `QuestionRecord`
+- `create_question`: create a pending `QuestionRecord`, optionally with
+  lightweight `commitmentFamily` and `epistemicBasis` audit metadata
 - `elicit_question`: create a `QuestionRecord`, request MCP form elicitation,
   and append a decision with surface `mcp_elicitation` when accepted. The MCP
   form asks for the decision only; optional rationale belongs in
-  `longtable decide --rationale` or numbered fallback text. The tool returns
+  `longtable decide --rationale` or numbered fallback text. The same optional
+  audit metadata is accepted here. The tool returns
   provider fallback transport when elicitation is unavailable, declined, timed
   out, or canceled
 - `render_question`: render the selected question for Codex or Claude transport
