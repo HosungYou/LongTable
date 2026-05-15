@@ -1,6 +1,6 @@
 {
   "name": "@longtable/provider-codex",
-  "version": "0.1.47",
+  "version": "0.1.48",
   "private": false,
   "description": "Codex adapter surface for LongTable",
   "type": "module",
@@ -15,9 +15,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@longtable/checkpoints": "0.1.47",
-    "@longtable/core": "0.1.47",
-    "@longtable/setup": "0.1.47"
+    "@longtable/checkpoints": "0.1.48",
+    "@longtable/core": "0.1.48",
+    "@longtable/setup": "0.1.48"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

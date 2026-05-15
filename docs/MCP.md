@@ -102,9 +102,24 @@ The first tool set is intentionally narrow:
 - `summarize_interview`: store the provisional First Research Shape
 - `summarize_research_specification`: store the fuller Research Specification
   after the interview has enough scope, construct ontology, theory framing,
-  coding, method, evidence/access, and epistemic-alignment detail
+  coding, method, evidence/access, and epistemic-alignment detail. The stored
+  specification creates an audit patch and revision, links available interview
+  evidence, and preserves raw interview turns in state rather than rendering the
+  full transcript into `CURRENT.md`
 - `read_research_specification`: read the current Research Specification and
   render the researcher-facing preview
+- `propose_research_spec_patch`: store a reviewable Research Specification
+  patch without applying it
+- `apply_research_spec_patch`: automatically apply a proposed or inline
+  Research Specification update, create a source-mapped revision, and add a
+  log-only `DecisionRecord` when no explicit decision is supplied
+- `diff_research_specification`: compare an inline Research Specification with
+  the current workspace specification without writing state
+- `read_research_spec_history`: read Research Specification revisions, patches,
+  and evidence records for audit or resume
+- `find_unincorporated_evidence`: list interview, panel, critic, reviewer, or
+  invocation evidence not yet incorporated into a Research Specification
+  revision
 - `cancel_interview`: explicitly cancel an active interview without confirming a
   First Research Shape
 - `confirm_first_research_shape`: request MCP form elicitation for the final

@@ -11,6 +11,7 @@ import {
 import { classifyCheckpointTrigger } from "@longtable/checkpoints";
 import type {
   DecisionRecord,
+  EvidenceRecord,
   InvocationRecord,
   LongTableQuestionObligation,
   ProviderKind,
@@ -22,6 +23,10 @@ import type {
   QuestionOpportunity,
   QuestionSurface,
   QuestionRecord,
+  ResearchSpecificationChange,
+  ResearchSpecificationPatch,
+  ResearchSpecificationPatchSource,
+  ResearchSpecificationRevision,
   ResearchState
 } from "@longtable/core";
 import type { SetupPersistedOutput } from "@longtable/setup";
@@ -92,6 +97,9 @@ export interface ResearchSpecification {
   createdAt?: string;
   updatedAt?: string;
   sourceHookId?: string;
+  latestRevisionId?: string;
+  sourceEvidenceIds?: string[];
+  sectionEvidence?: Record<string, string[]>;
   researchDirection: {
     question?: string;
     purpose: string;
@@ -176,6 +184,10 @@ export type LongTableWorkspaceState = ResearchState & {
   hooks?: LongTableHookRun[];
   firstResearchShape?: FirstResearchShape;
   researchSpecification?: ResearchSpecification;
+  interviewTurns?: LongTableInterviewTurn[];
+  evidenceRecords?: EvidenceRecord[];
+  specPatches?: ResearchSpecificationPatch[];
+  specRevisions?: ResearchSpecificationRevision[];
 };
 
 export interface LongTableProjectRecord {
@@ -265,6 +277,10 @@ export interface LongTableWorkspaceInspection {
     pendingObligations: number;
     answeredQuestions: number;
     decisions: number;
+    interviewTurns?: number;
+    evidenceRecords?: number;
+    specPatches?: number;
+    specRevisions?: number;
   };
   recentInvocations?: Array<{
     id: string;
@@ -538,12 +554,84 @@ function renderResearchSpecificationStatus(
   ];
 }
 
+function renderResearchSpecificationAudit(
+  state: ResearchState,
+  locale: "en" | "ko"
+): string[] {
+  const korean = locale === "ko";
+  const revisions = (state.specRevisions ?? []).slice(-5).reverse();
+  const patches = (state.specPatches ?? []).slice(-5).reverse();
+  const evidenceRecords = state.evidenceRecords ?? [];
+  const unincorporated = evidenceRecords
+    .filter((record) => !record.incorporatedByRevisionId)
+    .slice(-5)
+    .reverse();
+  const specification = state.researchSpecification as ResearchSpecification | undefined;
+  const sectionEvidence = Object.entries(specification?.sectionEvidence ?? {}).slice(0, 8);
+
+  if (
+    revisions.length === 0 &&
+    patches.length === 0 &&
+    evidenceRecords.length === 0 &&
+    sectionEvidence.length === 0
+  ) {
+    return [];
+  }
+
+  return [
+    "",
+    korean ? "## Research Specification 감사" : "## Research Specification Audit",
+    ...(specification
+      ? [
+          `- ${korean ? "현재 버전" : "Current revision"}: ${specification.latestRevisionId ?? "unversioned"}`,
+          `- ${korean ? "상태" : "Status"}: ${specification.confirmedAt ? "confirmed" : specification.status ?? "draft"}`
+        ]
+      : []),
+    `- ${korean ? "원문 인터뷰 turn" : "Raw interview turns"}: ${(state.interviewTurns ?? []).length}`,
+    `- ${korean ? "근거 기록" : "Evidence records"}: ${evidenceRecords.length}`,
+    `- ${korean ? "spec patch" : "Spec patches"}: ${(state.specPatches ?? []).length}`,
+    `- ${korean ? "spec revision" : "Spec revisions"}: ${(state.specRevisions ?? []).length}`,
+    ...(revisions.length > 0
+      ? [
+          "",
+          korean ? "### 최근 명세 변경" : "### Recent Specification Changes",
+          ...revisions.map((revision) =>
+            `- v${revision.index} ${revision.title}: ${revision.changeSummary.slice(0, 3).join("; ")}`
+          )
+        ]
+      : []),
+    ...(sectionEvidence.length > 0
+      ? [
+          "",
+          korean ? "### 근거 맵" : "### Evidence Map",
+          ...sectionEvidence.map(([path, ids]) => `- ${path}: ${ids.slice(-4).join(", ")}`)
+        ]
+      : []),
+    ...(unincorporated.length > 0
+      ? [
+          "",
+          korean ? "### 아직 반영되지 않은 근거" : "### Unincorporated Evidence",
+          ...unincorporated.map((record) =>
+            `- ${record.id} [${record.sourceKind}]: ${compactLine(record.summary, 120)}`
+          )
+        ]
+      : []),
+    ...(patches.some((patch) => patch.status === "proposed")
+      ? [
+          "",
+          korean ? "- 대기 중인 spec patch가 있습니다. 적용하거나 거절해야 합니다." : "- Proposed spec patches are waiting to be applied or rejected."
+        ]
+      : [])
+  ];
+}
+
 function buildCurrentGuide(
   project: LongTableProjectRecord,
   session: LongTableSessionRecord,
   recentInvocations: InvocationRecord[] = [],
   pendingQuestions: QuestionRecord[] = [],
-  pendingObligations: LongTableQuestionObligation[] = []
+  pendingObligations: LongTableQuestionObligation[] = [],
+  state: ResearchState = createEmptyResearchState()
 ): string {
   const locale = normalizeLocale(session.locale ?? project.locale);
   const openQuestions = session.openQuestions && session.openQuestions.length > 0
@@ -574,6 +662,7 @@ function buildCurrentGuide(
       `- 관점: ${session.requestedPerspectives.length > 0 ? session.requestedPerspectives.join(", ") : "auto"}`,
       `- disagreement: ${session.disagreementPreference}`,
       ...renderResearchSpecificationStatus(session, locale),
+      ...renderResearchSpecificationAudit(state, locale),
       "",
       "## 열린 질문",
       ...openQuestions.map((question) => `- ${question}`),
@@ -651,6 +740,7 @@ function buildCurrentGuide(
     `- Perspectives: ${session.requestedPerspectives.length > 0 ? session.requestedPerspectives.join(", ") : "auto"}`,
     `- Disagreement: ${session.disagreementPreference}`,
     ...renderResearchSpecificationStatus(session, locale),
+    ...renderResearchSpecificationAudit(state, locale),
     "",
     "## Open Questions",
     ...openQuestions.map((question) => `- ${question}`),
@@ -721,6 +811,10 @@ async function loadResearchState(stateFilePath: string): Promise<LongTableWorksp
     hooks: parsed.hooks ?? [],
     ...(parsed.firstResearchShape ? { firstResearchShape: parsed.firstResearchShape } : {}),
     ...(parsed.researchSpecification ? { researchSpecification: parsed.researchSpecification } : {}),
+    interviewTurns: parsed.interviewTurns ?? [],
+    evidenceRecords: parsed.evidenceRecords ?? [],
+    specPatches: parsed.specPatches ?? [],
+    specRevisions: parsed.specRevisions ?? [],
     questionObligations: parsed.questionObligations ?? [],
     inferredHypotheses: parsed.inferredHypotheses ?? [],
     openTensions: parsed.openTensions ?? [],
@@ -781,6 +875,345 @@ function formatQuestionMetadata(record: Pick<QuestionRecord, "commitmentFamily" 
   return parts.length > 0 ? ` [${parts.join("; ")}]` : "";
 }
 
+function compactLine(value: string, limit = 160): string {
+  const compacted = value.replace(/\s+/g, " ").trim();
+  return compacted.length > limit ? `${compacted.slice(0, limit - 1)}…` : compacted;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+const SPEC_DIFF_IGNORED_PATHS = new Set([
+  "createdAt",
+  "updatedAt",
+  "latestRevisionId",
+  "sourceEvidenceIds",
+  "sectionEvidence"
+]);
+
+function flattenSpecificationValue(value: unknown, prefix = ""): Map<string, unknown> {
+  const flattened = new Map<string, unknown>();
+  const record = asRecord(value);
+  if (!record) {
+    if (prefix) {
+      flattened.set(prefix, value);
+    }
+    return flattened;
+  }
+
+  for (const [key, nested] of Object.entries(record)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (SPEC_DIFF_IGNORED_PATHS.has(path)) {
+      continue;
+    }
+    const nestedRecord = asRecord(nested);
+    if (nestedRecord) {
+      for (const [nestedPath, nestedValue] of flattenSpecificationValue(nestedRecord, path)) {
+        flattened.set(nestedPath, nestedValue);
+      }
+      continue;
+    }
+    flattened.set(path, nested);
+  }
+
+  return flattened;
+}
+
+function stableValue(value: unknown): string {
+  return JSON.stringify(value ?? null);
+}
+
+export function diffResearchSpecifications(
+  before: ResearchSpecification | undefined,
+  after: ResearchSpecification
+): ResearchSpecificationChange[] {
+  const beforeMap = before ? flattenSpecificationValue(before) : new Map<string, unknown>();
+  const afterMap = flattenSpecificationValue(after);
+  const paths = new Set([...beforeMap.keys(), ...afterMap.keys()]);
+  const changes: ResearchSpecificationChange[] = [];
+
+  for (const path of [...paths].sort()) {
+    const previous = beforeMap.get(path);
+    const next = afterMap.get(path);
+    if (stableValue(previous) === stableValue(next)) {
+      continue;
+    }
+    const kind: ResearchSpecificationChange["kind"] = previous === undefined
+      ? "set"
+      : next === undefined
+        ? "remove"
+        : "replace";
+    changes.push({
+      path,
+      kind,
+      summary: `${kind} ${path}`,
+      ...(previous !== undefined ? { before: previous } : {}),
+      ...(next !== undefined ? { after: next } : {})
+    });
+  }
+
+  return changes;
+}
+
+function cloneResearchSpecification(specification: ResearchSpecification): ResearchSpecification {
+  return JSON.parse(JSON.stringify(specification)) as ResearchSpecification;
+}
+
+function mergeStringLists(...lists: Array<string[] | undefined>): string[] {
+  return [...new Set(lists.flatMap((list) => list ?? []).filter(Boolean))];
+}
+
+function requiredResearchSpecificationGaps(specification: ResearchSpecification): string[] {
+  const gaps: string[] = [];
+  if (!specification.researchDirection.question?.trim()) {
+    gaps.push("research question");
+  }
+  if (specification.constructOntology.coreConstructs.length === 0) {
+    gaps.push("construct map/core constructs");
+  }
+  if (
+    specification.researchDirection.inclusionCriteria?.length === 0 &&
+    specification.researchDirection.exclusionCriteria?.length === 0
+  ) {
+    gaps.push("inclusion/exclusion rule");
+  }
+  if (
+    specification.evidenceAccess.requiredSources?.length === 0 &&
+    specification.evidenceAccess.evidenceStandards?.length === 0
+  ) {
+    gaps.push("evidence boundary");
+  }
+  if (
+    !specification.methodAnalysis.design?.trim() &&
+    specification.methodAnalysis.analysisOptions.length === 0
+  ) {
+    gaps.push("method commitment");
+  }
+  if (specification.openQuestions.length === 0 && specification.protectedDecisions.length === 0) {
+    gaps.push("unresolved decisions/protected decisions");
+  }
+  if (
+    specification.evidenceAccess.accessRequirements?.length === 0 &&
+    specification.evidenceAccess.requiredSources?.length === 0
+  ) {
+    gaps.push("search/access assumptions");
+  }
+  return gaps;
+}
+
+function buildResearchSpecificationGapQuestion(
+  gaps: string[],
+  timestamp: string,
+  sourceEvidenceIds: string[]
+): QuestionRecord {
+  return {
+    id: createId("question"),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    status: "pending",
+    commitmentFamily: "scope",
+    epistemicBasis: "project_state",
+    prompt: {
+      id: createId("prompt"),
+      checkpointKey: "research_specification_required_sections",
+      title: "Research Specification gaps",
+      question: `Which missing Research Specification section should LongTable resolve first? Missing: ${gaps.join(", ")}.`,
+      type: "single_choice",
+      options: [
+        { value: "ask_researcher", label: "Ask the researcher", description: "Pause and ask for the missing research commitment.", recommended: true },
+        { value: "mark_unresolved", label: "Mark unresolved", description: "Keep the gap visible as an unresolved decision." },
+        { value: "infer_from_evidence", label: "Infer from evidence", description: "Use existing evidence records and keep the inference explicit." },
+        { value: "defer", label: "Defer", description: "Do not treat the specification as complete yet." }
+      ],
+      allowOther: true,
+      otherLabel: "Other resolution",
+      required: true,
+      source: "checkpoint",
+      displayReason: `The current Research Specification is missing: ${gaps.join(", ")}.`,
+      rationale: [
+        "Research Specification is the required durable interview artifact.",
+        "Missing required sections can make later resume, screening, coding, or evidence decisions stale."
+      ],
+      preferredSurfaces: ["mcp_elicitation", "numbered"]
+    },
+    transportStatus: {
+      surface: "mcp_elicitation",
+      status: "not_attempted",
+      updatedAt: timestamp,
+      ...(sourceEvidenceIds.length > 0 ? { message: `Source evidence: ${sourceEvidenceIds.join(", ")}` } : {})
+    }
+  };
+}
+
+function appendSpecGapQuestionIfNeeded(
+  state: LongTableWorkspaceState,
+  specification: ResearchSpecification,
+  timestamp: string,
+  sourceEvidenceIds: string[]
+): LongTableWorkspaceState {
+  const gaps = requiredResearchSpecificationGaps(specification);
+  if (gaps.length === 0) {
+    return state;
+  }
+  const alreadyPending = (state.questionLog ?? []).some((record) =>
+    record.status === "pending" &&
+    record.prompt.checkpointKey === "research_specification_required_sections"
+  );
+  if (alreadyPending) {
+    return state;
+  }
+  return {
+    ...state,
+    questionLog: [
+      ...(state.questionLog ?? []),
+      buildResearchSpecificationGapQuestion(gaps, timestamp, sourceEvidenceIds)
+    ]
+  };
+}
+
+function changeSummaryForRevision(changes: ResearchSpecificationChange[]): string[] {
+  if (changes.length === 0) {
+    return ["No substantive field changes; audit metadata refreshed."];
+  }
+  return changes.slice(0, 12).map((change) => change.summary);
+}
+
+export function applyResearchSpecificationAuditUpdate(
+  state: LongTableWorkspaceState,
+  options: {
+    specification: ResearchSpecification;
+    timestamp: string;
+    source: ResearchSpecificationPatchSource;
+    title?: string;
+    rationale?: string;
+    sourceEvidenceIds?: string[];
+    patch?: ResearchSpecificationPatch;
+    questionRecordId?: string;
+    decisionRecordId?: string;
+    createDecisionRecord?: boolean;
+  }
+): {
+  state: LongTableWorkspaceState;
+  specification: ResearchSpecification;
+  patch: ResearchSpecificationPatch;
+  revision: ResearchSpecificationRevision;
+  decision?: DecisionRecord;
+} {
+  const previous = state.researchSpecification;
+  const incomingEvidenceIds = mergeStringLists(
+    options.patch?.sourceEvidenceIds,
+    options.specification.sourceEvidenceIds,
+    options.sourceEvidenceIds
+  );
+  const sourceEvidenceIds = mergeStringLists(previous?.sourceEvidenceIds, incomingEvidenceIds);
+  const changes = diffResearchSpecifications(previous, options.specification)
+    .map((change) => ({
+      ...change,
+      ...(incomingEvidenceIds.length > 0 ? { evidenceRecordIds: incomingEvidenceIds } : {})
+    }));
+  const patchId = options.patch?.id ?? createId("spec_patch");
+  const revisionId = createId("spec_revision");
+  const patchTitle = options.title ?? options.patch?.title ?? `Research Specification update: ${options.specification.title}`;
+  const patchRationale = options.rationale ?? options.patch?.rationale;
+  const sectionEvidence = {
+    ...(previous?.sectionEvidence ?? {}),
+    ...(options.specification.sectionEvidence ?? {})
+  };
+  for (const change of changes) {
+    const fieldEvidenceIds = change.evidenceRecordIds ?? [];
+    if (fieldEvidenceIds.length > 0) {
+      sectionEvidence[change.path] = mergeStringLists(sectionEvidence[change.path], fieldEvidenceIds);
+    }
+  }
+  const specification: ResearchSpecification = {
+    ...cloneResearchSpecification(options.specification),
+    updatedAt: options.timestamp,
+    latestRevisionId: revisionId,
+    sourceEvidenceIds,
+    sectionEvidence
+  };
+  const decision = options.decisionRecordId || options.createDecisionRecord === false
+    ? undefined
+    : {
+        id: createId("decision"),
+        timestamp: options.timestamp,
+        checkpointKey: "research_specification_auto_update",
+        level: "log_only" as const,
+        mode: "commit" as const,
+        summary: `Applied Research Specification update: ${patchTitle}`,
+        commitmentFamily: "scope" as const,
+        epistemicBasis: "mixed" as const,
+        rationale: patchRationale ?? "Automatically applied a source-mapped Research Specification update."
+      };
+  const decisionRecordId = options.decisionRecordId ?? decision?.id;
+  const revision: ResearchSpecificationRevision = {
+    id: revisionId,
+    index: (state.specRevisions ?? []).length + 1,
+    createdAt: options.timestamp,
+    source: options.source,
+    title: patchTitle,
+    status: specification.status ?? "draft",
+    patchId,
+    ...(options.questionRecordId ? { questionRecordId: options.questionRecordId } : {}),
+    ...(decisionRecordId ? { decisionRecordId } : {}),
+    sourceEvidenceIds,
+    changeSummary: changeSummaryForRevision(changes),
+    specification
+  };
+  const patch: ResearchSpecificationPatch = {
+    id: patchId,
+    createdAt: options.patch?.createdAt ?? options.timestamp,
+    updatedAt: options.timestamp,
+    status: "applied",
+    source: options.source,
+    title: patchTitle,
+    ...(patchRationale ? { rationale: patchRationale } : {}),
+    changes,
+    sourceEvidenceIds,
+    targetSpecification: specification,
+    appliedAt: options.timestamp,
+    appliedRevisionId: revision.id,
+    ...(options.questionRecordId ? { questionRecordId: options.questionRecordId } : {}),
+    ...(decisionRecordId ? { decisionRecordId } : {})
+  };
+  const incorporatedEvidence = (state.evidenceRecords ?? []).map((record) =>
+    sourceEvidenceIds.includes(record.id)
+      ? {
+          ...record,
+          incorporatedAt: options.timestamp,
+          incorporatedByPatchId: patch.id,
+          incorporatedByRevisionId: revision.id
+        }
+      : record
+  );
+  const withDecision = decision ? appendDecisionToResearchState(state, decision) as LongTableWorkspaceState : state;
+  const previousPatches = withDecision.specPatches ?? [];
+  const specPatches = previousPatches.some((entry) => entry.id === patch.id)
+    ? previousPatches.map((entry) => entry.id === patch.id ? patch : entry)
+    : [...previousPatches, patch];
+  const nextState: LongTableWorkspaceState = {
+    ...withDecision,
+    researchSpecification: specification,
+    evidenceRecords: incorporatedEvidence,
+    specPatches,
+    specRevisions: [...(withDecision.specRevisions ?? []), revision],
+    workingState: {
+      ...withDecision.workingState,
+      researchSpecification: specification
+    }
+  };
+  return {
+    state: appendSpecGapQuestionIfNeeded(nextState, specification, options.timestamp, sourceEvidenceIds),
+    specification,
+    patch,
+    revision,
+    ...(decision ? { decision } : {})
+  };
+}
+
 function summarizeWorkspaceInspection(
   context: LongTableProjectContext,
   state: ResearchState
@@ -829,7 +1262,11 @@ function summarizeWorkspaceInspection(
       pendingQuestions: pendingQuestions.length,
       pendingObligations: pendingObligations.length,
       answeredQuestions: answeredQuestions.length,
-      decisions: (state.decisionLog ?? []).length
+      decisions: (state.decisionLog ?? []).length,
+      interviewTurns: (state.interviewTurns ?? []).length,
+      evidenceRecords: (state.evidenceRecords ?? []).length,
+      specPatches: (state.specPatches ?? []).length,
+      specRevisions: (state.specRevisions ?? []).length
     },
     recentInvocations: recentInvocationRecords(state, 5).map((record) => ({
       id: record.id,
@@ -1066,10 +1503,80 @@ export async function syncCurrentWorkspaceView(context: LongTableProjectContext)
     session,
     recentInvocationRecords(state),
     recentPendingQuestions(state),
-    recentPendingObligations(state)
+    recentPendingObligations(state),
+    state
   );
   await writeFile(context.currentFilePath, body, "utf8");
   return context.currentFilePath;
+}
+
+function evidenceKindForInvocationRole(role: string | undefined): EvidenceRecord["sourceKind"] {
+  const normalized = role?.toLowerCase() ?? "";
+  if (normalized.includes("critic")) {
+    return "critic";
+  }
+  if (normalized.includes("reviewer") || normalized.includes("review")) {
+    return "reviewer";
+  }
+  return "panel";
+}
+
+function evidenceRecordsForInvocation(invocation: InvocationRecord, timestamp: string): EvidenceRecord[] {
+  const records: EvidenceRecord[] = [];
+  if (invocation.panelResult) {
+    for (const member of invocation.panelResult.memberResults) {
+      if (!member.summary && (member.claims ?? []).length === 0 && (member.objections ?? []).length === 0) {
+        continue;
+      }
+      records.push({
+        id: createId("evidence"),
+        createdAt: timestamp,
+        sourceKind: evidenceKindForInvocationRole(member.role),
+        sourceId: `${invocation.id}:${member.role}`,
+        role: member.role,
+        summary: compactLine(member.summary ?? [...(member.claims ?? []), ...(member.objections ?? [])].join(" ")),
+        rawText: [
+          member.summary ? `Summary: ${member.summary}` : "",
+          member.claims?.length ? `Claims: ${member.claims.join("; ")}` : "",
+          member.objections?.length ? `Objections: ${member.objections.join("; ")}` : "",
+          member.openQuestions?.length ? `Open questions: ${member.openQuestions.join("; ")}` : ""
+        ].filter(Boolean).join("\n"),
+        linkedInvocationRecordIds: [invocation.id],
+        linkedQuestionRecordIds: invocation.panelResult.linkedQuestionRecordIds,
+        linkedDecisionRecordIds: invocation.panelResult.linkedDecisionRecordIds
+      });
+    }
+    if (invocation.panelResult.synthesis || invocation.panelResult.conflictSummary) {
+      records.push({
+        id: createId("evidence"),
+        createdAt: timestamp,
+        sourceKind: "panel",
+        sourceId: invocation.panelResult.id,
+        summary: compactLine(invocation.panelResult.synthesis ?? invocation.panelResult.conflictSummary ?? "Panel result"),
+        rawText: [
+          invocation.panelResult.synthesis ? `Synthesis: ${invocation.panelResult.synthesis}` : "",
+          invocation.panelResult.conflictSummary ? `Conflict: ${invocation.panelResult.conflictSummary}` : ""
+        ].filter(Boolean).join("\n"),
+        linkedInvocationRecordIds: [invocation.id],
+        linkedQuestionRecordIds: invocation.panelResult.linkedQuestionRecordIds,
+        linkedDecisionRecordIds: invocation.panelResult.linkedDecisionRecordIds
+      });
+    }
+    return records;
+  }
+
+  if (invocation.status === "completed" && invocation.intent.prompt.trim()) {
+    records.push({
+      id: createId("evidence"),
+      createdAt: timestamp,
+      sourceKind: "invocation",
+      sourceId: invocation.id,
+      summary: compactLine(`${invocation.intent.kind}/${invocation.intent.mode}: ${invocation.intent.prompt}`),
+      rawText: invocation.intent.prompt,
+      linkedInvocationRecordIds: [invocation.id]
+    });
+  }
+  return records;
 }
 
 export async function appendInvocationRecordToWorkspace(
@@ -1082,9 +1589,16 @@ export async function appendInvocationRecordToWorkspace(
   const updated = questions.length > 0
     ? appendQuestionRecords(withInvocation, questions)
     : withInvocation;
-  await writeFile(context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
+  const evidenceRecords = evidenceRecordsForInvocation(invocation, nowIso());
+  const withEvidence = evidenceRecords.length > 0
+    ? {
+        ...updated,
+        evidenceRecords: [...(updated.evidenceRecords ?? []), ...evidenceRecords]
+      }
+    : updated;
+  await writeFile(context.stateFilePath, JSON.stringify(withEvidence, null, 2), "utf8");
   await syncCurrentWorkspaceView(context);
-  return updated as LongTableWorkspaceState;
+  return withEvidence as LongTableWorkspaceState;
 }
 
 function createId(prefix: string): string {
@@ -1262,7 +1776,24 @@ export async function appendLongTableInterviewTurn(options: {
         : [])
     ]
   };
-  const updated = upsertHook(state, hook);
+  const evidence: EvidenceRecord = {
+    id: createId("evidence"),
+    createdAt: timestamp,
+    sourceKind: "interview_turn",
+    sourceId: turn.id,
+    sourceHookId: existing.id,
+    summary: compactLine(`Interview turn ${turn.index}: ${turn.answer}`),
+    rawText: [
+      `Question: ${turn.question}`,
+      `Answer: ${turn.answer}`,
+      turn.reflection ? `Reflection: ${turn.reflection}` : ""
+    ].filter(Boolean).join("\n")
+  };
+  const updated = {
+    ...upsertHook(state, hook),
+    interviewTurns: [...(state.interviewTurns ?? []), turn],
+    evidenceRecords: [...(state.evidenceRecords ?? []), evidence]
+  };
   await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
   await syncCurrentWorkspaceView(options.context);
   return { hook, turn, state: updated };
@@ -1455,12 +1986,21 @@ export async function summarizeLongTableResearchSpecification(options: {
   };
   options.context.session = session;
 
-  let updated = hook ? upsertHook(state, hook) : state;
-  updated.researchSpecification = specification;
-  updated.workingState = {
-    ...updated.workingState,
-    researchSpecification: specification
-  };
+  const sourceEvidenceIds = (state.evidenceRecords ?? [])
+    .filter((record) => record.sourceHookId && record.sourceHookId === (existing?.id ?? sourceHookId))
+    .map((record) => record.id);
+  const audited = applyResearchSpecificationAuditUpdate(
+    hook ? upsertHook(state, hook) : state,
+    {
+      specification,
+      timestamp,
+      source: "interview",
+      title: `Research Specification draft: ${specification.title}`,
+      rationale: "Stored or refreshed the required Research Specification from LongTable interview evidence.",
+      sourceEvidenceIds
+    }
+  );
+  let updated = audited.state;
   updated.narrativeTraces.push({
     id: createId("narrative_trace"),
     timestamp,
@@ -1475,6 +2015,136 @@ export async function summarizeLongTableResearchSpecification(options: {
   await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
   await syncCurrentWorkspaceView(options.context);
   return { hook, specification, state: updated, session };
+}
+
+export async function proposeResearchSpecificationPatch(options: {
+  context: LongTableProjectContext;
+  specification: ResearchSpecification;
+  source?: ResearchSpecificationPatchSource;
+  rationale?: string;
+  sourceEvidenceIds?: string[];
+}): Promise<{ patch: ResearchSpecificationPatch; changes: ResearchSpecificationChange[]; state: LongTableWorkspaceState }> {
+  const state = await loadResearchState(options.context.stateFilePath);
+  const timestamp = nowIso();
+  const specification = normalizeResearchSpecification(
+    options.specification,
+    options.specification.sourceHookId ?? state.researchSpecification?.sourceHookId,
+    timestamp
+  );
+  const sourceEvidenceIds = mergeStringLists(
+    options.specification.sourceEvidenceIds,
+    specification.sourceEvidenceIds,
+    options.sourceEvidenceIds
+  );
+  const changes = diffResearchSpecifications(state.researchSpecification, specification)
+    .map((change) => ({
+      ...change,
+      evidenceRecordIds: sourceEvidenceIds
+    }));
+  const patch: ResearchSpecificationPatch = {
+    id: createId("spec_patch"),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    status: "proposed",
+    source: options.source ?? "manual",
+    title: `Proposed Research Specification update: ${specification.title}`,
+    ...(options.rationale ? { rationale: options.rationale } : {}),
+    changes,
+    sourceEvidenceIds,
+    targetSpecification: specification
+  };
+  const updated: LongTableWorkspaceState = {
+    ...state,
+    specPatches: [...(state.specPatches ?? []), patch]
+  };
+  await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
+  await syncCurrentWorkspaceView(options.context);
+  return { patch, changes, state: updated };
+}
+
+export async function applyResearchSpecificationPatch(options: {
+  context: LongTableProjectContext;
+  patchId?: string;
+  specification?: ResearchSpecification;
+  source?: ResearchSpecificationPatchSource;
+  rationale?: string;
+  sourceEvidenceIds?: string[];
+  questionRecordId?: string;
+  decisionRecordId?: string;
+}): Promise<{
+  patch: ResearchSpecificationPatch;
+  revision: ResearchSpecificationRevision;
+  specification: ResearchSpecification;
+  state: LongTableWorkspaceState;
+  session: LongTableSessionRecord;
+  decision?: DecisionRecord;
+}> {
+  const state = await loadResearchState(options.context.stateFilePath);
+  const timestamp = nowIso();
+  const storedPatch = options.patchId
+    ? (state.specPatches ?? []).find((patch) => patch.id === options.patchId)
+    : undefined;
+  if (options.patchId && !storedPatch) {
+    throw new Error(`No Research Specification patch found for ${options.patchId}.`);
+  }
+  const inputSpecification = options.specification ?? (storedPatch?.targetSpecification as ResearchSpecification | undefined);
+  if (!inputSpecification) {
+    throw new Error(options.patchId ? `No target Research Specification found for patch ${options.patchId}.` : "Research Specification is required when no patchId is supplied.");
+  }
+  const specification = normalizeResearchSpecification(
+    inputSpecification,
+    inputSpecification.sourceHookId ?? state.researchSpecification?.sourceHookId,
+    timestamp
+  );
+  const audited = applyResearchSpecificationAuditUpdate(state, {
+    specification,
+    timestamp,
+    source: options.source ?? storedPatch?.source ?? "manual",
+    title: storedPatch?.title ?? `Applied Research Specification update: ${specification.title}`,
+    rationale: options.rationale ?? storedPatch?.rationale,
+    sourceEvidenceIds: mergeStringLists(storedPatch?.sourceEvidenceIds, options.sourceEvidenceIds),
+    patch: storedPatch,
+    questionRecordId: options.questionRecordId ?? storedPatch?.questionRecordId,
+    decisionRecordId: options.decisionRecordId ?? storedPatch?.decisionRecordId
+  });
+  const session: LongTableSessionRecord = {
+    ...options.context.session,
+    researchSpecification: audited.specification,
+    lastUpdatedAt: timestamp,
+    resumeHint: `I want to continue from the Research Specification: ${audited.specification.title}.`
+  };
+  options.context.session = session;
+  await writeFile(options.context.sessionFilePath, JSON.stringify(session, null, 2), "utf8");
+  await writeFile(options.context.stateFilePath, JSON.stringify(audited.state, null, 2), "utf8");
+  await syncCurrentWorkspaceView(options.context);
+  return {
+    patch: audited.patch,
+    revision: audited.revision,
+    specification: audited.specification,
+    state: audited.state,
+    session,
+    ...(audited.decision ? { decision: audited.decision } : {})
+  };
+}
+
+export async function readResearchSpecificationHistory(context: LongTableProjectContext): Promise<{
+  specification?: ResearchSpecification;
+  revisions: ResearchSpecificationRevision[];
+  patches: ResearchSpecificationPatch[];
+  evidenceRecords: EvidenceRecord[];
+}> {
+  const state = await loadResearchState(context.stateFilePath);
+  return {
+    ...(state.researchSpecification ? { specification: state.researchSpecification } : {}),
+    revisions: state.specRevisions ?? [],
+    patches: state.specPatches ?? [],
+    evidenceRecords: state.evidenceRecords ?? []
+  };
+}
+
+export async function findUnincorporatedResearchEvidence(context: LongTableProjectContext): Promise<EvidenceRecord[]> {
+  const state = await loadResearchState(context.stateFilePath);
+  return (state.evidenceRecords ?? []).filter((record) => !record.incorporatedByRevisionId);
 }
 
 function findQuestionForDecision(

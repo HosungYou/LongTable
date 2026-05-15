@@ -16,6 +16,7 @@ import type {
   QuestionAuditResult,
   QuestionOpportunityKind,
   QuestionRecord,
+  ResearchSpecification,
   ResearchStage,
   RoleAuditEntry,
   RoleAuditResult
@@ -91,6 +92,7 @@ import {
 } from "./codex-hooks.js";
 import {
   appendInvocationRecordToWorkspace,
+  applyResearchSpecificationPatch,
   assertWorkspaceNotBlocked,
   answerWorkspaceQuestion,
   buildQuestionOpportunitySpecs,
@@ -98,10 +100,14 @@ import {
   createWorkspaceFollowUpQuestions,
   createWorkspaceQuestion,
   createOrUpdateProjectWorkspace,
+  diffResearchSpecifications,
   inspectProjectWorkspace,
   loadWorkspaceState,
   loadProjectContextFromDirectory,
+  findUnincorporatedResearchEvidence,
+  proposeResearchSpecificationPatch,
   pruneWorkspaceQuestions,
+  readResearchSpecificationHistory,
   repairWorkspaceStateConsistency,
   renderProjectWorkspaceSummary,
   syncCurrentWorkspaceView,
@@ -277,6 +283,11 @@ const LONGTABLE_MCP_MANAGED_TOOLS = [
   "summarize_interview",
   "summarize_research_specification",
   "read_research_specification",
+  "propose_research_spec_patch",
+  "apply_research_spec_patch",
+  "diff_research_specification",
+  "read_research_spec_history",
+  "find_unincorporated_evidence",
   "cancel_interview",
   "confirm_first_research_shape",
   "confirm_research_specification",
@@ -291,6 +302,11 @@ const LONGTABLE_MCP_MANAGED_TOOLS = [
 const LONGTABLE_MCP_RESEARCH_SPECIFICATION_TOOLS = [
   "summarize_research_specification",
   "read_research_specification",
+  "propose_research_spec_patch",
+  "apply_research_spec_patch",
+  "diff_research_specification",
+  "read_research_spec_history",
+  "find_unincorporated_evidence",
   "confirm_research_specification"
 ] as const;
 
@@ -353,6 +369,7 @@ function usage(): string {
     "  longtable doctor [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--codex-config <path>] [--hooks-path <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
     "  longtable status [--cwd <path>] [--fix] [--json] [--codex-dir <path>] [--codex-config <path>] [--hooks-path <path>] [--claude-dir <path>] [--codex-prompts-dir <path>] [--codex-runtime-path <file>] [--claude-runtime-path <file>]",
     "  longtable audit [questions|roles] [--json]",
+    "  longtable spec [read|history|diff|unincorporated|apply|propose] [--cwd <path>] [--json] [--spec-file <path>] [--patch-id <id>]",
     "  longtable roles [--json]",
     "  longtable show [--json] [--path <file>]",
     "  longtable install [--json] [--path <file>] [--runtime-path <file>]",
@@ -406,7 +423,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "decide", "sentinel", "team", "access", "search"].includes(command);
+    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "decide", "sentinel", "team", "access", "search", "spec"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -414,7 +431,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     startIndex = 1;
   } else if (command === "codex" || command === "claude" || command === "mcp") {
     startIndex = 2;
-  } else if ((command === "access" || command === "search") && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
+  } else if ((command === "access" || command === "search" || command === "spec") && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
     subcommand = maybeSubcommand;
     startIndex = 2;
   } else if (command === "audit" && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
@@ -3633,6 +3650,117 @@ async function runSearch(subcommand: string | undefined, args: Record<string, st
   console.log(renderEvidenceRunSummary(run, recordedPath));
 }
 
+async function requireWorkspaceContext(args: Record<string, string | boolean>): Promise<LongTableProjectContext> {
+  const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+  const context = await loadProjectContextFromDirectory(workingDirectory);
+  if (!context) {
+    throw new Error("No LongTable workspace was found from the supplied cwd.");
+  }
+  return context;
+}
+
+async function readResearchSpecificationFile(path: string | undefined): Promise<ResearchSpecification> {
+  if (!path) {
+    throw new Error("A Research Specification JSON file is required. Use --spec-file <path>.");
+  }
+  return JSON.parse(await readFile(resolve(path), "utf8")) as ResearchSpecification;
+}
+
+async function runSpec(subcommand: string | undefined, args: Record<string, string | boolean>): Promise<void> {
+  const context = await requireWorkspaceContext(args);
+  const command = subcommand ?? "read";
+
+  if (command === "read" || command === "history") {
+    const history = await readResearchSpecificationHistory(context);
+    if (args.json === true) {
+      console.log(JSON.stringify(history, null, 2));
+      return;
+    }
+    console.log("LongTable Research Specification");
+    console.log(`- title: ${history.specification?.title ?? "missing"}`);
+    console.log(`- status: ${history.specification?.confirmedAt ? "confirmed" : history.specification?.status ?? "missing"}`);
+    console.log(`- revisions: ${history.revisions.length}`);
+    console.log(`- patches: ${history.patches.length}`);
+    console.log(`- evidence records: ${history.evidenceRecords.length}`);
+    for (const revision of history.revisions.slice(-5).reverse()) {
+      console.log(`- v${revision.index}: ${revision.title} (${revision.changeSummary.slice(0, 2).join("; ")})`);
+    }
+    return;
+  }
+
+  if (command === "unincorporated") {
+    const evidenceRecords = await findUnincorporatedResearchEvidence(context);
+    if (args.json === true) {
+      console.log(JSON.stringify({ evidenceRecords }, null, 2));
+      return;
+    }
+    console.log("Unincorporated Research Evidence");
+    for (const record of evidenceRecords.slice(-10).reverse()) {
+      console.log(`- ${record.id} [${record.sourceKind}]: ${record.summary}`);
+    }
+    return;
+  }
+
+  if (command === "diff") {
+    const specification = await readResearchSpecificationFile(typeof args["spec-file"] === "string" ? args["spec-file"] : undefined);
+    const state = await loadWorkspaceState(context);
+    const changes = diffResearchSpecifications(state.researchSpecification as ResearchSpecification | undefined, specification);
+    if (args.json === true) {
+      console.log(JSON.stringify({ changes }, null, 2));
+      return;
+    }
+    console.log("Research Specification Diff");
+    for (const change of changes) {
+      console.log(`- ${change.summary}`);
+    }
+    return;
+  }
+
+  if (command === "propose") {
+    const specification = await readResearchSpecificationFile(typeof args["spec-file"] === "string" ? args["spec-file"] : undefined);
+    const result = await proposeResearchSpecificationPatch({
+      context,
+      specification,
+      source: "manual",
+      rationale: typeof args.rationale === "string" ? args.rationale : undefined
+    });
+    if (args.json === true) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    console.log("Research Specification patch proposed");
+    console.log(`- patch: ${result.patch.id}`);
+    console.log(`- changes: ${result.changes.length}`);
+    console.log(`- apply: longtable spec apply --patch-id ${result.patch.id}`);
+    return;
+  }
+
+  if (command === "apply") {
+    const specification = typeof args["spec-file"] === "string"
+      ? await readResearchSpecificationFile(args["spec-file"])
+      : undefined;
+    const result = await applyResearchSpecificationPatch({
+      context,
+      patchId: typeof args["patch-id"] === "string" ? args["patch-id"] : undefined,
+      specification,
+      source: "manual",
+      rationale: typeof args.rationale === "string" ? args.rationale : undefined
+    });
+    if (args.json === true) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    console.log("Research Specification patch applied");
+    console.log(`- revision: v${result.revision.index} (${result.revision.id})`);
+    console.log(`- patch: ${result.patch.id}`);
+    console.log(`- decision: ${result.decision?.id ?? result.patch.decisionRecordId ?? "existing/none"}`);
+    console.log(`- current: ${context.currentFilePath}`);
+    return;
+  }
+
+  throw new Error(`Unknown spec subcommand: ${command}`);
+}
+
 async function runQuestion(args: Record<string, string | boolean>): Promise<void> {
   const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
   const prompt = await resolvePrompt(typeof args.prompt === "string" ? args.prompt : undefined);
@@ -4766,6 +4894,11 @@ async function main(): Promise<void> {
 
   if (command === "search") {
     await runSearch(subcommand, values);
+    return;
+  }
+
+  if (command === "spec") {
+    await runSpec(subcommand, values);
     return;
   }
 

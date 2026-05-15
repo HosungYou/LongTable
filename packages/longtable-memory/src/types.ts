@@ -1,12 +1,16 @@
 import type {
   ArtifactRecord,
   DecisionRecord,
+  EvidenceRecord,
   InferredHypothesis,
   InteractionMode,
   InvocationRecord,
   NarrativeTrace,
   QuestionRecord,
-  ResearchState
+  ResearchSpecificationPatch,
+  ResearchSpecificationRevision,
+  ResearchState,
+  LongTableInterviewTurn
 } from "@longtable/core";
 
 export interface MemorySummary {
@@ -19,15 +23,23 @@ export interface MemorySummary {
   questionLog: QuestionRecord[];
   artifactRecords: ArtifactRecord[];
   narrativeTraces: NarrativeTrace[];
+  interviewTurns?: LongTableInterviewTurn[];
+  evidenceRecords?: EvidenceRecord[];
+  specPatches?: ResearchSpecificationPatch[];
+  specRevisions?: ResearchSpecificationRevision[];
 }
 
 export type {
   ArtifactRecord,
   DecisionRecord,
+  EvidenceRecord,
   InferredHypothesis,
   InteractionMode,
   InvocationRecord,
+  LongTableInterviewTurn,
   NarrativeTrace,
   QuestionRecord,
+  ResearchSpecificationPatch,
+  ResearchSpecificationRevision,
   ResearchState
 } from "@longtable/core";

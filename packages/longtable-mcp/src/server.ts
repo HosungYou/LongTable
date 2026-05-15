@@ -22,12 +22,18 @@ import type {
 import { loadSetupOutput } from "@longtable/setup";
 import {
   answerWorkspaceQuestion,
+  applyResearchSpecificationAuditUpdate,
+  applyResearchSpecificationPatch,
   clearWorkspaceQuestion,
   createOrUpdateProjectWorkspace,
   createWorkspaceQuestion,
+  diffResearchSpecifications,
+  findUnincorporatedResearchEvidence,
   inspectProjectWorkspace,
   loadProjectContextFromDirectory,
   loadWorkspaceState,
+  proposeResearchSpecificationPatch,
+  readResearchSpecificationHistory,
   syncCurrentWorkspaceView
 } from "@longtable/cli";
 import {
@@ -57,6 +63,11 @@ const TOOL_NAMES = [
   "summarize_interview",
   "summarize_research_specification",
   "read_research_specification",
+  "propose_research_spec_patch",
+  "apply_research_spec_patch",
+  "diff_research_specification",
+  "read_research_spec_history",
+  "find_unincorporated_evidence",
   "cancel_interview",
   "confirm_first_research_shape",
   "confirm_research_specification",
@@ -96,6 +107,9 @@ interface ResearchSpecification {
   createdAt?: string;
   updatedAt?: string;
   sourceHookId?: string;
+  latestRevisionId?: string;
+  sourceEvidenceIds?: string[];
+  sectionEvidence?: Record<string, string[]>;
   researchDirection: {
     question?: string;
     purpose: string;
@@ -243,6 +257,9 @@ const researchSpecificationSchema = z.object({
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
   sourceHookId: z.string().optional(),
+  latestRevisionId: z.string().optional(),
+  sourceEvidenceIds: z.array(z.string()).optional(),
+  sectionEvidence: z.record(z.string(), z.array(z.string())).optional(),
   researchDirection: z.object({
     question: z.string().optional(),
     purpose: z.string().min(1),
@@ -289,6 +306,16 @@ const researchSpecificationSchema = z.object({
   confidence: z.enum(["low", "medium", "high"]).default("medium"),
   confirmedAt: z.string().optional()
 });
+
+const researchSpecificationPatchSourceSchema = z.enum([
+  "interview",
+  "panel",
+  "critic",
+  "reviewer",
+  "decision",
+  "manual",
+  "system"
+]);
 
 function textResult(structuredContent: Record<string, unknown>): CallToolResult {
   return {
@@ -1136,11 +1163,6 @@ async function markResearchSpecificationConfirmation(
         status: researchSpecificationAnswerStatus(answer) === "deferred" ? "deferred" as const : "draft" as const,
         updatedAt: timestamp
       };
-  state.researchSpecification = confirmedSpecification;
-  state.workingState = {
-    ...state.workingState,
-    researchSpecification: confirmedSpecification
-  };
   state.hooks = (state.hooks ?? []).map((hook) => {
     if (hook.id !== specification.sourceHookId || !isInterviewHookRun(hook)) {
       return hook;
@@ -1158,19 +1180,33 @@ async function markResearchSpecificationConfirmation(
         : hook.linkedDecisionRecordIds
     };
   });
+  const sourceEvidenceIds = (state.evidenceRecords ?? [])
+    .filter((record) => record.sourceHookId && record.sourceHookId === specification.sourceHookId)
+    .map((record) => record.id);
+  const audited = applyResearchSpecificationAuditUpdate(state, {
+    specification: confirmedSpecification,
+    timestamp,
+    source: "decision",
+    title: `Research Specification confirmation: ${confirmedSpecification.title}`,
+    rationale: `Research Specification confirmation answer: ${answer}`,
+    sourceEvidenceIds,
+    questionRecordId: questionId,
+    decisionRecordId: decisionId,
+    createDecisionRecord: false
+  });
   const nextState = researchSpecificationAnswerConfirms(answer)
-    ? resolveResearchSpecificationConfirmationObligation(state, confirmedSpecification, {
+    ? resolveResearchSpecificationConfirmationObligation(audited.state, confirmedSpecification, {
         questionId,
         decisionId,
         status: "satisfied"
       })
     : researchSpecificationAnswerNeedsFollowUp(answer)
-      ? ensureResearchSpecificationConfirmationObligation(state, confirmedSpecification, {
+      ? ensureResearchSpecificationConfirmationObligation(audited.state, confirmedSpecification, {
           answer,
           questionId,
           decisionId
         })
-      : resolveResearchSpecificationConfirmationObligation(state, confirmedSpecification, {
+      : resolveResearchSpecificationConfirmationObligation(audited.state, confirmedSpecification, {
           questionId,
           decisionId,
           status: "cleared"
@@ -1559,6 +1595,146 @@ export function createLongTableMcpServer(): McpServer {
           found: true,
           specification,
           preview: renderResearchSpecificationPreview(specification)
+        });
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
+      }
+    }
+  );
+
+  server.registerTool(
+    "propose_research_spec_patch",
+    {
+      title: "Propose Research Specification Patch",
+      description: "Store a reviewable Research Specification patch without applying it.",
+      inputSchema: cwdSchema.extend({
+        specification: researchSpecificationSchema,
+        source: researchSpecificationPatchSourceSchema.default("manual"),
+        rationale: z.string().optional(),
+        sourceEvidenceIds: z.array(z.string()).optional()
+      })
+    },
+    async ({ cwd: inputCwd, specification, source, rationale, sourceEvidenceIds }) => {
+      try {
+        const context = await requireContext(inputCwd);
+        const result = await proposeResearchSpecificationPatch({
+          context,
+          specification: specification as ResearchSpecification,
+          source,
+          rationale,
+          sourceEvidenceIds
+        });
+        return textResult({
+          patch: result.patch,
+          changes: result.changes,
+          nextAction: `apply_research_spec_patch patchId=${result.patch.id}`
+        });
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
+      }
+    }
+  );
+
+  server.registerTool(
+    "apply_research_spec_patch",
+    {
+      title: "Apply Research Specification Patch",
+      description: "Automatically apply a proposed or inline Research Specification update and record a revision.",
+      inputSchema: cwdSchema.extend({
+        patchId: z.string().optional(),
+        specification: researchSpecificationSchema.optional(),
+        source: researchSpecificationPatchSourceSchema.default("manual"),
+        rationale: z.string().optional(),
+        sourceEvidenceIds: z.array(z.string()).optional(),
+        questionRecordId: z.string().optional(),
+        decisionRecordId: z.string().optional()
+      })
+    },
+    async ({ cwd: inputCwd, patchId, specification, source, rationale, sourceEvidenceIds, questionRecordId, decisionRecordId }) => {
+      try {
+        const context = await requireContext(inputCwd);
+        const result = await applyResearchSpecificationPatch({
+          context,
+          patchId,
+          specification: specification as ResearchSpecification | undefined,
+          source,
+          rationale,
+          sourceEvidenceIds,
+          questionRecordId,
+          decisionRecordId
+        });
+        return textResult({
+          patch: result.patch,
+          revision: result.revision,
+          specification: result.specification,
+          decision: result.decision,
+          session: {
+            currentGoal: result.session.currentGoal,
+            researchSpecification: result.session.researchSpecification
+          }
+        });
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
+      }
+    }
+  );
+
+  server.registerTool(
+    "diff_research_specification",
+    {
+      title: "Diff Research Specification",
+      description: "Compare an inline Research Specification against the current workspace specification without writing state.",
+      inputSchema: cwdSchema.extend({
+        specification: researchSpecificationSchema
+      }),
+      annotations: { readOnlyHint: true }
+    },
+    async ({ cwd: inputCwd, specification }) => {
+      try {
+        const context = await requireContext(inputCwd);
+        const state = asInterviewState(await loadWorkspaceState(context));
+        const current = state.researchSpecification ?? context.session.researchSpecification;
+        return textResult({
+          current,
+          changes: diffResearchSpecifications(current as ResearchSpecification | undefined, specification as ResearchSpecification)
+        });
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
+      }
+    }
+  );
+
+  server.registerTool(
+    "read_research_spec_history",
+    {
+      title: "Read Research Specification History",
+      description: "Read specification revisions, patches, and evidence records for audit or resume.",
+      inputSchema: cwdSchema,
+      annotations: { readOnlyHint: true }
+    },
+    async ({ cwd: inputCwd }) => {
+      try {
+        const context = await requireContext(inputCwd);
+        return textResult(await readResearchSpecificationHistory(context));
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
+      }
+    }
+  );
+
+  server.registerTool(
+    "find_unincorporated_evidence",
+    {
+      title: "Find Unincorporated Research Evidence",
+      description: "List interview, panel, critic, reviewer, or invocation evidence not yet incorporated into a Research Specification revision.",
+      inputSchema: cwdSchema,
+      annotations: { readOnlyHint: true }
+    },
+    async ({ cwd: inputCwd }) => {
+      try {
+        const context = await requireContext(inputCwd);
+        return textResult({
+          evidenceRecords: await findUnincorporatedResearchEvidence(context)
         });
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));

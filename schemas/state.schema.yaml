@@ -60,5 +60,25 @@ properties:
     type: array
     items:
       $ref: "./narrative-trace.schema.yaml"
+  interviewTurns:
+    type: array
+    description: Flattened raw LongTable interview turns preserved outside hook lifecycle.
+    items:
+      type: object
+  evidenceRecords:
+    type: array
+    description: Source-mapped evidence from interview turns, panels, critics, reviewers, decisions, invocations, or manual inputs.
+    items:
+      type: object
+  specPatches:
+    type: array
+    description: Proposed or applied Research Specification patches.
+    items:
+      type: object
+  specRevisions:
+    type: array
+    description: Versioned Research Specification snapshots with source evidence and decision links.
+    items:
+      type: object
   studyContract:
     $ref: "./study-contract.schema.yaml"

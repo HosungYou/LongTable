@@ -1,6 +1,6 @@
 {
   "name": "@longtable/core",
-  "version": "0.1.47",
+  "version": "0.1.48",
   "private": false,
   "description": "Provider-neutral domain models and contracts for LongTable",
   "type": "module",

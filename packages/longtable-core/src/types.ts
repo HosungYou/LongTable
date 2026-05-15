@@ -311,6 +311,92 @@ export interface DecisionRecord {
   studyContractId?: string;
 }
 
+export type EvidenceSourceKind =
+  | "interview_turn"
+  | "panel"
+  | "critic"
+  | "reviewer"
+  | "decision"
+  | "question"
+  | "invocation"
+  | "manual"
+  | "system";
+
+export interface EvidenceRecord {
+  id: string;
+  createdAt: string;
+  sourceKind: EvidenceSourceKind;
+  summary: string;
+  rawText?: string;
+  sourceId?: string;
+  sourceHookId?: string;
+  role?: string;
+  linkedQuestionRecordIds?: string[];
+  linkedDecisionRecordIds?: string[];
+  linkedInvocationRecordIds?: string[];
+  incorporatedAt?: string;
+  incorporatedByPatchId?: string;
+  incorporatedByRevisionId?: string;
+}
+
+export type ResearchSpecificationPatchSource =
+  | "interview"
+  | "panel"
+  | "critic"
+  | "reviewer"
+  | "decision"
+  | "manual"
+  | "system";
+
+export type ResearchSpecificationPatchStatus =
+  | "proposed"
+  | "applied"
+  | "rejected"
+  | "superseded";
+
+export type ResearchSpecificationChangeKind = "set" | "append" | "remove" | "replace";
+
+export interface ResearchSpecificationChange {
+  path: string;
+  kind: ResearchSpecificationChangeKind;
+  summary: string;
+  before?: unknown;
+  after?: unknown;
+  evidenceRecordIds?: string[];
+}
+
+export interface ResearchSpecificationPatch {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  status: ResearchSpecificationPatchStatus;
+  source: ResearchSpecificationPatchSource;
+  title: string;
+  rationale?: string;
+  changes: ResearchSpecificationChange[];
+  sourceEvidenceIds: string[];
+  targetSpecification?: ResearchSpecification;
+  appliedAt?: string;
+  appliedRevisionId?: string;
+  questionRecordId?: string;
+  decisionRecordId?: string;
+}
+
+export interface ResearchSpecificationRevision {
+  id: string;
+  index: number;
+  createdAt: string;
+  source: ResearchSpecificationPatchSource;
+  title: string;
+  status: NonNullable<ResearchSpecification["status"]>;
+  patchId?: string;
+  questionRecordId?: string;
+  decisionRecordId?: string;
+  sourceEvidenceIds: string[];
+  changeSummary: string[];
+  specification: ResearchSpecification;
+}
+
 export interface QuestionOption {
   value: string;
   label: string;
@@ -531,6 +617,9 @@ export interface ResearchSpecification {
   createdAt?: string;
   updatedAt?: string;
   sourceHookId?: string;
+  latestRevisionId?: string;
+  sourceEvidenceIds?: string[];
+  sectionEvidence?: Record<string, string[]>;
   researchDirection: {
     question?: string;
     purpose: string;
@@ -655,6 +744,10 @@ export interface ResearchState {
   hooks?: LongTableHookRun[];
   firstResearchShape?: FirstResearchShape;
   researchSpecification?: ResearchSpecification;
+  interviewTurns?: LongTableInterviewTurn[];
+  evidenceRecords?: EvidenceRecord[];
+  specPatches?: ResearchSpecificationPatch[];
+  specRevisions?: ResearchSpecificationRevision[];
   questionObligations?: LongTableQuestionObligation[];
   inferredHypotheses: InferredHypothesis[];
   openTensions: string[];

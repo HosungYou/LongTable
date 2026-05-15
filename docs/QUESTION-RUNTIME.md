@@ -182,6 +182,10 @@ Current MCP tools can:
 - elicit a Researcher Checkpoint through MCP form elicitation when the client supports it, recording accepted answers with surface `mcp_elicitation`
 - store and confirm `$longtable-interview` Research Specifications after the
   shorter First Research Shape layer
+- preserve raw interview turns as evidence records
+- propose, apply, diff, and read versioned Research Specification updates
+- surface unincorporated interview/panel/critic/reviewer evidence that has not
+  yet been folded into the current specification
 - render provider-specific question transport
 - append decision records
 - regenerate `CURRENT.md`

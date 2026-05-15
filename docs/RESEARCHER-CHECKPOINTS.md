@@ -64,6 +64,7 @@ Research risk detected
   -> researcher answers
   -> DecisionRecord appended
   -> linked invocation/panel/evidence updated
+  -> Research Specification patch/revision updated when the decision changes the specification
   -> CURRENT.md regenerated
 ```
 
@@ -76,6 +77,11 @@ LongTable currently stores checkpoints through these records:
 - `QuestionAnswer`: selected value, label, optional rationale, provider, surface
 - `DecisionRecord`: durable commitment made from the answer
 - `InvocationRecord`: panel or role call that produced the checkpoint
+- `EvidenceRecord`: source-mapped interview, panel, critic, reviewer, decision,
+  or invocation evidence that can support a Research Specification field
+- `ResearchSpecificationPatch` / `ResearchSpecificationRevision`: the
+  versioned document update trail that records what changed, which evidence
+  supported it, and which decision approved or logged it
 
 `QuestionRecord` and the linked `DecisionRecord` may also carry
 `commitmentFamily` and `epistemicBasis`. These are lightweight audit tags for

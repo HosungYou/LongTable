@@ -30,7 +30,11 @@ export function createEmptyResearchState(): ResearchState {
     invocationLog: [],
     questionLog: [],
     artifactRecords: [],
-    narrativeTraces: []
+    narrativeTraces: [],
+    interviewTurns: [],
+    evidenceRecords: [],
+    specPatches: [],
+    specRevisions: []
   };
 }
 
@@ -71,6 +75,10 @@ export function promoteHypothesisToExplicitState(
     questionLog: state.questionLog ?? [],
     artifactRecords: state.artifactRecords,
     narrativeTraces: state.narrativeTraces,
+    interviewTurns: state.interviewTurns ?? [],
+    evidenceRecords: state.evidenceRecords ?? [],
+    specPatches: state.specPatches ?? [],
+    specRevisions: state.specRevisions ?? [],
     studyContract: state.studyContract
   };
 }
@@ -174,6 +182,10 @@ export function restoreWorkingState(state: ResearchState): ResearchState {
     questionLog: [...(state.questionLog ?? [])],
     artifactRecords: [...state.artifactRecords],
     narrativeTraces: [...state.narrativeTraces],
+    interviewTurns: [...(state.interviewTurns ?? [])],
+    evidenceRecords: [...(state.evidenceRecords ?? [])],
+    specPatches: [...(state.specPatches ?? [])],
+    specRevisions: [...(state.specRevisions ?? [])],
     studyContract: state.studyContract
       ? {
           ...state.studyContract,
@@ -211,7 +223,17 @@ export function summarizeForCheckpoint(
     narrativeTraces:
       mode === "commit" || mode === "submit"
         ? state.narrativeTraces.slice(-5)
-        : state.narrativeTraces.slice(-2)
+        : state.narrativeTraces.slice(-2),
+    interviewTurns:
+      mode === "commit" || mode === "submit"
+        ? (state.interviewTurns ?? []).slice(-5)
+        : (state.interviewTurns ?? []).slice(-2),
+    evidenceRecords:
+      mode === "commit" || mode === "submit"
+        ? (state.evidenceRecords ?? []).slice(-5)
+        : (state.evidenceRecords ?? []).slice(-2),
+    specPatches: (state.specPatches ?? []).slice(-3),
+    specRevisions: (state.specRevisions ?? []).slice(-3)
   };
 }
 
@@ -228,7 +250,11 @@ export function summarizeStateForMode(
     invocationLog: [],
     questionLog: [],
     artifactRecords: [],
-    narrativeTraces: []
+    narrativeTraces: [],
+    interviewTurns: [],
+    evidenceRecords: [],
+    specPatches: [],
+    specRevisions: []
   };
 
   if (mode === "explore" || mode === "review" || mode === "draft") {
@@ -251,6 +277,10 @@ export function summarizeStateForMode(
     invocationLog: (state.invocationLog ?? []).slice(-3),
     questionLog: (state.questionLog ?? []).slice(-3),
     artifactRecords: state.artifactRecords.slice(-3),
-    narrativeTraces: state.narrativeTraces.slice(-3)
+    narrativeTraces: state.narrativeTraces.slice(-3),
+    interviewTurns: (state.interviewTurns ?? []).slice(-3),
+    evidenceRecords: (state.evidenceRecords ?? []).slice(-3),
+    specPatches: (state.specPatches ?? []).slice(-3),
+    specRevisions: (state.specRevisions ?? []).slice(-3)
   };
 }

@@ -578,6 +578,11 @@ Current MCP tools include:
 - `summarize_interview`
 - `summarize_research_specification`
 - `read_research_specification`
+- `propose_research_spec_patch`
+- `apply_research_spec_patch`
+- `diff_research_specification`
+- `read_research_spec_history`
+- `find_unincorporated_evidence`
 - `cancel_interview`
 - `confirm_first_research_shape`
 - `confirm_research_specification`
@@ -611,7 +616,10 @@ Codex does not support or allow elicitation, LongTable keeps the same
 When the MCP tool surface is available, LongTable skills should call
 `summarize_interview` first, then `summarize_research_specification` and
 `confirm_research_specification` at the end of a substantive
-`$longtable-interview`. `confirm_first_research_shape` remains available when a
+`$longtable-interview`. Research Specification writes now create versioned audit
+patches/revisions and keep source evidence links so later interview, panel,
+critic, or reviewer outputs can update the specification without losing why a
+field changed. `confirm_first_research_shape` remains available when a
 researcher intentionally wants to stop at the shorter handle layer.
 `cancel_interview` is only for explicit interview cancellation, and
 `elicit_question` is for later Researcher Checkpoints. `longtable
@@ -765,7 +773,7 @@ provider skills are the preferred adapter surface.
 | `CURRENT.md` | Human-readable current project status |
 | `.longtable/project.json` | Stable project identity |
 | `.longtable/current-session.json` | Current session cursor |
-| `.longtable/state.json` | Layered working memory, tensions, questions, decisions, and invocations |
+| `.longtable/state.json` | Layered working memory, tensions, questions, decisions, invocations, interview turns, evidence records, and Research Specification audit history |
 | `.longtable/sessions/` | Historical session snapshots |
 | `.longtable/evidence/` | Recorded evidence search runs and evidence cards |
 | `.longtable/team/<id>/` | Team or debate artifacts when team mode is used |
