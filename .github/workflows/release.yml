@@ -25,29 +25,11 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Verify npm publish token scope
+      - name: Verify npm publish token
         run: |
-          npm whoami
-          npm access list packages @longtable --json > /tmp/longtable-access.json
-          node <<'NODE'
-          const { readFileSync } = require("node:fs");
-          const access = JSON.parse(readFileSync("/tmp/longtable-access.json", "utf8"));
-          const required = [
-            "@longtable/core",
-            "@longtable/memory",
-            "@longtable/checkpoints",
-            "@longtable/setup",
-            "@longtable/provider-codex",
-            "@longtable/provider-claude",
-            "@longtable/cli",
-            "@longtable/mcp"
-          ];
-          const missing = required.filter((pkg) => access[pkg] !== "read-write");
-          if (missing.length > 0) {
-            throw new Error(`NPM_TOKEN must have read-write access for: ${missing.join(", ")}`);
-          }
-          console.log(`NPM_TOKEN has read-write access for ${required.length} @longtable packages.`);
-          NODE
+          user="$(npm whoami)"
+          echo "NPM_TOKEN authenticated as ${user}."
+          echo "Package write access is verified by npm publish in the publish step."
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
