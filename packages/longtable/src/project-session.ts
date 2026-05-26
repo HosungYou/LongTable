@@ -714,7 +714,7 @@ function buildCurrentGuide(
       "",
       "## 빠른 시작",
       "- 이 디렉토리에서 `codex`를 엽니다.",
-      `- 첫 메시지는 보통 \`${session.firstResearchShape ? suggestedPrompt : "$longtable-interview"}\` 정도면 충분합니다.`,
+      `- 첫 메시지는 보통 \`${session.firstResearchShape ? suggestedPrompt : "$longtable-start"}\` 정도면 충분합니다.`,
       "",
       "## 증거 규칙",
       "- 외부 사실이나 현재 정보는 source를 붙이거나 inference로 낮춥니다."
@@ -792,7 +792,7 @@ function buildCurrentGuide(
     "",
     "## Quick Start",
     "- Open `codex` in this directory.",
-    `- A good first message is usually \`${session.firstResearchShape ? suggestedPrompt : "$longtable-interview"}\`.`,
+    `- A good first message is usually \`${session.firstResearchShape ? suggestedPrompt : "$longtable-start"}\`.`,
     "",
     "## Evidence Rule",
     "- External or current claims should carry a source link or be labeled as inference."
@@ -1341,7 +1341,8 @@ function buildProjectAgentsMd(
     "- Treat `AGENTS.md` as runtime guidance, not as the researcher-facing resume artifact.",
     "",
     "## Invocation Rules",
-    "- If the user message starts with `$longtable-interview`, run the LongTable interview flow before generic research advice.",
+    "- If the user message starts with `$longtable-start`, run the LongTable research-start flow before generic research advice.",
+    "- If the user message starts with `$longtable-interview`, use post-start structured interview only when a usable Research Specification exists; otherwise route to `$longtable-start`.",
     "- If the user message starts with `lt `, `longtable `, `long table `, or `롱테이블 ` followed by a directive and `:`, treat it as an explicit LongTable invocation.",
     "- Supported explicit directives are: interview, explore, review, critique, draft, commit, panel, status, editor, reviewer, methods, theory, measurement, ethics, voice, venue.",
     "- For explicit LongTable invocations, do not begin by scanning the workspace. Use the current session files first and answer as LongTable immediately.",
@@ -1349,13 +1350,14 @@ function buildProjectAgentsMd(
     "",
     "## Research Behavior",
     "- Begin exploratory work with clarifying or tension questions before recommending a direction.",
-    "- For `$longtable-interview`, ask one natural-language question at a time, reflect with `LongTable hears: ...`, record turns when MCP is available, and avoid early reader/reviewer or theory/method/measurement classification.",
-    "- Do not summarize `$longtable-interview` because a fixed number of turns has passed; wait for content-based readiness around research object, focal uncertainty, boundary, evidence/material, protected decision, and next action.",
+    "- For `$longtable-start`, ask one natural-language question at a time, reflect with `LongTable hears: ...`, record turns when MCP is available, and avoid early reader/reviewer or theory/method/measurement classification.",
+    "- Do not summarize `$longtable-start` because a fixed number of turns has passed; wait for content-based readiness around research object, focal uncertainty, boundary, evidence/material, protected decision, and next action.",
     "- First Research Shape is a short handle/resume index, not the default closure point.",
     "- After the First Research Shape, create a Research Specification when the interview has enough detail to preserve scope, construct ontology, theory framing, coding rules, method options, evidence/access requirements, epistemic alignment, protected decisions, open questions, and next actions.",
     "- If a confirmed First Research Shape exists without a Research Specification, continue directly into the next Research Specification question instead of asking shape-level continue/revise/restart questions.",
     "- If the researcher chooses `ask_one_more` or `revise_section` at Research Specification confirmation, answer that gap and return to the Research Specification Preview before ending the interview.",
-    "- Do not let unrelated pending Researcher Checkpoints interrupt `$longtable-interview`; mention them only as separate unresolved checkpoints unless the researcher is confirming, saving, or recording a research decision.",
+    "- Do not let unrelated pending Researcher Checkpoints interrupt `$longtable-start`; mention them only as separate unresolved checkpoints unless the researcher is confirming, saving, or recording a research decision.",
+    "- For `$longtable-interview` after a Research Specification exists, use option-first follow-up choices with Other/free-text or one open-question escape hatch.",
     "- Use structured options at the final Research Specification confirmation, at explicit short-handle stop points, or at true checkpoint boundaries.",
     "- If you foreground role perspectives, disclose them with `LongTable consulted: ...`.",
     "- Keep one accountable synthesis, but do not hide meaningful disagreement.",
@@ -1699,7 +1701,7 @@ export async function beginLongTableInterview(options: {
     turns: [],
     qualityNotes: [],
     rationale: [
-      "Official LongTable research start surface is provider-native `$longtable-interview`, not the CLI start questionnaire.",
+      "Official LongTable research start surface is provider-native `$longtable-start`, not the CLI start questionnaire.",
       "The hook keeps early research ambiguity open until a first research handle can be summarized."
     ]
   };
@@ -1708,7 +1710,7 @@ export async function beginLongTableInterview(options: {
   updated.workingState = {
     ...updated.workingState,
     activeInterviewHookId: hook.id,
-    interviewSurface: "$longtable-interview",
+    interviewSurface: "$longtable-start",
     ...(options.openingQuestion ? { interviewOpeningQuestion: options.openingQuestion } : {}),
     ...(options.seedAnswer ? { interviewSeedAnswer: options.seedAnswer } : {})
   };
@@ -1861,7 +1863,7 @@ export async function summarizeLongTableInterview(options: {
   updated.narrativeTraces.push({
     id: createId("narrative_trace"),
     timestamp,
-    source: "$longtable-interview",
+    source: "$longtable-start",
     traceType: "judgment",
     summary: `First Research Shape: ${shape.handle}.`,
     visibility: "explicit",
@@ -2005,7 +2007,7 @@ export async function summarizeLongTableResearchSpecification(options: {
   updated.narrativeTraces.push({
     id: createId("narrative_trace"),
     timestamp,
-    source: "$longtable-interview",
+    source: "$longtable-start",
     traceType: "judgment",
     summary: `Research Specification draft: ${specification.title}.`,
     visibility: "explicit",

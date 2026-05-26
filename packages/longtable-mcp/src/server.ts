@@ -625,14 +625,14 @@ async function beginInterviewHook(
     turns: [],
     qualityNotes: [],
     rationale: [
-      "Official LongTable research start surface is provider-native `$longtable-interview`, not the CLI start questionnaire."
+      "Official LongTable research start surface is provider-native `$longtable-start`, not the CLI start questionnaire."
     ]
   };
   const updated = upsertInterviewHook(state, hook);
   updated.workingState = {
     ...updated.workingState,
     activeInterviewHookId: hook.id,
-    interviewSurface: "$longtable-interview",
+    interviewSurface: "$longtable-start",
     ...(options.openingQuestion ? { interviewOpeningQuestion: options.openingQuestion } : {}),
     ...(options.seedAnswer ? { interviewSeedAnswer: options.seedAnswer } : {})
   };
@@ -765,7 +765,7 @@ async function summarizeInterviewHook(
   updated.narrativeTraces.push({
     id: createId("narrative_trace"),
     timestamp,
-    source: "$longtable-interview",
+    source: "$longtable-start",
     traceType: "judgment",
     summary: `First Research Shape: ${shape.handle}.`,
     visibility: "explicit",
@@ -895,7 +895,7 @@ async function summarizeResearchSpecificationHook(
   updated.narrativeTraces.push({
     id: createId("narrative_trace"),
     timestamp,
-    source: "$longtable-interview",
+    source: "$longtable-start",
     traceType: "judgment",
     summary: `Research Specification draft: ${specification.title}.`,
     visibility: "explicit",
@@ -945,7 +945,7 @@ async function cancelInterviewHook(
     {
       id: createId("narrative_trace"),
       timestamp,
-      source: "$longtable-interview",
+      source: "$longtable-start",
       traceType: "judgment",
       summary: options.reason?.trim()
         ? `LongTable interview cancelled: ${options.reason.trim()}.`
@@ -1445,7 +1445,7 @@ export function createLongTableMcpServer(): McpServer {
     "create_workspace",
     {
       title: "Create LongTable Workspace",
-      description: "Create a .longtable workspace in the current folder for provider-native $longtable-interview.",
+      description: "Create a .longtable workspace in the current folder for provider-native $longtable-start.",
       inputSchema: cwdSchema.extend({
         projectName: z.string().optional(),
         projectPath: z.string().optional(),
@@ -1493,7 +1493,7 @@ export function createLongTableMcpServer(): McpServer {
     "begin_interview",
     {
       title: "Begin LongTable Interview",
-      description: "Create or resume the active $longtable-interview hook in an existing workspace.",
+      description: "Create or resume the active $longtable-start hook in an existing workspace.",
       inputSchema: cwdSchema.extend({
         openingQuestion: z.string().optional(),
         seedAnswer: z.string().optional(),
@@ -1808,7 +1808,7 @@ export function createLongTableMcpServer(): McpServer {
     "cancel_interview",
     {
       title: "Cancel LongTable Interview",
-      description: "Explicitly cancel the active $longtable-interview hook without confirming a First Research Shape.",
+      description: "Explicitly cancel the active $longtable-start hook without confirming a First Research Shape.",
       inputSchema: cwdSchema.extend({
         hookId: z.string().optional(),
         reason: z.string().optional()

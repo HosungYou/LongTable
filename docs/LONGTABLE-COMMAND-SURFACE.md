@@ -2,305 +2,104 @@
 
 ## Decision
 
-The researcher-facing surface should center on one CLI setup step and one
-provider-native interview:
+LongTable should expose a small researcher-facing workflow:
 
-- `longtable setup`
-- `$longtable-interview`
+1. `longtable setup`
+2. `$longtable-start`
+3. `$longtable-interview` after a Research Specification exists
+4. natural in-session directives such as `lt explore:`, `lt review:`, and
+   `lt panel:`
 
-After that, most work should continue in natural language from inside the
-project directory.
+The CLI remains available for setup, diagnostics, scripted workspace creation,
+state inspection, search, and tests. The main research conversation happens
+inside the provider runtime.
 
-## Why
-
-The earlier surface was too developer-centered:
-
-- `--prompt`
-- `--role`
-- `--panel`
-- provider-specific hidden commands
-
-Those options remain useful for debugging, scripting, and reproducible tests,
-but they should not be the main mental model for researchers.
-
-LongTable's primary surface should answer three questions:
-
-1. What runtime permissions has the researcher approved?
-   Use `longtable setup`.
-2. What project is starting now?
-   Use `$longtable-interview` inside Codex or Claude Code.
-3. Where does the work continue?
-   Continue in the same provider session after the First Research Shape is
-   confirmed.
-
-## Current Primary Surface
-
-- `longtable setup`
-- `$longtable-interview`
-- `longtable resume`
-- natural in-session forms such as `lt explore: ...`, `lt review: ...`, and
-  `lt panel: ...`
-
-Supporting surfaces:
-
-- `longtable roles`
-- `longtable ask`
-- `longtable question`
-- `longtable decide`
-- `longtable panel`
-- `longtable search`
-- `longtable codex install-skills`
-- `longtable claude install-skills`
-
-The important distinction is:
-
-- `setup` is the shell permission command
-- `$longtable-interview` is the provider-native project-start interview
-- the actual research conversation should then proceed in natural language
-
-## Surface Roles
+## Primary Surfaces
 
 ### `longtable setup`
 
-Global setup:
+Permission and runtime setup:
 
-- provider
-- install scope
-- runtime surfaces
-- intervention level
-- interview launch preference
+- provider: Codex or Claude Code
+- install scope: user, project, or none
+- runtime surfaces: skills, MCP, sentinel, or CLI only
+- checkpoint intervention posture
+- launch guidance for the provider-native start flow
 
-`longtable init` remains a deprecated compatibility alias and should not be
-documented as the primary researcher path.
+`longtable init` remains a deprecated compatibility alias.
+
+### `$longtable-start`
+
+Provider-native research start:
+
+- create or resume `.longtable/`
+- ask one open natural-language question at a time
+- avoid early reader/reviewer contribution framing
+- avoid forcing theory/method/measurement categories before the researcher has
+  described the problem
+- preserve interview turns when MCP/state tools are available
+- store a First Research Shape only as a short resume handle
+- create or update the fuller Research Specification when the interview has
+  enough material
+- use structured option UI only for final specification confirmation,
+  short-handle stop points, or true checkpoint boundaries
 
 ### `$longtable-interview`
 
-Provider-native project start interview:
+Post-start structured interview:
 
-- create or resume `.longtable/`
-- ask one natural-language question at a time
-- keep each follow-up focused on one main uncertainty, without turning the
-  interview into a mini-questionnaire
-- reflect with `LongTable hears: ...`
-- evaluate thin answers before classifying them
-- record each turn with `append_interview_turn` when MCP is available
-- summarize only from content-based readiness, not from a fixed turn count
-- build a provisional First Research Shape
-- expand substantive starts into a Research Specification covering scope,
-  construct ontology, theory framing, coding, method, evidence/access, and
-  epistemic alignment
-- show a Research Specification Preview before final confirmation
-- use structured option UI only at final confirmation
-- mark the active interview `cancelled` only when the researcher explicitly
-  cancels the interview
+- only runs option-first when a usable Research Specification exists
+- routes to `$longtable-start` when no spec exists
+- treats First Research Shape without Research Specification as incomplete start
+  state
+- uses small bounded choice sets for spec revisions, checkpoint resolution,
+  evidence boundaries, coding rules, methods choices, or protected decisions
+- includes an escape hatch such as Other, free text, or one open follow-up
+  question
+- records changes as a Research Specification patch, DecisionRecord, or open
+  tension rather than silently overwriting state
 
-It creates:
+### `longtable start`
 
-- project directory
-- `.longtable/project.json`
-- `.longtable/current-session.json`
-- `.longtable/state.json`
-- `.longtable/sessions/`
-- project `AGENTS.md`
-- `CURRENT.md`
+Automation fallback:
 
-`longtable start` remains as a deprecated automation fallback for scripted
-workspace creation. It should not be presented as the main research-start
-experience.
+- useful for scripts and smoke tests
+- can create a workspace from explicit flags
+- should not be presented as the primary research-start experience
 
-### `longtable ask`
+## Question Transport
 
-Direct natural-language assistance inside an existing project directory.
+LongTable state is canonical. Provider UI is transport.
 
-If the prompt contains an explicit collaboration directive such as
-`lt panel: ...`, `lt team: ...`, or `lt debate: ...`, `ask` delegates to the
-matching panel, team, or debate path. If the request is less explicit but asks
-for multiple perspectives, LongTable uses checkpoint classifier stakes to route
-to the lightest adequate surface: panel for ordinary role disagreement, team for
-high-stakes cross-review, and debate for external-facing or deeply contested
-choices.
+Supported question surfaces:
 
-Short forms such as `lt explore: ...`, `lt review: ...`, and `lt methods: ...`
-are based on the LongTable directive parser and role router. They are not
-separate agent source files. Codex and Claude skills can expose the same natural
-language surface when installed.
+- MCP/native structured elicitation when available
+- terminal selector when interactive TTY input and output are available
+- numbered/plain-text fallback everywhere else
 
-If the workspace has a required pending Researcher Checkpoint, `ask` is blocked
-until `longtable decide` records an answer.
+Tmux is not a LongTable core requirement. If an OMX-style Codex popup transport
+is added, it must be documented as optional, attached-tmux-only, and backed by
+the standard fallback path.
 
-When a project prompt contains tacit choices, `ask` first asks focused
-follow-up questions. In an interactive terminal, LongTable uses selector UI and
-records answers immediately. In non-interactive contexts, it records pending
-required questions and prints the questions so the researcher can answer with
-`longtable decide`.
-
-### `longtable clarify`
-
-Creates focused follow-up questions from task context:
+## Supporting Commands
 
 ```bash
-longtable clarify --prompt "Update the rubrics using the selected best submissions."
-longtable clarify --provider codex --print --prompt "Check LongTable question UX."
-```
-
-The command detects knowledge gaps that LongTable should not infer silently,
-creates one `QuestionRecord` per gap, marks recommended options, and prefers the
-most convenient renderer available:
-
-- native structured question UI when the provider reliably exposes it
-- terminal selector UI in the CLI
-- numbered checkpoint fallback for non-interactive or plain-text surfaces
-
-### `longtable question`
-
-Writes a pending Researcher Checkpoint from natural-language decision context:
-
-```bash
-longtable question --prompt "We are about to finalize the measurement plan."
-longtable question --provider codex --print --prompt "We are about to finalize the measurement plan."
-longtable question --provider claude --print --prompt "We are about to finalize the measurement plan."
-```
-
-The command uses the shared checkpoint trigger classifier. It records:
-
-- checkpoint key
-- question text
-- options
-- required/advisory posture
-- rationale
-- preferred provider surfaces
-
-Required questions block normal `ask`, mode, panel, team, and debate commands
-until answered.
-`--print` renders the provider transport without asking the researcher to know
-provider internals.
-
-### `longtable decide`
-
-Answers a pending Researcher Checkpoint and appends a `DecisionRecord`:
-
-```bash
-longtable decide --question <id> --answer evidence --rationale "Need citation support before continuing."
-```
-
-If no question id is supplied, LongTable answers the most recent pending
-question.
-
-### `longtable panel`
-
-Structured multi-role review.
-
-In the current architecture, `panel` does not require native subagents or Claude
-skills:
-
-- creates a `PanelPlan`
-- creates a provider-neutral `InvocationIntent`
-- uses `sequential_fallback` as the stable execution surface
-- exposes planned `PanelResult` through `--json`
-- exposes the provider runtime prompt through `--print`
-- appends an `InvocationRecord` when run inside a LongTable workspace
-- creates a follow-up `QuestionRecord`
-- links the later `DecisionRecord` after `longtable decide`
-
-Examples:
-
-```bash
-longtable panel --prompt "review this methods section" --json
-longtable review --role methods_critic,measurement_auditor --panel --prompt "review this methods section" --json
-longtable decide --answer evidence --rationale "Need citation support before continuing."
-```
-
-### `longtable team`
-
-File-backed agent-team review. The default `team` path is not only parallel role
-listing; it records independent review, cross-review, and a coordinator
-synthesis/checkpoint.
-
-Examples:
-
-```bash
-longtable team --prompt "review this measurement plan" --role editor,measurement_auditor --json
-longtable team --debate --prompt "debate this study design" --role theory_critic,methods_critic --json
-```
-
-`team --debate` adds rebuttal and convergence rounds. See
-`docs/AGENT-TEAM-README.md` for user-facing guidance and
-`docs/TEAM-DEBATE-ORCHESTRATION.md` for the artifact contract.
-
-### `longtable search`
-
-Scholar-first evidence search for literature discovery, citation checking,
-publication metadata, and research decisions that need external support.
-
-Examples:
-
-```bash
-longtable access setup
-longtable access doctor --json
-longtable access probe --doi "10.1016/example" --publisher elsevier
-longtable search --query "trust calibration measurement" --intent measurement
-longtable search --query "trust calibration measurement" --publisher-access --json
-longtable search --query "trust calibration citation support" --intent citation --record
-```
-
-The command routes to scholarly metadata sources, normalizes results as
-evidence cards, deduplicates and ranks them, and optionally records the run
-under `.longtable/evidence/`. Missing credentials block non-interactive full
-router runs unless `--allow-partial` is supplied.
-
-### `longtable access`
-
-Scholarly access readiness for systematic reviews, meta-analyses, PDF
-collection, full-text extraction, and publisher/TDM probing.
-
-`access setup`, `access doctor`, and `access probe` configure scholarly access
-without storing secrets. They read environment variables for Elsevier, Springer
-Nature, Wiley, and Taylor & Francis, verify DOI entitlement where possible, and
-store only non-secret readiness status under `~/.longtable/access-readiness.json`.
-`longtable search setup`, `longtable search doctor`, and `longtable search probe`
-are removed; access decisions now live under the access namespace.
-
-### `longtable roles`
-
-Lists the research perspectives LongTable can consult.
-
-## Provider Adapter Installation
-
-Codex:
-
-```bash
+longtable resume --cwd "<project-path>"
+longtable doctor
+longtable status --cwd "<project-path>"
+longtable roles
+longtable question --prompt "<decision context>"
+longtable decide --question <id> --answer <value>
+longtable spec read --cwd "<project-path>"
+longtable search --query "<topic>"
 longtable codex install-skills
-```
-
-This generates Codex `SKILL.md` files under `~/.codex/skills/longtable-*`,
-including `longtable-interview`. When an explicit trigger is needed, use
-`$longtable-interview` for project start and `$longtable` for general routing if
-the current Codex build exposes skills that way. `/prompts` is not a stable
-LongTable product surface because some Codex builds do not expose custom prompt
-files as slash commands.
-
-Claude Code:
-
-```bash
 longtable claude install-skills
+longtable mcp install --provider all
 ```
-
-This generates Claude Code `SKILL.md` files under `~/.claude/skills/longtable-*`,
-including `longtable-interview`. The provider surface may look OMC-like, but
-role definitions are generated from LongTable's shared registry.
-
-### `longtable resume`
-
-Regenerates `CURRENT.md` from machine-readable state and prints the current
-workspace status.
 
 ## Non-Goals
 
-The primary LongTable path is not:
-
-- `/prompts:longtable`
-- `longtable review --prompt ... --role ...` as the default user experience
-- native provider subagent execution as the only panel path
-
-Those surfaces may exist, but they should remain supporting paths rather than
-the onboarding model.
+- Do not make provider-specific UI the product contract.
+- Do not make tmux required for research-start or checkpoint behavior.
+- Do not split start and interview into duplicated engines.
+- Do not treat First Research Shape as the substantive endpoint.

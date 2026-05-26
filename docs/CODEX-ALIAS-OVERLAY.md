@@ -23,6 +23,7 @@ Generated files:
 ```text
 ~/.codex/skills/
   longtable/SKILL.md
+  longtable-start/SKILL.md
   longtable-interview/SKILL.md
   longtable-methods/SKILL.md
   longtable-measure/SKILL.md
@@ -74,10 +75,10 @@ longtable codex install-prompts
 
 The guaranteed Codex path is:
 
-1. `longtable init --provider codex --install-skills`
-2. `longtable start`
-3. open Codex in the project directory
-4. invoke naturally with `longtable: ...`, `lt review: ...`, or `lt panel: ...`
+1. `longtable setup --provider codex`
+2. open Codex in the project directory
+3. invoke `$longtable-start`
+4. continue naturally with `longtable: ...`, `lt review: ...`, or `lt panel: ...`
 
 The shell commands `longtable ask`, `longtable review --role ...`, and
 `longtable panel --json` remain scriptable/debuggable surfaces, not the primary

@@ -342,16 +342,16 @@ function renderBrandBanner(title: string, subtitle?: string): string {
 
 function renderInterviewLaunchSteps(provider: ProviderKind): string {
   const command = provider === "codex" ? "codex" : "claude";
-  return renderSectionCard("LongTable Interview", [
+  return renderSectionCard("LongTable Start", [
     "Setup is permission and runtime calibration, not the research interview.",
     "The first research conversation now happens inside the provider so the model can listen, reflect, and ask one natural-language follow-up at a time.",
     "",
     "Next:",
     "1. cd \"<research-folder>\"",
     `2. run \`${command}\``,
-    "3. invoke `$longtable-interview`",
+    "3. invoke `$longtable-start`",
     "",
-    "The interview will create or resume `.longtable/`, may store a short First Research Shape handle, and uses option UI for the final Research Specification confirmation."
+    "The start interview will create or resume `.longtable/`, may store a short First Research Shape handle, and uses option UI for the final Research Specification confirmation."
   ]);
 }
 
@@ -365,7 +365,7 @@ function usage(): string {
   return [
     "Usage:",
     "  Run `longtable ...` in your terminal, not inside the Codex chat box.",
-    "  LongTable research starts inside Codex or Claude with `$longtable-interview` after setup.",
+    "  LongTable research starts inside Codex or Claude with `$longtable-start` after setup.",
     "",
     "  longtable setup [--provider codex|claude] [--install-scope user|project|none] [--surfaces cli_only|skills|skills_mcp|skills_mcp_sentinel] [--intervention advisory|balanced|strong] [--checkpoint-ui off|interactive|strong] [--workspace create|later] [--project-dir <path>] [--json] [--dir <path>] [--skills-dir <path>] [--runtime-path <file>] [--setup-path <file>]",
     "  longtable init [deprecated alias for setup; full legacy flags still supported for automation]",
@@ -410,7 +410,7 @@ function usage(): string {
     "Examples:",
     "  longtable setup --provider codex",
     "  cd \"<research-folder>\" && codex",
-    "  $longtable-interview",
+    "  $longtable-start",
     "  longtable start --no-interview --path ~/Research/My-Project --name \"AI Adoption Meta-Analysis\" --goal \"Narrow the review question\"",
     "  longtable doctor",
     "  longtable roles",
@@ -826,12 +826,12 @@ function buildPermissionSetupChoices(): {
       {
         id: "create",
         label: "Show interview launch steps",
-        description: "Why: research should start inside the provider. What you get: setup finishes with Codex/Claude + $longtable-interview steps. Tradeoff: workspace creation waits for the in-provider interview."
+        description: "Why: research should start inside the provider. What you get: setup finishes with Codex/Claude + $longtable-start steps. Tradeoff: workspace creation waits for the in-provider interview."
       },
       {
         id: "later",
         label: "No, prepare runtime only",
-        description: "Why: keeps setup short. What you get: runtime support without project state. Tradeoff: no durable research memory until `$longtable-interview` creates or resumes a workspace."
+        description: "Why: keeps setup short. What you get: runtime support without project state. Tradeoff: no durable research memory until `$longtable-start` creates or resumes a workspace."
       }
     ]
   };
@@ -1008,7 +1008,7 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
     interventionPosture: effectiveIntervention,
     checkpointUiMode: checkpointUi,
     workspaceCreationPreference: workspacePreference,
-    officialStartSurface: "$longtable-interview",
+    officialStartSurface: "$longtable-start",
     setupPosture: "permission_first",
     teamMode: "panel"
   };
@@ -1063,9 +1063,9 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
       mcpInstall,
       workspacePreference,
       nextStep: {
-        surface: "$longtable-interview",
+        surface: "$longtable-start",
         command: provider === "codex" ? "codex" : "claude",
-        description: "Open the provider in the research folder and invoke `$longtable-interview`."
+        description: "Open the provider in the research folder and invoke `$longtable-start`."
       }
     }, null, 2));
     return;
@@ -1099,7 +1099,7 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
   console.log(renderInterviewLaunchSteps(provider));
   if (workspacePreference === "create") {
     console.log("");
-    console.log("Workspace launch requested. Open the provider in your research folder and run `$longtable-interview`; the interview will create `.longtable/` there.");
+    console.log("Workspace launch requested. Open the provider in your research folder and run `$longtable-start`; the interview will create `.longtable/` there.");
   }
 }
 
@@ -2646,6 +2646,7 @@ function buildRoleAuditEntry(
 function runRoleAudit(): RoleAuditResult {
   const baseSkillNames = new Set([
     "longtable",
+    "longtable-start",
     "longtable-interview",
     "longtable-panel",
     "longtable-explore",
@@ -4552,7 +4553,7 @@ async function runStart(args: Record<string, string | boolean>): Promise<void> {
       "1. longtable setup --provider codex",
       "2. cd \"<research-folder>\"",
       "3. codex",
-      "4. $longtable-interview",
+      "4. $longtable-start",
       "",
       "For automation, pass `--no-interview --json` with `--name`, `--path`, and `--goal`."
     ]));

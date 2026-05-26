@@ -19,6 +19,8 @@ Provider adapters decide:
 - whether Claude Code should use `AskUserQuestion`
 - whether Codex should use MCP elicitation or numbered checkpoint text
 - whether a future UI should use a form, modal, or terminal selector
+- whether an optional Codex terminal popup is available in a tmux-attached
+  runtime
 
 ## Contract
 
@@ -46,6 +48,19 @@ LongTable may also keep a lightweight pending obligation record when the runtime
 must remember that a research-facing checkpoint is still owed even before a
 fresh QuestionRecord is answered. This is especially important for the
 interview-to-First-Research-Shape handoff.
+
+## Start And Interview Surfaces
+
+`$longtable-start` is the research-start surface. It asks open natural-language
+questions and creates or updates the Research Specification.
+
+`$longtable-interview` is post-start. It can use option-first structured
+questions only after a usable Research Specification exists. If no specification
+exists, or if only a First Research Shape exists, `$longtable-interview` must
+route to `$longtable-start`.
+
+First Research Shape is a short handle and resume layer. It is not the
+substantive endpoint.
 
 ## Triggering
 
@@ -101,6 +116,12 @@ Provider adapters expose the same record differently:
 - Claude uses `renderQuestionRecordInput(record)` to produce a structured
   AskUserQuestion-compatible payload for choice questions. Free-text
   checkpoints are rendered as a text fallback rather than a fake choice list.
+
+The terminal selector is available only when the process has interactive TTY
+input and output. Tmux is not required for LongTable core behavior. A future
+OMX-style Codex popup would be an optional transport that requires an attached
+tmux session and must fall back to the same `QuestionRecord -> DecisionRecord`
+path when unavailable.
 
 ## Provider Mapping
 
@@ -187,7 +208,7 @@ Current MCP tools can:
 - evaluate checkpoint triggers without writing state
 - write normalized question records
 - elicit a Researcher Checkpoint through MCP form elicitation when the client supports it, recording accepted answers with surface `mcp_elicitation`
-- store and confirm `$longtable-interview` Research Specifications after the
+- store and confirm `$longtable-start` Research Specifications after the
   shorter First Research Shape layer
 - preserve raw interview turns as evidence records
 - propose, apply, diff, and read versioned Research Specification updates

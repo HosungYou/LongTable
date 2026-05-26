@@ -483,6 +483,12 @@ const explicitPromptWithActiveInterview = await dispatchCodexHook({
 }, workspaceTmp);
 assert(explicitPromptWithActiveInterview?.hookSpecificOutput?.additionalContext?.includes("A LongTable interview is currently active"), "Explicit interview prompts should surface active interview context");
 
+const explicitStartPromptWithActiveInterview = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "$longtable-start"
+}, workspaceTmp);
+assert(explicitStartPromptWithActiveInterview?.hookSpecificOutput?.additionalContext?.includes("A LongTable interview is currently active"), "Explicit start prompts should surface active interview context");
+
 state.questionObligations = [{
   id: "obligation_test",
   kind: "first_research_shape_confirmation",

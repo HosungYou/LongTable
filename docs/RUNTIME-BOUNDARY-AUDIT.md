@@ -152,7 +152,7 @@ only durable source of truth.
 
 ## First Research Shape Quality
 
-The current `$longtable-interview` may produce a useful First Research Shape:
+`$longtable-start` may produce a useful First Research Shape:
 
 - handle
 - current goal
@@ -192,7 +192,7 @@ already clear:
 - panel/debate decisions that changed the direction
 
 This layer does not make setup heavier. It is created inside
-`$longtable-interview` through MCP `summarize_research_specification`, displayed
+`$longtable-start` through MCP `summarize_research_specification`, displayed
 as a Research Specification Preview, and confirmed through
 `confirm_research_specification`. If the researcher only wants the shorter
 handle layer, `confirm_first_research_shape` remains available as an explicit

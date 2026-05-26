@@ -24,7 +24,7 @@ Collect:
 
 ### Stage 2: Provider-Native Project Interview
 
-Collect when `$longtable-interview` creates or resumes a workspace:
+Collect when `$longtable-start` creates or resumes a workspace:
 
 - rough research interest
 - still-hard-to-say problem

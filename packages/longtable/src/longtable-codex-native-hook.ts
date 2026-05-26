@@ -236,15 +236,15 @@ function looksLikeExplicitInterviewPrompt(prompt: string): boolean {
   if (!normalized) {
     return false;
   }
-  if (/\$longtable-interview\b/i.test(normalized)) {
+  if (/\$longtable-(?:start|interview)\b/i.test(normalized)) {
     return true;
   }
   if (looksLikeLongTableProductOrToolingPrompt(normalized)) {
     return false;
   }
-  return /\bLongTable\b.*\binterview\b/i.test(normalized)
+  return /\bLongTable\b.*\b(?:start|interview)\b/i.test(normalized)
     || /\bfirst research shape\b/i.test(normalized)
-    || /롱테이블.*인터뷰|LongTable.*인터뷰|First Research Shape/i.test(normalized);
+    || /롱테이블.*(?:시작|인터뷰)|LongTable.*인터뷰|First Research Shape/i.test(normalized);
 }
 
 function looksLikeResearchStateConfirmationPrompt(prompt: string): boolean {

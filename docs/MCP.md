@@ -45,7 +45,7 @@ longtable-state
 Direct run:
 
 ```bash
-npx -y @longtable/mcp@0.1.50
+npx -y @longtable/mcp@0.1.51
 longtable-state --self-test
 ```
 
@@ -95,7 +95,7 @@ The first tool set is intentionally narrow:
 - `inspect_workspace`: summarize workspace state and optionally read
   `CURRENT.md` and project `AGENTS.md`
 - `create_workspace`: create `.longtable/` for provider-native
-  `$longtable-interview`
+  `$longtable-start`
 - `begin_interview`: create or resume the active LongTable interview hook
 - `append_interview_turn`: record one natural-language interview turn with
   answer-quality metadata and optional content-based readiness rationale

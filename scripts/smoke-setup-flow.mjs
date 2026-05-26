@@ -56,8 +56,8 @@ if (setupJson.setup.initialState.explicitState.installScope !== "none") {
 if (setupJson.setup.initialState.explicitState.runtimeSurfaces !== "cli_only") {
   throw new Error("Setup did not record runtime surface.");
 }
-if (setupJson.setup.initialState.explicitState.officialStartSurface !== "$longtable-interview") {
-  throw new Error("Setup should point researchers to $longtable-interview.");
+if (setupJson.setup.initialState.explicitState.officialStartSurface !== "$longtable-start") {
+  throw new Error("Setup should point researchers to $longtable-start.");
 }
 if (["t", "muxMode"].join("") in setupJson.setup.initialState.explicitState) {
   throw new Error("Setup should not record a console-specific mode.");
@@ -140,12 +140,15 @@ const movedStart = runCli([
 ], {
   stdio: ["ignore", "pipe", "pipe"]
 });
-if (!movedStart.includes("$longtable-interview")) {
-  throw new Error("Interactive longtable start should direct researchers to $longtable-interview.");
+if (!movedStart.includes("$longtable-start")) {
+  throw new Error("Interactive longtable start should direct researchers to $longtable-start.");
 }
 
 const skillsDir = join(tmp, "codex-skills");
 const installOutput = runCli(["codex", "install-skills", "--dir", skillsDir]);
+if (!installOutput.includes("longtable-start")) {
+  throw new Error("Codex skill install should include longtable-start.");
+}
 if (!installOutput.includes("longtable-interview")) {
   throw new Error("Codex skill install should include longtable-interview.");
 }
@@ -155,30 +158,37 @@ if (!installOutput.includes("longtable-methods") || !installOutput.includes("lon
 if (installOutput.includes("longtable-methods-critic") || installOutput.includes("longtable-panel")) {
   throw new Error("Compact Codex skill install should not expose full role or panel shortcuts by default.");
 }
+const startSkill = readFileSync(join(skillsDir, "longtable-start", "SKILL.md"), "utf8");
 const interviewSkill = readFileSync(join(skillsDir, "longtable-interview", "SKILL.md"), "utf8");
-if (!interviewSkill.includes("First Research Shape")) {
-  throw new Error("longtable-interview skill should document First Research Shape.");
+if (!startSkill.includes("First Research Shape")) {
+  throw new Error("longtable-start skill should document First Research Shape.");
 }
-if (!interviewSkill.includes("Research Specification") || !interviewSkill.includes("confirm_research_specification")) {
-  throw new Error("longtable-interview skill should document Research Specification confirmation.");
+if (!startSkill.includes("Research Specification") || !startSkill.includes("confirm_research_specification")) {
+  throw new Error("longtable-start skill should document Research Specification confirmation.");
 }
-if (!interviewSkill.includes("must not be treated as the default endpoint")) {
-  throw new Error("longtable-interview skill should demote First Research Shape from the default endpoint.");
+if (!startSkill.includes("must not be treated as the default endpoint")) {
+  throw new Error("longtable-start skill should demote First Research Shape from the default endpoint.");
 }
-if (!interviewSkill.includes("Do not begin with reader/reviewer")) {
-  throw new Error("longtable-interview skill should forbid early reader/reviewer prompts.");
+if (!startSkill.includes("Do not begin with reader/reviewer")) {
+  throw new Error("longtable-start skill should forbid early reader/reviewer prompts.");
 }
-if (!interviewSkill.includes("Closure Readiness") || !interviewSkill.includes("never stop merely because a fixed number of turns has passed")) {
-  throw new Error("longtable-interview skill should document content-based closure readiness.");
+if (!startSkill.includes("Closure Readiness") || !startSkill.includes("never stop merely because a fixed number of turns has passed")) {
+  throw new Error("longtable-start skill should document content-based closure readiness.");
 }
-if (!interviewSkill.includes("append_interview_turn") || !interviewSkill.includes("readyToSummarize")) {
-  throw new Error("longtable-interview skill should document durable turn recording and readiness signals.");
+if (!startSkill.includes("append_interview_turn") || !startSkill.includes("readyToSummarize")) {
+  throw new Error("longtable-start skill should document durable turn recording and readiness signals.");
 }
-if (!interviewSkill.includes("summarize_research_specification")) {
-  throw new Error("longtable-interview skill should store the Research Specification through MCP.");
+if (!startSkill.includes("summarize_research_specification")) {
+  throw new Error("longtable-start skill should store the Research Specification through MCP.");
 }
-if (!interviewSkill.includes("one main uncertainty") || !interviewSkill.includes("mini-questionnaire")) {
-  throw new Error("longtable-interview skill should softly document one-question-at-a-time behavior.");
+if (!startSkill.includes("one main uncertainty") || !startSkill.includes("mini-questionnaire")) {
+  throw new Error("longtable-start skill should softly document one-question-at-a-time behavior.");
+}
+if (!interviewSkill.includes("route to `$longtable-start` immediately")) {
+  throw new Error("longtable-interview skill should force no-spec routing to longtable-start.");
+}
+if (!interviewSkill.includes("option-first") || !interviewSkill.includes("Other") || !interviewSkill.includes("free text")) {
+  throw new Error("longtable-interview skill should document option-first follow-up with an escape hatch.");
 }
 const mcpInstall = JSON.parse(runCli([
   "mcp",
