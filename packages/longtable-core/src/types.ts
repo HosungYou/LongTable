@@ -306,6 +306,7 @@ export interface DecisionRecord {
   commitmentFamily?: QuestionCommitmentFamily;
   epistemicBasis?: QuestionEpistemicBasis;
   selectedOption?: string;
+  selectedOptions?: string[];
   rationale?: string;
   explicitStateUpdates?: Record<string, unknown>;
   studyContractId?: string;

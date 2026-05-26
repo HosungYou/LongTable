@@ -54,7 +54,9 @@ LongTable's Codex-native hook boundary should stay narrow:
 - `SessionStart`: restore CURRENT / First Research Shape / pending obligations
 - `UserPromptSubmit`: inject checkpoint-needed context when research responsibility is about to shift
 - `Stop`: block silent closure when required questions or interview obligations remain
+- `PreCompact` / `PostCompact`: keep compaction resumability quiet and state-backed
 - `PreToolUse` / `PostToolUse`: Bash-only guard/review layer, not the semantic source of truth
+- `PermissionRequest`: not currently owned by LongTable; leave permission policy to Codex unless LongTable has a specific researcher-facing contract
 
 Not recommended as:
 

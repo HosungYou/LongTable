@@ -17,6 +17,8 @@ type CodexHookEventName =
   | "PreToolUse"
   | "PostToolUse"
   | "UserPromptSubmit"
+  | "PreCompact"
+  | "PostCompact"
   | "Stop";
 
 type CodexHookPayload = Record<string, unknown>;
@@ -52,6 +54,8 @@ function readHookEventName(payload: CodexHookPayload): CodexHookEventName | null
     candidate === "PreToolUse" ||
     candidate === "PostToolUse" ||
     candidate === "UserPromptSubmit" ||
+    candidate === "PreCompact" ||
+    candidate === "PostCompact" ||
     candidate === "Stop"
   ) {
     return candidate;
@@ -232,15 +236,15 @@ function looksLikeExplicitInterviewPrompt(prompt: string): boolean {
   if (!normalized) {
     return false;
   }
-  if (/\$longtable-interview\b/i.test(normalized)) {
+  if (/\$longtable-(?:start|interview)\b/i.test(normalized)) {
     return true;
   }
   if (looksLikeLongTableProductOrToolingPrompt(normalized)) {
     return false;
   }
-  return /\bLongTable\b.*\binterview\b/i.test(normalized)
+  return /\bLongTable\b.*\b(?:start|interview)\b/i.test(normalized)
     || /\bfirst research shape\b/i.test(normalized)
-    || /롱테이블.*인터뷰|LongTable.*인터뷰|First Research Shape/i.test(normalized);
+    || /롱테이블.*(?:시작|인터뷰)|LongTable.*인터뷰|First Research Shape/i.test(normalized);
 }
 
 function looksLikeResearchStateConfirmationPrompt(prompt: string): boolean {
@@ -412,6 +416,30 @@ function sessionStartContext(runtime: LongTableRuntime): string {
   return sections.filter(Boolean).join("\n\n");
 }
 
+function postCompactContext(runtime: LongTableRuntime): string | null {
+  const blockingQuestion = pendingRequiredQuestions(runtime.state)[0];
+  const blockingObligation = pendingObligations(runtime.state)[0];
+  const interview = activeInterviewHook(runtime.state);
+  if (!blockingQuestion && !blockingObligation && !interview) {
+    return null;
+  }
+
+  const sections = [buildWorkspaceSummary(runtime, "compact").join("\n")];
+  if (interview) {
+    sections.push(buildActiveInterviewContext(interview));
+    if (blockingQuestion) {
+      sections.push(buildSeparatePendingQuestionNotice(blockingQuestion));
+    } else if (blockingObligation) {
+      sections.push(buildSeparatePendingObligationNotice(blockingObligation));
+    }
+  } else if (blockingQuestion) {
+    sections.push(buildPendingQuestionContext(blockingQuestion));
+  } else if (blockingObligation) {
+    sections.push(buildPendingObligationContext(blockingObligation));
+  }
+  return sections.filter(Boolean).join("\n\n");
+}
+
 async function userPromptSubmitContext(runtime: LongTableRuntime, prompt: string): Promise<string | null> {
   const blockingQuestion = pendingRequiredQuestions(runtime.state)[0];
   const blockingObligation = pendingObligations(runtime.state)[0];
@@ -573,6 +601,17 @@ export async function dispatchCodexHook(
 
   if (hookEventName === "PostToolUse") {
     return postToolUseOutput(runtime, payload);
+  }
+
+  if (hookEventName === "PreCompact") {
+    return null;
+  }
+
+  if (hookEventName === "PostCompact") {
+    const additionalContext = postCompactContext(runtime);
+    return additionalContext
+      ? buildAdditionalContextOutput(hookEventName, additionalContext)
+      : null;
   }
 
   if (hookEventName === "Stop") {

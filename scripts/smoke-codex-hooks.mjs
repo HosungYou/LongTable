@@ -8,10 +8,15 @@ const cli = join(repoRoot, "packages", "longtable", "dist", "cli.js");
 const { dispatchCodexHook } = await import(join(repoRoot, "packages", "longtable", "dist", "longtable-codex-native-hook.js"));
 const {
   answerWorkspaceQuestion,
+  buildManagedCodexHookTrustState,
+  codexHooksEnabled,
   clearWorkspaceQuestion,
   createWorkspaceQuestion,
+  getMissingManagedCodexHookTrustState,
   loadProjectContextFromDirectory,
+  mergeCodexHookTrustState,
   mergeManagedCodexHooksConfig,
+  removeCodexHookTrustState,
   pruneWorkspaceQuestions
 } = await import(join(repoRoot, "packages", "longtable", "dist", "index.js"));
 const {
@@ -68,15 +73,29 @@ const installResult = JSON.parse(runCli([
 ], hooksTmp));
 
 assertEqual(installResult.codexHooksEnabled, true, "codex hooks feature should be enabled");
-assertEqual(installResult.managedEvents.length, 5, "managed hook event count");
+assertEqual(installResult.managedEvents.length, 7, "managed hook event count");
+assertEqual(installResult.managedTrustEntries, 7, "managed hook trust entry count");
 const writtenConfig = readFileSync(codexConfigPath, "utf8");
-assert(/\[features\]/.test(writtenConfig) && /codex_hooks\s*=\s*true/.test(writtenConfig), "config should enable codex_hooks");
+assert(/\[features\]/.test(writtenConfig) && /\bhooks\s*=\s*true/.test(writtenConfig), "config should enable hooks feature");
+assert(codexHooksEnabled("[features]\nhooks = true\n"), "current hooks feature flag should be recognized");
+assert(codexHooksEnabled("[features]\ncodex_hooks = true\n"), "legacy codex_hooks feature flag should be recognized");
 const mergedHooks = JSON.parse(readFileSync(hooksPath, "utf8"));
 assert(mergedHooks.hooks.Stop.some((entry) => entry.matcher === "custom"), "existing user hook should be preserved");
 assert(mergedHooks.hooks.SessionStart.length > 0, "managed SessionStart hook should exist");
+assert(mergedHooks.hooks.PreCompact.length > 0, "managed PreCompact hook should exist");
+assert(mergedHooks.hooks.PostCompact.length > 0, "managed PostCompact hook should exist");
+const hooksContent = readFileSync(hooksPath, "utf8");
+const trustState = buildManagedCodexHookTrustState(hooksPath, hooksContent);
+assertEqual(Object.keys(trustState).length, 7, "managed trust state should cover every managed hook event");
+assertEqual(getMissingManagedCodexHookTrustState(writtenConfig, hooksPath, hooksContent).length, 0, "installed config should include current managed hook trust state");
+const rebuiltTrustConfig = mergeCodexHookTrustState("[features]\nhooks = true\n", hooksPath, hooksContent);
+assertEqual(getMissingManagedCodexHookTrustState(rebuiltTrustConfig, hooksPath, hooksContent).length, 0, "trust merge helper should produce complete trust state");
+const removedTrustConfig = removeCodexHookTrustState(rebuiltTrustConfig, hooksPath, hooksContent);
+assertEqual(getMissingManagedCodexHookTrustState(removedTrustConfig, hooksPath, hooksContent).length, 7, "trust removal helper should remove managed trust state");
 
 const mergedPreview = JSON.parse(mergeManagedCodexHooksConfig(readFileSync(hooksPath, "utf8"), join(repoRoot, "packages", "longtable")));
 assert(mergedPreview.hooks.UserPromptSubmit.length > 0, "hook merge helper should preserve managed UserPromptSubmit");
+assert(mergedPreview.hooks.PreCompact.length > 0, "hook merge helper should preserve managed PreCompact");
 
 const shapeQuestion = buildFirstResearchShapeQuestion({
   handle: "behavioral trust calibration measurement",
@@ -425,6 +444,10 @@ const compactSessionContext = compactSessionStart?.hookSpecificOutput?.additiona
 assert(compactSessionContext.includes("research context restored"), "SessionStart should confirm restored LongTable context");
 assert(!compactSessionContext.includes("Current blocker:"), "SessionStart should not dump full blocker text when nothing is pending");
 assert(!compactSessionContext.includes("Protected decision: measurement"), "SessionStart should keep protected-decision details out of the compact startup summary");
+const preCompactQuiet = await dispatchCodexHook({ hook_event_name: "PreCompact" }, workspaceTmp);
+assertEqual(preCompactQuiet, null, "PreCompact should stay quiet when there is no state to surface");
+const postCompactQuiet = await dispatchCodexHook({ hook_event_name: "PostCompact" }, workspaceTmp);
+assertEqual(postCompactQuiet, null, "PostCompact should stay quiet when there is no state to surface");
 
 state.hooks = [
   ...(state.hooks ?? []),
@@ -445,6 +468,8 @@ state.hooks = [
 writeFileSync(statePath, JSON.stringify(state, null, 2));
 const stopWithActiveInterview = await dispatchCodexHook({ hook_event_name: "Stop" }, workspaceTmp);
 assertEqual(stopWithActiveInterview, null, "Stop hook should not auto-continue while an interview is waiting for researcher input");
+const postCompactWithActiveInterview = await dispatchCodexHook({ hook_event_name: "PostCompact" }, workspaceTmp);
+assert(postCompactWithActiveInterview?.hookSpecificOutput?.additionalContext?.includes("A LongTable interview is currently active"), "PostCompact should restore active interview context after compaction");
 
 const ordinaryPromptWithActiveInterview = await dispatchCodexHook({
   hook_event_name: "UserPromptSubmit",
@@ -457,6 +482,12 @@ const explicitPromptWithActiveInterview = await dispatchCodexHook({
   prompt: "$longtable-interview"
 }, workspaceTmp);
 assert(explicitPromptWithActiveInterview?.hookSpecificOutput?.additionalContext?.includes("A LongTable interview is currently active"), "Explicit interview prompts should surface active interview context");
+
+const explicitStartPromptWithActiveInterview = await dispatchCodexHook({
+  hook_event_name: "UserPromptSubmit",
+  prompt: "$longtable-start"
+}, workspaceTmp);
+assert(explicitStartPromptWithActiveInterview?.hookSpecificOutput?.additionalContext?.includes("A LongTable interview is currently active"), "Explicit start prompts should surface active interview context");
 
 state.questionObligations = [{
   id: "obligation_test",

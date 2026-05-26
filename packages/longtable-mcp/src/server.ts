@@ -16,6 +16,7 @@ import type {
   QuestionCommitmentFamily,
   QuestionEpistemicBasis,
   QuestionOption,
+  QuestionPromptType,
   QuestionRecord,
   QuestionTransportStatus
 } from "@longtable/core";
@@ -210,12 +211,33 @@ type InterviewState = Omit<
   questionObligations?: QuestionObligation[];
 };
 
+type ElicitationSchemaProperty = NonNullable<ElicitRequestFormParams["requestedSchema"]["properties"]>[string];
+type AcceptedQuestionAnswer = string | string[] | {
+  selectedValue?: string;
+  selectedValues?: string[];
+  otherText?: string;
+};
+
 const questionOptionSchema = z.object({
   value: z.string().min(1),
   label: z.string().min(1),
   description: z.string().optional(),
   recommended: z.boolean().optional()
 });
+
+const questionPromptTypeSchema = z.enum(["single_choice", "multi_choice", "free_text"]);
+
+const questionAnswerInputSchema = z.union([
+  z.string().min(1),
+  z.array(z.string().min(1)).min(1),
+  z.object({
+    answer: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]).optional(),
+    selectedValue: z.string().min(1).optional(),
+    selectedValues: z.array(z.string().min(1)).min(1).optional(),
+    otherText: z.string().min(1).optional(),
+    rationale: z.string().min(1).optional()
+  })
+]);
 
 const commitmentFamilySchema = z.enum([
   "scope",
@@ -603,14 +625,14 @@ async function beginInterviewHook(
     turns: [],
     qualityNotes: [],
     rationale: [
-      "Official LongTable research start surface is provider-native `$longtable-interview`, not the CLI start questionnaire."
+      "Official LongTable research start surface is provider-native `$longtable-start`, not the CLI start questionnaire."
     ]
   };
   const updated = upsertInterviewHook(state, hook);
   updated.workingState = {
     ...updated.workingState,
     activeInterviewHookId: hook.id,
-    interviewSurface: "$longtable-interview",
+    interviewSurface: "$longtable-start",
     ...(options.openingQuestion ? { interviewOpeningQuestion: options.openingQuestion } : {}),
     ...(options.seedAnswer ? { interviewSeedAnswer: options.seedAnswer } : {})
   };
@@ -743,7 +765,7 @@ async function summarizeInterviewHook(
   updated.narrativeTraces.push({
     id: createId("narrative_trace"),
     timestamp,
-    source: "$longtable-interview",
+    source: "$longtable-start",
     traceType: "judgment",
     summary: `First Research Shape: ${shape.handle}.`,
     visibility: "explicit",
@@ -873,7 +895,7 @@ async function summarizeResearchSpecificationHook(
   updated.narrativeTraces.push({
     id: createId("narrative_trace"),
     timestamp,
-    source: "$longtable-interview",
+    source: "$longtable-start",
     traceType: "judgment",
     summary: `Research Specification draft: ${specification.title}.`,
     visibility: "explicit",
@@ -923,7 +945,7 @@ async function cancelInterviewHook(
     {
       id: createId("narrative_trace"),
       timestamp,
-      source: "$longtable-interview",
+      source: "$longtable-start",
       traceType: "judgment",
       summary: options.reason?.trim()
         ? `LongTable interview cancelled: ${options.reason.trim()}.`
@@ -1013,6 +1035,34 @@ function buildElicitationParams(record: QuestionRecord): ElicitRequestFormParams
         }]
       : [])
   ];
+  const decisionSchema: ElicitationSchemaProperty = record.prompt.type === "multi_choice"
+    ? {
+        type: "array",
+        title: "Decisions",
+        items: {
+          anyOf: choices
+        },
+        minItems: record.prompt.required ? 1 : 0
+      }
+    : record.prompt.type === "free_text"
+      ? {
+          type: "string",
+          title: "Decision"
+        }
+      : {
+          type: "string",
+          title: "Decision",
+          oneOf: choices
+        };
+  const properties: Record<string, ElicitationSchemaProperty> = {
+    answer: decisionSchema
+  };
+  if (record.prompt.allowOther && record.prompt.type !== "free_text") {
+    properties.otherText = {
+      type: "string",
+      title: record.prompt.otherLabel ?? "Other"
+    };
+  }
 
   return {
     mode: "form",
@@ -1023,30 +1073,42 @@ function buildElicitationParams(record: QuestionRecord): ElicitRequestFormParams
     ].filter(Boolean).join("\n"),
     requestedSchema: {
       type: "object",
-      properties: {
-        answer: {
-          type: "string",
-          title: "Decision",
-          oneOf: choices,
-          default: choices[0]?.const
-        }
-      },
+      properties,
       required: ["answer"]
     }
   };
 }
 
-function acceptedAnswer(result: ElicitResult): { answer: string } | null {
+function acceptedAnswer(result: ElicitResult): { answer: AcceptedQuestionAnswer } | null {
   if (result.action !== "accept") {
     return null;
   }
-  const answer = result.content?.answer;
+  const content = result.content as Record<string, unknown> | undefined;
+  const answer = content?.answer ?? content?.answers ?? content?.selectedValues;
+  const otherText = typeof content?.otherText === "string" && content.otherText.trim().length > 0
+    ? content.otherText.trim()
+    : undefined;
   if (typeof answer !== "string" || answer.length === 0) {
+    if (Array.isArray(answer) && answer.every((entry) => typeof entry === "string" && entry.length > 0)) {
+      return {
+        answer: otherText ? { selectedValues: answer, otherText } : answer
+      };
+    }
     return null;
   }
   return {
-    answer
+    answer: otherText ? { selectedValue: answer, otherText } : answer
   };
+}
+
+function firstAcceptedAnswerValue(answer: AcceptedQuestionAnswer): string {
+  if (typeof answer === "string") {
+    return answer;
+  }
+  if (Array.isArray(answer)) {
+    return answer[0] ?? "";
+  }
+  return answer.selectedValue ?? answer.selectedValues?.[0] ?? "";
 }
 
 async function markFirstResearchShapeConfirmation(
@@ -1383,7 +1445,7 @@ export function createLongTableMcpServer(): McpServer {
     "create_workspace",
     {
       title: "Create LongTable Workspace",
-      description: "Create a .longtable workspace in the current folder for provider-native $longtable-interview.",
+      description: "Create a .longtable workspace in the current folder for provider-native $longtable-start.",
       inputSchema: cwdSchema.extend({
         projectName: z.string().optional(),
         projectPath: z.string().optional(),
@@ -1431,7 +1493,7 @@ export function createLongTableMcpServer(): McpServer {
     "begin_interview",
     {
       title: "Begin LongTable Interview",
-      description: "Create or resume the active $longtable-interview hook in an existing workspace.",
+      description: "Create or resume the active $longtable-start hook in an existing workspace.",
       inputSchema: cwdSchema.extend({
         openingQuestion: z.string().optional(),
         seedAnswer: z.string().optional(),
@@ -1746,7 +1808,7 @@ export function createLongTableMcpServer(): McpServer {
     "cancel_interview",
     {
       title: "Cancel LongTable Interview",
-      description: "Explicitly cancel the active $longtable-interview hook without confirming a First Research Shape.",
+      description: "Explicitly cancel the active $longtable-start hook without confirming a First Research Shape.",
       inputSchema: cwdSchema.extend({
         hookId: z.string().optional(),
         reason: z.string().optional()
@@ -1860,7 +1922,7 @@ export function createLongTableMcpServer(): McpServer {
           const confirmation = await markFirstResearchShapeConfirmation(
             context,
             shape,
-            accepted.answer,
+            firstAcceptedAnswerValue(accepted.answer),
             created.question.id,
             decided.decision.id
           );
@@ -1980,7 +2042,7 @@ export function createLongTableMcpServer(): McpServer {
           const confirmation = await markResearchSpecificationConfirmation(
             context,
             specification,
-            accepted.answer,
+            firstAcceptedAnswerValue(accepted.answer),
             created.question.id,
             decided.decision.id
           );
@@ -2072,8 +2134,11 @@ export function createLongTableMcpServer(): McpServer {
         prompt: z.string().min(1),
         title: z.string().optional(),
         question: z.string().optional(),
+        type: questionPromptTypeSchema.optional(),
         checkpointKey: z.string().optional(),
         options: z.array(questionOptionSchema).optional(),
+        allowOther: z.boolean().optional(),
+        otherLabel: z.string().optional(),
         displayReason: z.string().optional(),
         provider: z.enum(["codex", "claude"]).optional(),
         required: z.boolean().optional(),
@@ -2081,7 +2146,7 @@ export function createLongTableMcpServer(): McpServer {
         epistemicBasis: epistemicBasisSchema.optional()
       })
     },
-    async ({ cwd: inputCwd, prompt, title, question, checkpointKey, options, displayReason, provider, required, commitmentFamily, epistemicBasis }) => {
+    async ({ cwd: inputCwd, prompt, title, question, type, checkpointKey, options, allowOther, otherLabel, displayReason, provider, required, commitmentFamily, epistemicBasis }) => {
       try {
         const context = await requireContext(inputCwd);
         const result = await createWorkspaceQuestion({
@@ -2089,8 +2154,11 @@ export function createLongTableMcpServer(): McpServer {
           prompt,
           title,
           question,
+          type: type as QuestionPromptType | undefined,
           checkpointKey,
           questionOptions: options as QuestionOption[] | undefined,
+          allowOther,
+          otherLabel,
           displayReason,
           provider,
           required,
@@ -2116,8 +2184,11 @@ export function createLongTableMcpServer(): McpServer {
         prompt: z.string().min(1),
         title: z.string().optional(),
         question: z.string().optional(),
+        type: questionPromptTypeSchema.optional(),
         checkpointKey: z.string().optional(),
         options: z.array(questionOptionSchema).optional(),
+        allowOther: z.boolean().optional(),
+        otherLabel: z.string().optional(),
         displayReason: z.string().optional(),
         provider: z.enum(["codex", "claude"]).default("codex"),
         required: z.boolean().optional(),
@@ -2126,7 +2197,7 @@ export function createLongTableMcpServer(): McpServer {
         fallbackOnly: z.boolean().default(false).describe("Create and render the checkpoint without calling MCP elicitation.")
       })
     },
-    async ({ cwd: inputCwd, prompt, title, question, checkpointKey, options, displayReason, provider, required, commitmentFamily, epistemicBasis, fallbackOnly }) => {
+    async ({ cwd: inputCwd, prompt, title, question, type, checkpointKey, options, allowOther, otherLabel, displayReason, provider, required, commitmentFamily, epistemicBasis, fallbackOnly }) => {
       try {
         const context = await requireContext(inputCwd);
         const created = await createWorkspaceQuestion({
@@ -2134,8 +2205,11 @@ export function createLongTableMcpServer(): McpServer {
           prompt,
           title,
           question,
+          type: type as QuestionPromptType | undefined,
           checkpointKey,
           questionOptions: options as QuestionOption[] | undefined,
+          allowOther,
+          otherLabel,
           displayReason,
           provider,
           required,
@@ -2237,7 +2311,7 @@ export function createLongTableMcpServer(): McpServer {
       description: "Answer a pending QuestionRecord and append a DecisionRecord.",
       inputSchema: cwdSchema.extend({
         questionId: z.string().optional(),
-        answer: z.string().min(1),
+        answer: questionAnswerInputSchema,
         rationale: z.string().optional(),
         provider: z.enum(["codex", "claude"]).optional()
       })

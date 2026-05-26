@@ -28,6 +28,10 @@ can render a structured schema. It should reflect a verified provider/client
 capability. For Codex, the stable contract remains numbered fallback plus
 optional MCP elicitation.
 
+`$longtable-start` is the Codex research-start skill. `$longtable-interview` is
+post-start and must route to `$longtable-start` when no usable Research
+Specification exists.
+
 Routing rule: if the `mcp__longtable_state__.elicit_question` tool is visible
 in the current Codex session, the adapter guidance should use it first for a
 Researcher Checkpoint. `longtable question --print --provider codex` is the
@@ -47,6 +51,17 @@ keeps the pending `QuestionRecord` and returns the numbered fallback plus the
 `longtable decide` next action. If the researcher explicitly cancels or declines
 the final First Research Shape confirmation, LongTable clears that generated
 required question so a canceled form does not keep blocking the session.
+
+## Terminal Popup Boundary
+
+LongTable does not require tmux for Codex. The current stable Codex transports
+are MCP elicitation when available and numbered fallback otherwise. Interactive
+terminal selectors require TTY input and output.
+
+If LongTable later borrows an OMX-style popup renderer, that renderer must be
+documented as optional Codex terminal transport requiring an attached tmux
+session. It must not redefine the LongTable question contract, and it must fall
+back to the durable `QuestionRecord -> DecisionRecord` flow.
 
 ## Responsibilities
 

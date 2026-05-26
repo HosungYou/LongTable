@@ -22,6 +22,7 @@ import type {
   QuestionGenerationResult,
   QuestionOpportunity,
   QuestionSurface,
+  QuestionPromptType,
   QuestionRecord,
   ResearchSpecificationChange,
   ResearchSpecificationPatch,
@@ -713,7 +714,7 @@ function buildCurrentGuide(
       "",
       "## 빠른 시작",
       "- 이 디렉토리에서 `codex`를 엽니다.",
-      `- 첫 메시지는 보통 \`${session.firstResearchShape ? suggestedPrompt : "$longtable-interview"}\` 정도면 충분합니다.`,
+      `- 첫 메시지는 보통 \`${session.firstResearchShape ? suggestedPrompt : "$longtable-start"}\` 정도면 충분합니다.`,
       "",
       "## 증거 규칙",
       "- 외부 사실이나 현재 정보는 source를 붙이거나 inference로 낮춥니다."
@@ -791,7 +792,7 @@ function buildCurrentGuide(
     "",
     "## Quick Start",
     "- Open `codex` in this directory.",
-    `- A good first message is usually \`${session.firstResearchShape ? suggestedPrompt : "$longtable-interview"}\`.`,
+    `- A good first message is usually \`${session.firstResearchShape ? suggestedPrompt : "$longtable-start"}\`.`,
     "",
     "## Evidence Rule",
     "- External or current claims should carry a source link or be labeled as inference."
@@ -1340,7 +1341,8 @@ function buildProjectAgentsMd(
     "- Treat `AGENTS.md` as runtime guidance, not as the researcher-facing resume artifact.",
     "",
     "## Invocation Rules",
-    "- If the user message starts with `$longtable-interview`, run the LongTable interview flow before generic research advice.",
+    "- If the user message starts with `$longtable-start`, run the LongTable research-start flow before generic research advice.",
+    "- If the user message starts with `$longtable-interview`, use post-start structured interview only when a usable Research Specification exists; otherwise route to `$longtable-start`.",
     "- If the user message starts with `lt `, `longtable `, `long table `, or `롱테이블 ` followed by a directive and `:`, treat it as an explicit LongTable invocation.",
     "- Supported explicit directives are: interview, explore, review, critique, draft, commit, panel, status, editor, reviewer, methods, theory, measurement, ethics, voice, venue.",
     "- For explicit LongTable invocations, do not begin by scanning the workspace. Use the current session files first and answer as LongTable immediately.",
@@ -1348,13 +1350,14 @@ function buildProjectAgentsMd(
     "",
     "## Research Behavior",
     "- Begin exploratory work with clarifying or tension questions before recommending a direction.",
-    "- For `$longtable-interview`, ask one natural-language question at a time, reflect with `LongTable hears: ...`, record turns when MCP is available, and avoid early reader/reviewer or theory/method/measurement classification.",
-    "- Do not summarize `$longtable-interview` because a fixed number of turns has passed; wait for content-based readiness around research object, focal uncertainty, boundary, evidence/material, protected decision, and next action.",
+    "- For `$longtable-start`, ask one natural-language question at a time, reflect with `LongTable hears: ...`, record turns when MCP is available, and avoid early reader/reviewer or theory/method/measurement classification.",
+    "- Do not summarize `$longtable-start` because a fixed number of turns has passed; wait for content-based readiness around research object, focal uncertainty, boundary, evidence/material, protected decision, and next action.",
     "- First Research Shape is a short handle/resume index, not the default closure point.",
     "- After the First Research Shape, create a Research Specification when the interview has enough detail to preserve scope, construct ontology, theory framing, coding rules, method options, evidence/access requirements, epistemic alignment, protected decisions, open questions, and next actions.",
     "- If a confirmed First Research Shape exists without a Research Specification, continue directly into the next Research Specification question instead of asking shape-level continue/revise/restart questions.",
     "- If the researcher chooses `ask_one_more` or `revise_section` at Research Specification confirmation, answer that gap and return to the Research Specification Preview before ending the interview.",
-    "- Do not let unrelated pending Researcher Checkpoints interrupt `$longtable-interview`; mention them only as separate unresolved checkpoints unless the researcher is confirming, saving, or recording a research decision.",
+    "- Do not let unrelated pending Researcher Checkpoints interrupt `$longtable-start`; mention them only as separate unresolved checkpoints unless the researcher is confirming, saving, or recording a research decision.",
+    "- For `$longtable-interview` after a Research Specification exists, use option-first follow-up choices with Other/free-text or one open-question escape hatch.",
     "- Use structured options at the final Research Specification confirmation, at explicit short-handle stop points, or at true checkpoint boundaries.",
     "- If you foreground role perspectives, disclose them with `LongTable consulted: ...`.",
     "- Keep one accountable synthesis, but do not hide meaningful disagreement.",
@@ -1698,7 +1701,7 @@ export async function beginLongTableInterview(options: {
     turns: [],
     qualityNotes: [],
     rationale: [
-      "Official LongTable research start surface is provider-native `$longtable-interview`, not the CLI start questionnaire.",
+      "Official LongTable research start surface is provider-native `$longtable-start`, not the CLI start questionnaire.",
       "The hook keeps early research ambiguity open until a first research handle can be summarized."
     ]
   };
@@ -1707,7 +1710,7 @@ export async function beginLongTableInterview(options: {
   updated.workingState = {
     ...updated.workingState,
     activeInterviewHookId: hook.id,
-    interviewSurface: "$longtable-interview",
+    interviewSurface: "$longtable-start",
     ...(options.openingQuestion ? { interviewOpeningQuestion: options.openingQuestion } : {}),
     ...(options.seedAnswer ? { interviewSeedAnswer: options.seedAnswer } : {})
   };
@@ -1860,7 +1863,7 @@ export async function summarizeLongTableInterview(options: {
   updated.narrativeTraces.push({
     id: createId("narrative_trace"),
     timestamp,
-    source: "$longtable-interview",
+    source: "$longtable-start",
     traceType: "judgment",
     summary: `First Research Shape: ${shape.handle}.`,
     visibility: "explicit",
@@ -2004,7 +2007,7 @@ export async function summarizeLongTableResearchSpecification(options: {
   updated.narrativeTraces.push({
     id: createId("narrative_trace"),
     timestamp,
-    source: "$longtable-interview",
+    source: "$longtable-start",
     traceType: "judgment",
     summary: `Research Specification draft: ${specification.title}.`,
     visibility: "explicit",
@@ -3235,8 +3238,11 @@ export async function createWorkspaceQuestion(options: {
   prompt: string;
   title?: string;
   question?: string;
+  type?: QuestionPromptType;
   checkpointKey?: string;
   questionOptions?: QuestionOption[];
+  allowOther?: boolean;
+  otherLabel?: string;
   displayReason?: string;
   provider?: ProviderKind;
   required?: boolean;
@@ -3252,6 +3258,7 @@ export async function createWorkspaceQuestion(options: {
     studyContract: state.studyContract
   });
   const checkpointKey = options.checkpointKey ?? trigger.signal.checkpointKey;
+  const promptType = options.type ?? "single_choice";
   const createdAt = nowIso();
   const title = options.title ?? questionTitleForCheckpoint(trigger.family, checkpointKey);
   const questionText = options.question ?? questionTextForCheckpoint(trigger.family, options.prompt, checkpointKey);
@@ -3282,10 +3289,10 @@ export async function createWorkspaceQuestion(options: {
       checkpointKey,
       title,
       question: questionText,
-      type: "single_choice",
+      type: promptType,
       options: options.questionOptions ?? optionsForCheckpointTrigger(trigger.family, checkpointKey),
-      allowOther: true,
-      otherLabel: "Other decision",
+      allowOther: options.allowOther ?? promptType !== "free_text",
+      otherLabel: options.otherLabel ?? "Other decision",
       required: options.required ?? trigger.requiresQuestionBeforeClosure,
       source: "checkpoint",
       displayReason: options.displayReason ?? trigger.rationale[0],
@@ -3354,75 +3361,220 @@ function splitAnswerAndRationale(rawAnswer: string): { selection: string; ration
   };
 }
 
-function normalizeQuestionAnswerSelection(
+type WorkspaceQuestionAnswerInput = string | string[] | {
+  answer?: string | string[];
+  selectedValue?: string;
+  selectedValues?: string[];
+  otherText?: string;
+  rationale?: string;
+};
+
+interface NormalizedQuestionAnswerSelection {
+  selectedValues: string[];
+  selectedLabels: string[];
+  otherText?: string;
+  inlineRationale?: string;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function answerInputParts(input: WorkspaceQuestionAnswerInput): {
+  values: string[];
+  otherText?: string;
+  inlineRationale?: string;
+  rawText?: string;
+} {
+  if (typeof input === "string") {
+    return { values: [input], rawText: input };
+  }
+
+  if (Array.isArray(input)) {
+    return { values: input };
+  }
+
+  let values = input.selectedValues ?? [];
+  if (values.length === 0 && input.selectedValue) {
+    values = [input.selectedValue];
+  }
+  if (values.length === 0 && Array.isArray(input.answer)) {
+    values = input.answer;
+  }
+  if (values.length === 0 && typeof input.answer === "string") {
+    values = [input.answer];
+  }
+  const otherText = input.otherText?.trim();
+  const rationale = input.rationale?.trim();
+
+  return {
+    values,
+    ...(otherText ? { otherText } : {}),
+    ...(rationale ? { inlineRationale: rationale } : {})
+  };
+}
+
+function splitSelectionTokens(selection: string, type: QuestionPromptType): string[] {
+  if (type !== "multi_choice") {
+    return [selection];
+  }
+  return selection.split(/[;,]/).map((token) => token.trim()).filter(Boolean);
+}
+
+function normalizeFreeTextAnswer(input: WorkspaceQuestionAnswerInput): NormalizedQuestionAnswerSelection {
+  const parts = answerInputParts(input);
+  const selectedText = parts.values.join("\n").trim();
+  const text = parts.rawText ?? (selectedText || parts.otherText || "");
+  const trimmed = text.trim();
+  if (!trimmed) {
+    throw new Error("Free-text LongTable question answers cannot be empty.");
+  }
+  return {
+    selectedValues: [trimmed],
+    selectedLabels: [trimmed],
+    otherText: trimmed,
+    ...(parts.inlineRationale ? { inlineRationale: parts.inlineRationale } : {})
+  };
+}
+
+function resolveQuestionAnswerToken(
   question: QuestionRecord,
-  rawAnswer: string
+  token: string
 ): {
   selectedValue: string;
   selectedLabel: string;
   otherText?: string;
-  inlineRationale?: string;
 } {
-  const trimmed = rawAnswer.trim();
-  const { selection, rationale } = splitAnswerAndRationale(trimmed);
-  const numeric = Number(selection);
-  if (/^\d+$/.test(selection) && Number.isInteger(numeric)) {
+  const trimmed = token.trim();
+  if (!trimmed) {
+    throw new Error("LongTable question answers cannot contain empty selections.");
+  }
+
+  const numeric = Number(trimmed);
+  if (/^\d+$/.test(trimmed) && Number.isInteger(numeric)) {
     const option = question.prompt.options[numeric - 1];
     if (option) {
       return {
         selectedValue: option.value,
-        selectedLabel: option.label,
-        ...(rationale ? { inlineRationale: rationale } : {})
+        selectedLabel: option.label
       };
     }
 
     if (question.prompt.allowOther && numeric === question.prompt.options.length + 1) {
       return {
         selectedValue: "other",
-        selectedLabel: question.prompt.otherLabel ?? "Other",
-        ...(rationale ? { inlineRationale: rationale } : {})
+        selectedLabel: question.prompt.otherLabel ?? "Other"
       };
     }
 
-    throw new Error(`Answer ${selection} is outside the available LongTable question options.`);
+    throw new Error(`Answer ${trimmed} is outside the available LongTable question options.`);
   }
 
-  const normalizedSelection = normalizeAnswerToken(selection);
+  const normalizedSelection = normalizeAnswerToken(trimmed);
   const option = question.prompt.options.find((candidate) =>
     optionAnswerCandidates(candidate).includes(normalizedSelection)
   );
   if (option) {
     return {
       selectedValue: option.value,
-      selectedLabel: option.label,
-      ...(rationale ? { inlineRationale: rationale } : {})
+      selectedLabel: option.label
     };
   }
 
   if (normalizedSelection === "other" && question.prompt.allowOther) {
     return {
       selectedValue: "other",
-      selectedLabel: question.prompt.otherLabel ?? "Other",
-      ...(rationale ? { inlineRationale: rationale } : {})
+      selectedLabel: question.prompt.otherLabel ?? "Other"
     };
   }
 
   if (question.prompt.allowOther) {
     return {
-      selectedValue: "other",
-      selectedLabel: selection,
-      otherText: trimmed,
-      ...(rationale ? { inlineRationale: rationale } : {})
+      selectedValue: trimmed,
+      selectedLabel: question.prompt.otherLabel ?? "Other",
+      otherText: trimmed
     };
   }
 
-  throw new Error(`Answer "${selection}" does not match a LongTable question option.`);
+  throw new Error(`Answer "${trimmed}" does not match a LongTable question option.`);
+}
+
+function isOtherAnswerToken(question: QuestionRecord, token: string): boolean {
+  if (!question.prompt.allowOther) {
+    return false;
+  }
+
+  const trimmed = token.trim();
+  const normalized = normalizeAnswerToken(trimmed);
+  const otherLabel = normalizeAnswerToken(question.prompt.otherLabel ?? "Other");
+  if (normalized === "other" || normalized === otherLabel) {
+    return true;
+  }
+
+  const numeric = Number(trimmed);
+  return /^\d+$/.test(trimmed) && Number.isInteger(numeric) && numeric === question.prompt.options.length + 1;
+}
+
+function normalizeQuestionAnswerSelection(
+  question: QuestionRecord,
+  rawAnswer: WorkspaceQuestionAnswerInput
+): NormalizedQuestionAnswerSelection {
+  if (question.prompt.type === "free_text") {
+    return normalizeFreeTextAnswer(rawAnswer);
+  }
+
+  const parts = answerInputParts(rawAnswer);
+  const parsedValues = parts.values.flatMap((value) => {
+    if (typeof rawAnswer === "string") {
+      const { selection } = splitAnswerAndRationale(value.trim());
+      return splitSelectionTokens(selection, question.prompt.type);
+    }
+    return splitSelectionTokens(value, question.prompt.type);
+  });
+  const inlineRationale = typeof rawAnswer === "string"
+    ? splitAnswerAndRationale(rawAnswer.trim()).rationale
+    : parts.inlineRationale;
+  const hasOtherText = Boolean(parts.otherText);
+  const hasOtherToken = parsedValues.some((value) => isOtherAnswerToken(question, value));
+  if (hasOtherText && !hasOtherToken) {
+    throw new Error("Other text requires selecting the LongTable question Other option.");
+  }
+  const selectionTokens = parts.otherText
+    ? parsedValues.filter((value) => !isOtherAnswerToken(question, value))
+    : parsedValues;
+  const tokens = uniqueStrings([
+    ...selectionTokens,
+    ...(parts.otherText ? [parts.otherText] : [])
+  ]);
+
+  if (tokens.length === 0) {
+    throw new Error("LongTable question answers cannot be empty.");
+  }
+
+  if (question.prompt.type !== "multi_choice" && tokens.length > 1) {
+    throw new Error("Single-choice LongTable questions accept exactly one answer.");
+  }
+
+  const resolved = tokens.map((token) => resolveQuestionAnswerToken(question, token));
+  const selectedValues = uniqueStrings(resolved.map((entry) => entry.selectedValue));
+  const selectedLabels = selectedValues.map((value) => {
+    const entry = resolved.find((candidate) => candidate.selectedValue === value);
+    return entry?.selectedLabel ?? value;
+  });
+  const otherText = parts.otherText ?? resolved.map((entry) => entry.otherText).find(Boolean);
+
+  return {
+    selectedValues,
+    selectedLabels,
+    ...(otherText ? { otherText } : {}),
+    ...(inlineRationale ? { inlineRationale } : {})
+  };
 }
 
 export async function answerWorkspaceQuestion(options: {
   context: LongTableProjectContext;
   questionId?: string;
-  answer: string;
+  answer: WorkspaceQuestionAnswerInput;
   rationale?: string;
   provider?: "codex" | "claude";
   surface?: QuestionSurface;
@@ -3443,8 +3595,8 @@ export async function answerWorkspaceQuestion(options: {
     .join("\n");
   const answer: QuestionAnswer = {
     promptId: question.prompt.id,
-    selectedValues: [normalized.selectedValue],
-    selectedLabels: [normalized.selectedLabel],
+    selectedValues: normalized.selectedValues,
+    selectedLabels: normalized.selectedLabels,
     ...(normalized.otherText ? { otherText: normalized.otherText } : {}),
     ...(rationale ? { rationale } : {}),
     ...(options.provider ? { provider: options.provider } : {}),
@@ -3462,6 +3614,7 @@ export async function answerWorkspaceQuestion(options: {
     ...(question.commitmentFamily ? { commitmentFamily: question.commitmentFamily } : {}),
     ...(question.epistemicBasis ? { epistemicBasis: question.epistemicBasis } : {}),
     selectedOption: answer.selectedValues[0],
+    selectedOptions: answer.selectedValues,
     ...(rationale ? { rationale } : {})
   };
 

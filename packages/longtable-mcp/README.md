@@ -1,6 +1,7 @@
 # @longtable/mcp
 
-MCP transport for LongTable workspace state, `$longtable-interview`, and
+MCP transport for LongTable workspace state, `$longtable-start`,
+`$longtable-interview`, and
 Researcher Checkpoints.
 
 This package does not own LongTable state. It exposes structured tools over the
@@ -15,7 +16,7 @@ longtable-state
 Run:
 
 ```bash
-npx -y @longtable/mcp@0.1.47
+npx -y @longtable/mcp@0.1.51
 ```
 
 Self-test:
@@ -33,7 +34,9 @@ longtable mcp install --provider codex --checkpoint-ui strong --write
 If MCP elicitation is unavailable or not approved, the server returns the same
 pending `QuestionRecord` as a numbered fallback.
 
-Provider guidance should use interview tools for `$longtable-interview`:
+Provider guidance should use interview tools for `$longtable-start`.
+`$longtable-interview` is post-start and should route back to
+`$longtable-start` when no usable Research Specification exists:
 
 - `create_workspace`
 - `begin_interview`

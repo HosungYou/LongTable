@@ -15,6 +15,7 @@ const {
   loadProjectContextFromDirectory
 } = await import(join(repoRoot, "packages", "longtable", "dist", "index.js"));
 const { renderQuestionRecordPrompt } = await import(join(repoRoot, "packages", "longtable-provider-codex", "dist", "index.js"));
+const { renderQuestionRecordInput } = await import(join(repoRoot, "packages", "longtable-provider-claude", "dist", "index.js"));
 
 const mcpSelfTest = JSON.parse(execFileSync("node", [mcpServer, "--self-test"], {
   cwd: repoRoot,
@@ -40,6 +41,19 @@ function assertEqual(actual, expected, label) {
   if (actual !== expected) {
     throw new Error(`${label}: expected ${expected}, received ${actual}`);
   }
+}
+
+async function assertRejects(promiseFactory, expectedMessage, label) {
+  try {
+    await promiseFactory();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes(expectedMessage)) {
+      throw new Error(`${label}: expected error containing "${expectedMessage}", received "${message}"`);
+    }
+    return;
+  }
+  throw new Error(`${label}: expected rejection`);
 }
 
 function classify(prompt, fallbackMode) {
@@ -210,6 +224,137 @@ const overriddenDecision = await answerWorkspaceQuestion({
 });
 assertEqual(overriddenDecision.decision.commitmentFamily, "construct", "decision copies explicit commitment family");
 assertEqual(overriddenDecision.decision.epistemicBasis, "project_state", "decision copies explicit epistemic basis");
+
+const multi = await createWorkspaceQuestion({
+  context,
+  prompt: "The inclusion rule may need multiple constraints recorded together.",
+  checkpointKey: "multi_choice_transport",
+  question: "Which inclusion constraints should be recorded together?",
+  type: "multi_choice",
+  questionOptions: [
+    { value: "analysis_unit", label: "Organization-level analysis unit" },
+    { value: "measurement_content", label: "Organization-level measurement content" },
+    { value: "author_framing", label: "Author frames it as organizational adoption" }
+  ],
+  displayReason: "Multiple screening constraints can be true at the same time.",
+  required: true,
+  provider: "codex",
+  commitmentFamily: "scope",
+  epistemicBasis: "project_state"
+});
+assertEqual(multi.question.prompt.type, "multi_choice", "multi-choice question type");
+const multiCodex = renderQuestionRecordPrompt(multi.question);
+assertEqual(multiCodex.spec.selectionMode, "multi", "Codex fallback selection mode");
+if (!multiCodex.prompt.includes("one or more numbers separated by commas")) {
+  throw new Error("Codex fallback should tell the researcher how to answer multi-choice checkpoints.");
+}
+const multiClaude = renderQuestionRecordInput(multi.question);
+assertEqual(multiClaude.askUserQuestionInput.questions[0]?.multiSelect, true, "Claude AskUserQuestion multiSelect follows prompt type");
+const multiDecision = await answerWorkspaceQuestion({
+  context,
+  questionId: multi.question.id,
+  answer: "1, 2\nBoth constraints are required for screening consistency.",
+  provider: "codex",
+  surface: "numbered"
+});
+assertEqual(multiDecision.question.answer?.selectedValues.length, 2, "multi-choice selected value count");
+assertEqual(multiDecision.question.answer?.selectedValues.join(","), "analysis_unit,measurement_content", "multi-choice selected values");
+assertEqual(multiDecision.decision.selectedOption, "analysis_unit", "legacy selectedOption keeps first multi-choice value");
+assertEqual(multiDecision.decision.selectedOptions?.join(","), "analysis_unit,measurement_content", "DecisionRecord preserves all multi-choice values");
+
+const multiOther = await createWorkspaceQuestion({
+  context,
+  prompt: "The access plan may need a known option and a researcher-supplied constraint.",
+  checkpointKey: "multi_choice_other_transport",
+  question: "Which access constraints should be tracked?",
+  type: "multi_choice",
+  questionOptions: [
+    { value: "publisher_access", label: "Publisher access" },
+    { value: "api_key", label: "API key" }
+  ],
+  allowOther: true,
+  otherLabel: "Other access constraint",
+  displayReason: "Other should remain visible and auditable.",
+  required: true,
+  provider: "codex",
+  commitmentFamily: "evidence",
+  epistemicBasis: "researcher_knowledge"
+});
+const otherDecision = await answerWorkspaceQuestion({
+  context,
+  questionId: multiOther.question.id,
+  answer: {
+    selectedValues: ["publisher_access", "other"],
+    otherText: "institutional SSO session",
+    rationale: "This is a researcher-supplied access constraint."
+  },
+  provider: "codex",
+  surface: "numbered"
+});
+assertEqual(otherDecision.question.answer?.selectedValues.join(","), "publisher_access,institutional SSO session", "Other text is preserved as a selected value");
+assertEqual(otherDecision.question.answer?.otherText, "institutional SSO session", "Other text audit field");
+assertEqual(otherDecision.question.answer?.selectedLabels.join(","), "Publisher access,Other access constraint", "Other label remains visible");
+
+const invalidOther = await createWorkspaceQuestion({
+  context,
+  prompt: "Other text should not be attached to a concrete option unless Other is selected.",
+  checkpointKey: "multi_choice_invalid_other_transport",
+  question: "Which access constraints should be tracked?",
+  type: "multi_choice",
+  questionOptions: [
+    { value: "publisher_access", label: "Publisher access" },
+    { value: "api_key", label: "API key" }
+  ],
+  allowOther: true,
+  otherLabel: "Other access constraint",
+  required: true,
+  provider: "codex"
+});
+await assertRejects(
+  () => answerWorkspaceQuestion({
+    context,
+    questionId: invalidOther.question.id,
+    answer: {
+      selectedValues: ["publisher_access"],
+      otherText: "institutional SSO session"
+    },
+    provider: "codex",
+    surface: "numbered"
+  }),
+  "Other text requires selecting",
+  "Other text without selecting Other is rejected"
+);
+
+const freeText = await createWorkspaceQuestion({
+  context,
+  prompt: "The researcher needs to record a short free-text screening note.",
+  checkpointKey: "free_text_transport",
+  question: "What screening note should be preserved?",
+  type: "free_text",
+  questionOptions: [],
+  displayReason: "Free-text checkpoints should not masquerade as option selections.",
+  required: false,
+  provider: "codex",
+  commitmentFamily: "coding",
+  epistemicBasis: "researcher_knowledge"
+});
+assertEqual(freeText.question.prompt.allowOther, false, "free-text questions do not default to Other choices");
+const freeTextClaude = renderQuestionRecordInput(freeText.question);
+assertEqual(freeTextClaude.nativeStructured, false, "Claude free-text uses fallback transport");
+assertEqual(freeTextClaude.askUserQuestionInput, undefined, "Claude free-text does not emit choice payload");
+assertEqual(freeTextClaude.structuredPrompt.choices.length, 0, "Claude free-text structured prompt has no choices");
+if (!freeTextClaude.fallbackPrompt?.includes("Reply with a concise free-text answer.")) {
+  throw new Error("Claude free-text fallback should tell the researcher how to answer.");
+}
+const freeTextDecision = await answerWorkspaceQuestion({
+  context,
+  questionId: freeText.question.id,
+  answer: "Pilot screening should flag mixed individual/organization measurement.",
+  provider: "codex",
+  surface: "numbered"
+});
+assertEqual(freeTextDecision.question.answer?.selectedValues[0], "Pilot screening should flag mixed individual/organization measurement.", "free-text selected value");
+assertEqual(freeTextDecision.question.answer?.otherText, "Pilot screening should flag mixed individual/organization measurement.", "free-text otherText audit field");
 
 const teamTmp = mkdtempSync(join(tmpdir(), "longtable-team-cross-review-"));
 const team = JSON.parse(execFileSync("node", [

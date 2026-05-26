@@ -1,6 +1,6 @@
 {
   "name": "@longtable/checkpoints",
-  "version": "0.1.48",
+  "version": "0.1.51",
   "private": false,
   "description": "Checkpoint policy engine for LongTable",
   "type": "module",
@@ -21,7 +21,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@longtable/core": "0.1.48"
+    "@longtable/core": "0.1.51"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

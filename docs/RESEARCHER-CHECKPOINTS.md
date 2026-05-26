@@ -73,8 +73,8 @@ Research risk detected
 LongTable currently stores checkpoints through these records:
 
 - `QuestionRecord`: the pending or answered prompt
-- `QuestionPrompt`: title, question, options, display reason, rationale, required flag, preferred surfaces
-- `QuestionAnswer`: selected value, label, optional rationale, provider, surface
+- `QuestionPrompt`: title, question type, options, display reason, rationale, required flag, preferred surfaces
+- `QuestionAnswer`: selected values, labels, optional free-text/Other text, optional rationale, provider, surface
 - `DecisionRecord`: durable commitment made from the answer
 - `InvocationRecord`: panel or role call that produced the checkpoint
 - `EvidenceRecord`: source-mapped interview, panel, critic, reviewer, decision,
@@ -140,7 +140,8 @@ LongTable supports this in state with:
 
 - `allowOther: true`
 - `otherLabel`
-- a free-text answer normalized as `selectedValues: ["other"]`
+- a selected Other sentinel in provider transports when needed
+- the researcher-supplied text preserved as an actual selected value and as `otherText`
 
 The UI or fallback rendering must make this visible. It is not enough for
 `allowOther` to exist internally if the researcher cannot see that they can

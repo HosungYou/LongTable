@@ -87,7 +87,10 @@ import {
   codexHooksEnabled,
   enableCodexHooksFeature,
   getMissingManagedCodexHookEvents,
+  getMissingManagedCodexHookTrustState,
+  mergeCodexHookTrustState,
   mergeManagedCodexHooksConfig,
+  removeCodexHookTrustState,
   removeManagedCodexHooks
 } from "./codex-hooks.js";
 import {
@@ -186,6 +189,7 @@ interface CodexSkillHealth extends ProviderSkillHealth {
   hooksExists: boolean;
   codexHooksEnabled: boolean;
   missingManagedHookEvents: string[];
+  missingManagedHookTrustState: string[];
 }
 
 interface LongTableDoctorStatus {
@@ -236,6 +240,7 @@ interface CodexHookInstallResult {
   hooksPath: string;
   codexHooksEnabled: boolean;
   managedEvents: string[];
+  managedTrustEntries: number;
   write: boolean;
 }
 
@@ -337,16 +342,16 @@ function renderBrandBanner(title: string, subtitle?: string): string {
 
 function renderInterviewLaunchSteps(provider: ProviderKind): string {
   const command = provider === "codex" ? "codex" : "claude";
-  return renderSectionCard("LongTable Interview", [
+  return renderSectionCard("LongTable Start", [
     "Setup is permission and runtime calibration, not the research interview.",
     "The first research conversation now happens inside the provider so the model can listen, reflect, and ask one natural-language follow-up at a time.",
     "",
     "Next:",
     "1. cd \"<research-folder>\"",
     `2. run \`${command}\``,
-    "3. invoke `$longtable-interview`",
+    "3. invoke `$longtable-start`",
     "",
-    "The interview will create or resume `.longtable/`, may store a short First Research Shape handle, and uses option UI for the final Research Specification confirmation."
+    "The start interview will create or resume `.longtable/`, may store a short First Research Shape handle, and uses option UI for the final Research Specification confirmation."
   ]);
 }
 
@@ -360,7 +365,7 @@ function usage(): string {
   return [
     "Usage:",
     "  Run `longtable ...` in your terminal, not inside the Codex chat box.",
-    "  LongTable research starts inside Codex or Claude with `$longtable-interview` after setup.",
+    "  LongTable research starts inside Codex or Claude with `$longtable-start` after setup.",
     "",
     "  longtable setup [--provider codex|claude] [--install-scope user|project|none] [--surfaces cli_only|skills|skills_mcp|skills_mcp_sentinel] [--intervention advisory|balanced|strong] [--checkpoint-ui off|interactive|strong] [--workspace create|later] [--project-dir <path>] [--json] [--dir <path>] [--skills-dir <path>] [--runtime-path <file>] [--setup-path <file>]",
     "  longtable init [deprecated alias for setup; full legacy flags still supported for automation]",
@@ -405,7 +410,7 @@ function usage(): string {
     "Examples:",
     "  longtable setup --provider codex",
     "  cd \"<research-folder>\" && codex",
-    "  $longtable-interview",
+    "  $longtable-start",
     "  longtable start --no-interview --path ~/Research/My-Project --name \"AI Adoption Meta-Analysis\" --goal \"Narrow the review question\"",
     "  longtable doctor",
     "  longtable roles",
@@ -821,12 +826,12 @@ function buildPermissionSetupChoices(): {
       {
         id: "create",
         label: "Show interview launch steps",
-        description: "Why: research should start inside the provider. What you get: setup finishes with Codex/Claude + $longtable-interview steps. Tradeoff: workspace creation waits for the in-provider interview."
+        description: "Why: research should start inside the provider. What you get: setup finishes with Codex/Claude + $longtable-start steps. Tradeoff: workspace creation waits for the in-provider interview."
       },
       {
         id: "later",
         label: "No, prepare runtime only",
-        description: "Why: keeps setup short. What you get: runtime support without project state. Tradeoff: no durable research memory until `$longtable-interview` creates or resumes a workspace."
+        description: "Why: keeps setup short. What you get: runtime support without project state. Tradeoff: no durable research memory until `$longtable-start` creates or resumes a workspace."
       }
     ]
   };
@@ -1003,7 +1008,7 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
     interventionPosture: effectiveIntervention,
     checkpointUiMode: checkpointUi,
     workspaceCreationPreference: workspacePreference,
-    officialStartSurface: "$longtable-interview",
+    officialStartSurface: "$longtable-start",
     setupPosture: "permission_first",
     teamMode: "panel"
   };
@@ -1058,9 +1063,9 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
       mcpInstall,
       workspacePreference,
       nextStep: {
-        surface: "$longtable-interview",
+        surface: "$longtable-start",
         command: provider === "codex" ? "codex" : "claude",
-        description: "Open the provider in the research folder and invoke `$longtable-interview`."
+        description: "Open the provider in the research folder and invoke `$longtable-start`."
       }
     }, null, 2));
     return;
@@ -1094,7 +1099,7 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
   console.log(renderInterviewLaunchSteps(provider));
   if (workspacePreference === "create") {
     console.log("");
-    console.log("Workspace launch requested. Open the provider in your research folder and run `$longtable-interview`; the interview will create `.longtable/` there.");
+    console.log("Workspace launch requested. Open the provider in your research folder and run `$longtable-start`; the interview will create `.longtable/` there.");
   }
 }
 
@@ -1862,8 +1867,9 @@ async function installCodexNativeHooks(
   const packageRoot = resolveCliPackageRoot();
   const existingConfig = existsSync(configPath) ? await readFile(configPath, "utf8") : "";
   const existingHooks = existsSync(hooksPath) ? await readFile(hooksPath, "utf8") : "";
-  const nextConfig = enableCodexHooksFeature(existingConfig);
   const nextHooks = mergeManagedCodexHooksConfig(existingHooks, packageRoot);
+  const configWithHooksFeature = enableCodexHooksFeature(existingConfig, "hooks");
+  const nextConfig = mergeCodexHookTrustState(configWithHooksFeature, hooksPath, nextHooks);
 
   await mkdir(dirname(configPath), { recursive: true });
   await mkdir(dirname(hooksPath), { recursive: true });
@@ -1875,6 +1881,7 @@ async function installCodexNativeHooks(
     hooksPath,
     codexHooksEnabled: codexHooksEnabled(nextConfig),
     managedEvents: [...LONGTABLE_MANAGED_HOOK_EVENTS],
+    managedTrustEntries: getMissingManagedCodexHookTrustState("", hooksPath, nextHooks).length,
     write: true
   };
 }
@@ -1884,8 +1891,15 @@ async function removeCodexNativeHooks(
 ): Promise<CodexHookInstallResult> {
   const configPath = resolveCodexMcpConfigPath(args);
   const hooksPath = resolveCodexHooksPath(args);
+  const configContent = existsSync(configPath) ? await readFile(configPath, "utf8") : "";
   const existingHooks = existsSync(hooksPath) ? await readFile(hooksPath, "utf8") : "";
+  const nextConfig = existingHooks
+    ? removeCodexHookTrustState(configContent, hooksPath, existingHooks)
+    : configContent;
   const removed = existingHooks ? removeManagedCodexHooks(existingHooks) : { nextContent: null, removedCount: 0 };
+
+  await mkdir(dirname(configPath), { recursive: true });
+  await writeFile(configPath, nextConfig, "utf8");
 
   if (removed.nextContent === null) {
     await rm(hooksPath, { force: true });
@@ -1894,13 +1908,12 @@ async function removeCodexNativeHooks(
     await writeFile(hooksPath, removed.nextContent, "utf8");
   }
 
-  const configContent = existsSync(configPath) ? await readFile(configPath, "utf8") : "";
-
   return {
     configPath,
     hooksPath,
-    codexHooksEnabled: codexHooksEnabled(configContent),
+    codexHooksEnabled: codexHooksEnabled(nextConfig),
     managedEvents: removed.removedCount > 0 ? [...LONGTABLE_MANAGED_HOOK_EVENTS] : [],
+    managedTrustEntries: 0,
     write: true
   };
 }
@@ -1910,8 +1923,9 @@ function renderCodexHookInstallSummary(result: CodexHookInstallResult): string {
     "LongTable Codex hooks",
     `- config: ${result.configPath}`,
     `- hooks: ${result.hooksPath}`,
-    `- codex_hooks feature: ${result.codexHooksEnabled ? "enabled" : "missing"}`,
-    `- managed events: ${result.managedEvents.length > 0 ? result.managedEvents.join(", ") : "none"}`
+    `- hooks feature: ${result.codexHooksEnabled ? "enabled" : "missing"}`,
+    `- managed events: ${result.managedEvents.length > 0 ? result.managedEvents.join(", ") : "none"}`,
+    `- managed trust entries: ${result.managedTrustEntries}`
   ].join("\n");
 }
 
@@ -2138,6 +2152,9 @@ async function collectDoctorStatus(args: Record<string, string | boolean>): Prom
   const missingManagedHookEvents = codexHooksContent
     ? (getMissingManagedCodexHookEvents(codexHooksContent) ?? [...LONGTABLE_MANAGED_HOOK_EVENTS])
     : [...LONGTABLE_MANAGED_HOOK_EVENTS];
+  const missingManagedHookTrustState = codexHooksContent
+    ? getMissingManagedCodexHookTrustState(codexMcpConfig, codexHooksPath, codexHooksContent)
+    : [];
   const expectedCodexSkills = buildCodexSkillSpecs(roles, skillSurface).map((skill) => skill.name);
   const expectedClaudeSkills = buildClaudeSkillSpecs(roles, skillSurface).map((skill) => skill.name);
   const [codexSkills, claudeSkills, codexAliases, workspace] = await Promise.all([
@@ -2177,7 +2194,8 @@ async function collectDoctorStatus(args: Record<string, string | boolean>): Prom
         hooksPath: codexHooksPath,
         hooksExists: existsSync(codexHooksPath),
         codexHooksEnabled: codexHooksEnabled(codexMcpConfig),
-        missingManagedHookEvents
+        missingManagedHookEvents,
+        missingManagedHookTrustState
       },
       claude: {
         command: "claude",
@@ -2227,8 +2245,9 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
       : ["- Research Specification MCP tools: complete"]),
     `- MCP elicitation approval: ${status.providers.codex.mcpElicitationsAllowed ? "allowed" : "not allowed"}`,
     `- Codex hooks file: ${status.providers.codex.hooksExists ? "present" : "missing"} (${status.providers.codex.hooksPath})`,
-    `- codex_hooks feature: ${status.providers.codex.codexHooksEnabled ? "enabled" : "missing"}`,
+    `- hooks feature: ${status.providers.codex.codexHooksEnabled ? "enabled" : "missing"}`,
     `- managed hook coverage: ${status.providers.codex.missingManagedHookEvents.length === 0 ? "complete" : `missing ${status.providers.codex.missingManagedHookEvents.join(", ")}`}`,
+    `- managed hook trust: ${status.providers.codex.missingManagedHookTrustState.length === 0 ? "current" : `missing/stale ${status.providers.codex.missingManagedHookTrustState.length}`}`,
     "",
     ...renderProviderDoctorBlock("Claude", status.providers.claude),
     "",
@@ -2288,13 +2307,18 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
     status.providers.codex.missingMcpTools.length > 0 ||
     !status.providers.codex.codexHooksEnabled ||
     status.providers.codex.missingManagedHookEvents.length > 0 ||
+    status.providers.codex.missingManagedHookTrustState.length > 0 ||
     (status.setupExists &&
       (!status.providers.codex.runtimeExists || !status.providers.claude.runtimeExists));
 
   if (canFix) {
     nextActions.push("longtable doctor --fix");
   }
-  if (!status.providers.codex.codexHooksEnabled || status.providers.codex.missingManagedHookEvents.length > 0) {
+  if (
+    !status.providers.codex.codexHooksEnabled ||
+    status.providers.codex.missingManagedHookEvents.length > 0 ||
+    status.providers.codex.missingManagedHookTrustState.length > 0
+  ) {
     nextActions.push("longtable codex install-hooks");
   }
   if (
@@ -2434,7 +2458,11 @@ async function repairDoctorStatus(
   if (status.providers.codex.legacyPromptFilesInstalled.length > 0) {
     repair.removedLegacyPromptFiles = await removeCodexPromptAliases(codexPromptsDir);
   }
-  if (!status.providers.codex.codexHooksEnabled || status.providers.codex.missingManagedHookEvents.length > 0) {
+  if (
+    !status.providers.codex.codexHooksEnabled ||
+    status.providers.codex.missingManagedHookEvents.length > 0 ||
+    status.providers.codex.missingManagedHookTrustState.length > 0
+  ) {
     await installCodexNativeHooks(args);
     repair.installedCodexHooks = true;
   }
@@ -2618,6 +2646,7 @@ function buildRoleAuditEntry(
 function runRoleAudit(): RoleAuditResult {
   const baseSkillNames = new Set([
     "longtable",
+    "longtable-start",
     "longtable-interview",
     "longtable-panel",
     "longtable-explore",
@@ -4524,7 +4553,7 @@ async function runStart(args: Record<string, string | boolean>): Promise<void> {
       "1. longtable setup --provider codex",
       "2. cd \"<research-folder>\"",
       "3. codex",
-      "4. $longtable-interview",
+      "4. $longtable-start",
       "",
       "For automation, pass `--no-interview --json` with `--name`, `--path`, and `--goal`."
     ]));
@@ -4725,7 +4754,10 @@ async function runCodexSubcommand(
       hooksExists: existsSync(hooksPath),
       missingManagedHookEvents: hooksContent
         ? (getMissingManagedCodexHookEvents(hooksContent) ?? [...LONGTABLE_MANAGED_HOOK_EVENTS])
-        : [...LONGTABLE_MANAGED_HOOK_EVENTS]
+        : [...LONGTABLE_MANAGED_HOOK_EVENTS],
+      missingManagedHookTrustState: hooksContent
+        ? getMissingManagedCodexHookTrustState(configContent, hooksPath, hooksContent)
+        : []
     };
 
     if (args.json === true) {
@@ -4757,9 +4789,10 @@ async function runCodexSubcommand(
       }
     }
     console.log(`- codex config: ${status.codexConfigPath}`);
-    console.log(`- codex_hooks feature: ${status.codexHooksEnabled ? "enabled" : "missing"}`);
+    console.log(`- hooks feature: ${status.codexHooksEnabled ? "enabled" : "missing"}`);
     console.log(`- hooks file: ${status.hooksExists ? "present" : "missing"} (${status.hooksPath})`);
     console.log(`- managed hook coverage: ${status.missingManagedHookEvents.length === 0 ? "complete" : `missing ${status.missingManagedHookEvents.join(", ")}`}`);
+    console.log(`- managed hook trust: ${status.missingManagedHookTrustState.length === 0 ? "current" : `missing/stale ${status.missingManagedHookTrustState.length}`}`);
     return;
   }
 

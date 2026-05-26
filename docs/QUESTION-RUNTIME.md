@@ -19,6 +19,8 @@ Provider adapters decide:
 - whether Claude Code should use `AskUserQuestion`
 - whether Codex should use MCP elicitation or numbered checkpoint text
 - whether a future UI should use a form, modal, or terminal selector
+- whether an optional Codex terminal popup is available in a tmux-attached
+  runtime
 
 ## Contract
 
@@ -30,9 +32,9 @@ At the product level, this lifecycle is described as:
 Researcher Checkpoint -> QuestionRecord -> DecisionRecord
 ```
 
-`QuestionPrompt` is provider-neutral. It carries the checkpoint key, question text, options, required/blocking posture, source, a short display reason, internal rationale, and preferred surfaces.
+`QuestionPrompt` is provider-neutral. It carries the checkpoint key, question text, prompt type (`single_choice`, `multi_choice`, or `free_text`), options, required/blocking posture, source, a short display reason, internal rationale, and preferred surfaces.
 
-`QuestionAnswer` is normalized. Claude native choices, Codex numbered responses, and future web form selections should all become the same shape before they update LongTable state.
+`QuestionAnswer` is normalized. Claude native choices, Codex numbered responses, MCP form arrays, and future web form selections should all become the same shape before they update LongTable state: `selectedValues` preserves all choices, `otherText` preserves researcher-supplied Other/free-text content, and the linked `DecisionRecord.selectedOption` remains a first-value compatibility field while `selectedOptions` carries the full selection.
 
 `QuestionRecord` is durable lifecycle state. It exists so a required question is not inferred from prompt text alone. It may carry two optional inspection fields, `commitmentFamily` and `epistemicBasis`, when LongTable can state them without pretending to know more than it does.
 
@@ -46,6 +48,19 @@ LongTable may also keep a lightweight pending obligation record when the runtime
 must remember that a research-facing checkpoint is still owed even before a
 fresh QuestionRecord is answered. This is especially important for the
 interview-to-First-Research-Shape handoff.
+
+## Start And Interview Surfaces
+
+`$longtable-start` is the research-start surface. It asks open natural-language
+questions and creates or updates the Research Specification.
+
+`$longtable-interview` is post-start. It can use option-first structured
+questions only after a usable Research Specification exists. If no specification
+exists, or if only a First Research Shape exists, `$longtable-interview` must
+route to `$longtable-start`.
+
+First Research Shape is a short handle and resume layer. It is not the
+substantive endpoint.
 
 ## Triggering
 
@@ -99,7 +114,14 @@ Provider adapters expose the same record differently:
 - Codex uses MCP `elicit_question` when available, and
   `renderQuestionRecordPrompt(record)` as the numbered fallback.
 - Claude uses `renderQuestionRecordInput(record)` to produce a structured
-  AskUserQuestion-compatible payload.
+  AskUserQuestion-compatible payload for choice questions. Free-text
+  checkpoints are rendered as a text fallback rather than a fake choice list.
+
+The terminal selector is available only when the process has interactive TTY
+input and output. Tmux is not required for LongTable core behavior. A future
+OMX-style Codex popup would be an optional transport that requires an attached
+tmux session and must fall back to the same `QuestionRecord -> DecisionRecord`
+path when unavailable.
 
 ## Provider Mapping
 
@@ -110,8 +132,8 @@ Claude should prefer native structured questions when available.
 Flow:
 
 1. checkpoint engine resolves `blocking` and runtime guidance
-2. Claude adapter converts the Researcher Checkpoint into `AskUserQuestion` input
-3. Claude Code presents the native question surface
+2. Claude adapter converts choice checkpoints into `AskUserQuestion` input
+3. Claude Code presents the native question surface, or LongTable uses the text fallback for free-text checkpoints
 4. the selected answer is normalized into LongTable state
 
 LongTable should not replace Claude Code's native question surface with a custom terminal UI when the native tool is available.
@@ -135,7 +157,13 @@ Native hook support is the surrounding guard layer:
 - `SessionStart` restores current research context
 - `UserPromptSubmit` injects pending-checkpoint context
 - `Stop` blocks silent closure when obligations remain
+- `PreCompact` / `PostCompact` preserve and restore compact, decision-relevant
+  context around Codex compaction without creating new checkpoint semantics
 - `PreToolUse` / `PostToolUse` review Bash-side effects without becoming the source of truth
+
+LongTable does not currently own Codex `PermissionRequest` hooks. Permission
+policy remains a provider/runtime concern unless a future LongTable feature has
+a concrete researcher-facing permission contract.
 
 ## What Must Stay Shared
 
@@ -180,7 +208,7 @@ Current MCP tools can:
 - evaluate checkpoint triggers without writing state
 - write normalized question records
 - elicit a Researcher Checkpoint through MCP form elicitation when the client supports it, recording accepted answers with surface `mcp_elicitation`
-- store and confirm `$longtable-interview` Research Specifications after the
+- store and confirm `$longtable-start` Research Specifications after the
   shorter First Research Shape layer
 - preserve raw interview turns as evidence records
 - propose, apply, diff, and read versioned Research Specification updates

@@ -1,5 +1,5 @@
 import { resolveCheckpointPolicy } from "@longtable/checkpoints";
-import type { ProviderCapabilities, QuestionRecord } from "@longtable/core";
+import type { ProviderCapabilities, QuestionPromptType, QuestionRecord } from "@longtable/core";
 import type {
   CheckpointSignal,
   ResearcherProfile,
@@ -7,6 +7,9 @@ import type {
   RuntimeGuidance
 } from "@longtable/checkpoints";
 import { resolveRuntimeGuidance } from "@longtable/checkpoints";
+import {
+  buildNumberedCheckpointPrompt
+} from "@longtable/setup";
 import type {
   NumberedCheckpointSpec,
   SetupPersistedOutput
@@ -32,6 +35,9 @@ export interface ClaudeStructuredCheckpoint {
   title: string;
   instructions?: string;
   choices: ClaudeChoice[];
+  inputMode?: QuestionPromptType;
+  multiSelect?: boolean;
+  fallbackPrompt?: string;
   guidance?: {
     closureDisposition: RuntimeGuidance["closureDisposition"];
     minimumQuestions: number;
@@ -50,7 +56,8 @@ export interface ClaudeCheckpointResult {
   policy: ResolvedCheckpointPolicy;
   guidance: RuntimeGuidance;
   structuredPrompt: ClaudeStructuredCheckpoint;
-  askUserQuestionInput: ClaudeAskUserQuestionInput;
+  askUserQuestionInput?: ClaudeAskUserQuestionInput;
+  nativeStructured: boolean;
   blocking: boolean;
 }
 
@@ -58,7 +65,9 @@ export interface ClaudeRenderedQuestionRecord {
   questionId: string;
   checkpointKey: string;
   structuredPrompt: ClaudeStructuredCheckpoint;
-  askUserQuestionInput: ClaudeAskUserQuestionInput;
+  askUserQuestionInput?: ClaudeAskUserQuestionInput;
+  fallbackPrompt?: string;
+  nativeStructured: boolean;
 }
 
 export interface ClaudeRuntimeDefaults {
@@ -133,14 +142,24 @@ export function renderStructuredCheckpoint(
       `Closure: ${guidance.closureDisposition}. Minimum questions before closure: ${guidance.minimumQuestions}.`
     );
   }
+  const inputMode: QuestionPromptType = spec.selectionMode === "multi"
+    ? "multi_choice"
+    : spec.selectionMode === "free_text"
+      ? "free_text"
+      : "single_choice";
 
   return {
     title: spec.title,
     instructions: instructions.filter(Boolean).join(" "),
-    choices: spec.options.map((option) => ({
-      id: option.value,
-      label: option.label
-    })),
+    choices: inputMode === "free_text"
+      ? []
+      : spec.options.map((option) => ({
+          id: option.value,
+          label: option.label
+        })),
+    inputMode,
+    multiSelect: inputMode === "multi_choice",
+    ...(inputMode === "free_text" ? { fallbackPrompt: buildNumberedCheckpointPrompt(spec) } : {}),
     guidance: guidance
       ? {
           closureDisposition: guidance.closureDisposition,
@@ -155,6 +174,10 @@ export function renderStructuredCheckpoint(
 export function renderAskUserQuestionInput(
   checkpoint: ClaudeStructuredCheckpoint
 ): ClaudeAskUserQuestionInput {
+  if (checkpoint.inputMode === "free_text") {
+    throw new Error("Claude AskUserQuestion choice payload cannot render free-text LongTable checkpoints.");
+  }
+
   return {
     questions: [
       {
@@ -163,7 +186,7 @@ export function renderAskUserQuestionInput(
         options: checkpoint.choices.map((choice) => ({
           label: choice.label
         })),
-        multiSelect: false
+        multiSelect: checkpoint.multiSelect ?? false
       }
     ]
   };
@@ -189,16 +212,28 @@ export function renderStructuredQuestionRecord(
       : [])
   ];
 
+  const instructions = [
+    record.prompt.question,
+    record.prompt.displayReason ? `Decision context: ${record.prompt.displayReason}` : undefined,
+    `Question id: ${record.id}`,
+    `Checkpoint: ${record.prompt.checkpointKey ?? "manual"}`,
+    `Required: ${record.prompt.required ? "yes" : "no"}`
+  ].filter(Boolean).join(" ");
+  const fallbackSpec: NumberedCheckpointSpec = {
+    title: record.prompt.title,
+    instructions,
+    options: [],
+    allowRationale: false,
+    selectionMode: "free_text"
+  };
+
   return {
     title: record.prompt.title,
-    instructions: [
-      record.prompt.question,
-      record.prompt.displayReason ? `Decision context: ${record.prompt.displayReason}` : undefined,
-      `Question id: ${record.id}`,
-      `Checkpoint: ${record.prompt.checkpointKey ?? "manual"}`,
-      `Required: ${record.prompt.required ? "yes" : "no"}`
-    ].filter(Boolean).join(" "),
-    choices
+    instructions,
+    choices: record.prompt.type === "free_text" ? [] : choices,
+    inputMode: record.prompt.type,
+    multiSelect: record.prompt.type === "multi_choice",
+    ...(record.prompt.type === "free_text" ? { fallbackPrompt: buildNumberedCheckpointPrompt(fallbackSpec) } : {})
   };
 }
 
@@ -206,11 +241,22 @@ export function renderQuestionRecordInput(
   record: QuestionRecord
 ): ClaudeRenderedQuestionRecord {
   const structuredPrompt = renderStructuredQuestionRecord(record);
+  if (structuredPrompt.inputMode === "free_text") {
+    return {
+      questionId: record.id,
+      checkpointKey: record.prompt.checkpointKey ?? "manual",
+      structuredPrompt,
+      fallbackPrompt: structuredPrompt.fallbackPrompt,
+      nativeStructured: false
+    };
+  }
+
   return {
     questionId: record.id,
     checkpointKey: record.prompt.checkpointKey ?? "manual",
     structuredPrompt,
-    askUserQuestionInput: renderAskUserQuestionInput(structuredPrompt)
+    askUserQuestionInput: renderAskUserQuestionInput(structuredPrompt),
+    nativeStructured: true
   };
 }
 
@@ -220,12 +266,14 @@ export function createClaudeCheckpoint(
   const policy = resolveCheckpointPolicy(context.profile, context.signal);
   const guidance = resolveRuntimeGuidance(context.profile, context.signal, policy);
   const structuredPrompt = renderStructuredCheckpoint(context.spec, guidance);
+  const nativeStructured = structuredPrompt.inputMode !== "free_text";
 
   return {
     policy,
     guidance,
     structuredPrompt,
-    askUserQuestionInput: renderAskUserQuestionInput(structuredPrompt),
+    ...(nativeStructured ? { askUserQuestionInput: renderAskUserQuestionInput(structuredPrompt) } : {}),
+    nativeStructured,
     blocking: policy.blocking
   };
 }

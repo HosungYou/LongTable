@@ -56,14 +56,15 @@ separate blocking state that the researcher must explicitly answer.
 
 ## Interview Handoff And Quiet Hook Policy
 
-The advisory-first principle also applies to `$longtable-interview`. A pending
+The advisory-first principle also applies to `$longtable-start`. A pending
 Researcher Checkpoint from another thread should not hijack the interview. It can
 be shown as a separate unresolved checkpoint, but it becomes blocking only when
 the researcher is confirming, saving, or recording a research decision.
 
 The interview should be quiet during normal turns. `UserPromptSubmit` should not
 repeat active-interview context after every researcher message. It should surface
-that context only for explicit `$longtable-interview` invocations, First Research
+that context only for explicit `$longtable-start` invocations, `$longtable-interview`
+follow-up invocations, First Research
 Shape confirmation, or other research-state closure prompts.
 
 Each interview answer is recorded through `append_interview_turn` when MCP is

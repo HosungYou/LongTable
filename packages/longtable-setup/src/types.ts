@@ -84,12 +84,16 @@ export interface NumberedCheckpointSpec {
   instructions?: string;
   options: NumberedCheckpointOption[];
   allowRationale?: boolean;
+  selectionMode?: "single" | "multi" | "free_text";
 }
 
 export interface ParsedCheckpointSelection {
   index: number;
   value: string;
   label: string;
+  indices?: number[];
+  values?: string[];
+  labels?: string[];
   rationale?: string;
 }
 

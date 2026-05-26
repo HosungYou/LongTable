@@ -21,6 +21,17 @@ CHECKPOINT: Methodology Commitment
 Reply with one number only: 1, 2, or 3.
 ```
 
+The baseline protocol is single-choice. When `QuestionPrompt.type` is
+`multi_choice`, the fallback asks for one or more numbers separated by commas
+and normalizes every selected option into `selectedValues` and
+`DecisionRecord.selectedOptions`. When the type is `free_text`, the fallback
+does not render a numbered choice list; it asks for a concise free-text answer
+and preserves that text in `selectedValues` and `otherText`.
+
+The legacy `DecisionRecord.selectedOption` field remains a first selected value
+for compatibility. New consumers should read `selectedOptions` when cardinality
+matters.
+
 ## Rules
 
 - required checkpoints must not accept free-form confirmation

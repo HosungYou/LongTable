@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 export const LONGTABLE_MANAGED_HOOK_EVENTS = [
@@ -5,11 +6,14 @@ export const LONGTABLE_MANAGED_HOOK_EVENTS = [
   "PreToolUse",
   "PostToolUse",
   "UserPromptSubmit",
+  "PreCompact",
+  "PostCompact",
   "Stop"
 ] as const;
 
 type ManagedHookEventName = (typeof LONGTABLE_MANAGED_HOOK_EVENTS)[number];
 type JsonObject = Record<string, unknown>;
+type CodexHookFeatureFlag = "hooks" | "codex_hooks";
 
 export interface ManagedCodexHooksConfig {
   hooks: Record<ManagedHookEventName, Array<Record<string, unknown>>>;
@@ -24,6 +28,20 @@ export interface RemoveManagedCodexHooksResult {
   nextContent: string | null;
   removedCount: number;
 }
+
+export interface CodexHookTrustStateEntry {
+  trusted_hash: string;
+}
+
+const CODEX_HOOK_EVENT_LABELS: Record<ManagedHookEventName, string> = {
+  SessionStart: "session_start",
+  PreToolUse: "pre_tool_use",
+  PostToolUse: "post_tool_use",
+  UserPromptSubmit: "user_prompt_submit",
+  PreCompact: "pre_compact",
+  PostCompact: "post_compact",
+  Stop: "stop"
+};
 
 function isPlainObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -81,6 +99,12 @@ export function buildManagedCodexHooksConfig(packageRoot: string): ManagedCodexH
         buildCommandHook(command, {
           statusMessage: "Applying LongTable research context"
         })
+      ],
+      PreCompact: [
+        buildCommandHook(command)
+      ],
+      PostCompact: [
+        buildCommandHook(command)
       ],
       Stop: [
         buildCommandHook(command, {
@@ -173,6 +197,202 @@ function stripManagedHooksFromEntry(entry: unknown): {
 
 function serializeCodexHooksConfig(root: JsonObject): string {
   return JSON.stringify(root, null, 2) + "\n";
+}
+
+function canonicalJson(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => canonicalJson(item));
+  }
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonicalJson(value[key])])
+    );
+  }
+  return value;
+}
+
+function versionForCodexTomlIdentity(value: unknown): string {
+  const serialized = JSON.stringify(canonicalJson(value));
+  return `sha256:${createHash("sha256").update(serialized).digest("hex")}`;
+}
+
+function normalizedCommandHookIdentity(
+  eventName: ManagedHookEventName,
+  entry: JsonObject,
+  hook: JsonObject
+): JsonObject {
+  return {
+    event_name: CODEX_HOOK_EVENT_LABELS[eventName],
+    ...(typeof entry.matcher === "string" ? { matcher: entry.matcher } : {}),
+    hooks: [
+      {
+        type: "command",
+        command: hook.command,
+        timeout: Math.max(1, typeof hook.timeout === "number" ? hook.timeout : 600),
+        async: false,
+        ...(typeof hook.statusMessage === "string" ? { statusMessage: hook.statusMessage } : {})
+      }
+    ]
+  };
+}
+
+function managedHookStateKey(
+  hooksPath: string,
+  eventName: ManagedHookEventName,
+  groupIndex: number,
+  handlerIndex: number
+): string {
+  return `${hooksPath}:${CODEX_HOOK_EVENT_LABELS[eventName]}:${groupIndex}:${handlerIndex}`;
+}
+
+export function buildManagedCodexHookTrustState(
+  hooksPath: string,
+  hooksContent: string
+): Record<string, CodexHookTrustStateEntry> {
+  const parsed = parseCodexHooksConfig(hooksContent);
+  if (!parsed) {
+    return {};
+  }
+
+  const state: Record<string, CodexHookTrustStateEntry> = {};
+  for (const eventName of LONGTABLE_MANAGED_HOOK_EVENTS) {
+    const entries = Array.isArray(parsed.hooks[eventName]) ? parsed.hooks[eventName] : [];
+    entries.forEach((entry, groupIndex) => {
+      if (!isPlainObject(entry) || !Array.isArray(entry.hooks)) {
+        return;
+      }
+      entry.hooks.forEach((hook, handlerIndex) => {
+        if (
+          !isPlainObject(hook) ||
+          hook.type !== "command" ||
+          typeof hook.command !== "string" ||
+          !isLongTableManagedHookCommand(hook.command)
+        ) {
+          return;
+        }
+        state[managedHookStateKey(hooksPath, eventName, groupIndex, handlerIndex)] = {
+          trusted_hash: versionForCodexTomlIdentity(normalizedCommandHookIdentity(eventName, entry, hook))
+        };
+      });
+    });
+  }
+  return state;
+}
+
+function escapeTomlBasicString(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function unescapeTomlBasicString(value: string): string {
+  return value.replace(/\\(["\\])/g, "$1");
+}
+
+function readHooksStateTableKey(line: string): string | null {
+  const match = line.trim().match(/^\[hooks\.state\."((?:\\.|[^"\\])*)"\]$/);
+  return match ? unescapeTomlBasicString(match[1]) : null;
+}
+
+function removeHookStateTables(
+  config: string,
+  shouldRemove: (key: string) => boolean
+): string {
+  const lines = config.split(/\r?\n/);
+  const kept: string[] = [];
+  for (let index = 0; index < lines.length;) {
+    const key = readHooksStateTableKey(lines[index]);
+    if (!key || !shouldRemove(key)) {
+      kept.push(lines[index]);
+      index += 1;
+      continue;
+    }
+
+    index += 1;
+    while (index < lines.length && !/^\s*\[/.test(lines[index])) {
+      index += 1;
+    }
+  }
+
+  return `${kept.join("\n").trimEnd()}\n`;
+}
+
+function readHookStateTrustedHashes(config: string): Map<string, string> {
+  const lines = config.split(/\r?\n/);
+  const hashes = new Map<string, string>();
+  for (let index = 0; index < lines.length;) {
+    const key = readHooksStateTableKey(lines[index]);
+    if (!key) {
+      index += 1;
+      continue;
+    }
+
+    index += 1;
+    while (index < lines.length && !/^\s*\[/.test(lines[index])) {
+      const match = lines[index].trim().match(/^trusted_hash\s*=\s*"([^"]+)"$/);
+      if (match) {
+        hashes.set(key, match[1]);
+      }
+      index += 1;
+    }
+  }
+  return hashes;
+}
+
+function renderCodexHookTrustToml(state: Record<string, CodexHookTrustStateEntry>): string {
+  return Object.entries(state)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .flatMap(([key, entry]) => [
+      `[hooks.state."${escapeTomlBasicString(key)}"]`,
+      `trusted_hash = "${escapeTomlBasicString(entry.trusted_hash)}"`,
+      ""
+    ])
+    .join("\n")
+    .trimEnd();
+}
+
+export function mergeCodexHookTrustState(
+  config: string,
+  hooksPath: string,
+  hooksContent: string
+): string {
+  const state = buildManagedCodexHookTrustState(hooksPath, hooksContent);
+  const keys = new Set(Object.keys(state));
+  if (keys.size === 0) {
+    return config.trimEnd() ? `${config.trimEnd()}\n` : "";
+  }
+
+  const withoutCurrent = removeHookStateTables(config, (key) => keys.has(key)).trimEnd();
+  const trustToml = renderCodexHookTrustToml(state);
+  return withoutCurrent ? `${withoutCurrent}\n\n${trustToml}\n` : `${trustToml}\n`;
+}
+
+export function removeCodexHookTrustState(
+  config: string,
+  hooksPath: string,
+  hooksContent: string
+): string {
+  const keys = new Set(Object.keys(buildManagedCodexHookTrustState(hooksPath, hooksContent)));
+  if (keys.size === 0) {
+    return config.trimEnd() ? `${config.trimEnd()}\n` : "";
+  }
+  return removeHookStateTables(config, (key) => keys.has(key));
+}
+
+export function getMissingManagedCodexHookTrustState(
+  config: string,
+  hooksPath: string,
+  hooksContent: string
+): string[] {
+  const expected = buildManagedCodexHookTrustState(hooksPath, hooksContent);
+  const hashes = readHookStateTrustedHashes(config);
+  const missing: string[] = [];
+  for (const [key, entry] of Object.entries(expected)) {
+    if (hashes.get(key) !== entry.trusted_hash) {
+      missing.push(key);
+    }
+  }
+  return missing;
 }
 
 export function mergeManagedCodexHooksConfig(
@@ -272,23 +492,28 @@ function findSectionBounds(lines: string[], sectionHeader: string): { start: num
   return { start, end };
 }
 
-export function enableCodexHooksFeature(existing: string): string {
+function normalizeCodexHookFeatureFlag(value?: string): CodexHookFeatureFlag {
+  return value === "codex_hooks" ? "codex_hooks" : "hooks";
+}
+
+export function enableCodexHooksFeature(existing: string, featureFlag?: string): string {
+  const flagName = normalizeCodexHookFeatureFlag(featureFlag);
   const trimmed = existing.trimEnd();
   const lines = trimmed ? trimmed.split(/\r?\n/) : [];
   const section = findSectionBounds(lines, "[features]");
 
   if (!section) {
     return trimmed
-      ? `${trimmed}\n\n[features]\ncodex_hooks = true\n`
-      : "[features]\ncodex_hooks = true\n";
+      ? `${trimmed}\n\n[features]\n${flagName} = true\n`
+      : `[features]\n${flagName} = true\n`;
   }
 
   const featureLines = lines.slice(section.start + 1, section.end);
-  const existingIndex = featureLines.findIndex((line) => /^\s*codex_hooks\s*=/.test(line));
+  const existingIndex = featureLines.findIndex((line) => new RegExp(`^\\s*${flagName}\\s*=`).test(line));
   if (existingIndex !== -1) {
-    featureLines[existingIndex] = "codex_hooks = true";
+    featureLines[existingIndex] = `${flagName} = true`;
   } else {
-    featureLines.push("codex_hooks = true");
+    featureLines.push(`${flagName} = true`);
   }
 
   const rebuilt = [
@@ -308,5 +533,5 @@ export function codexHooksEnabled(config: string): boolean {
 
   return lines
     .slice(section.start + 1, section.end)
-    .some((line) => /^\s*codex_hooks\s*=\s*true\s*$/.test(line));
+    .some((line) => /^\s*(?:hooks|codex_hooks)\s*=\s*true\s*$/.test(line));
 }

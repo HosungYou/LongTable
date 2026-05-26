@@ -79,7 +79,8 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "- `longtable: deploy a research team to review this measurement plan, show the main disagreements, and ask me what decision should be recorded before you revise it.`",
         "- `longtable: use editor, reviewer, methods, measurement, and voice perspectives to evaluate this manuscript section. Do not collapse disagreement too early.`",
         "- `$longtable-methods`, `$longtable-measure`, `$longtable-theory`, `$longtable-reviewer`, or `$longtable-voice` when the researcher explicitly wants that shortcut.",
-        "- `$longtable-interview` to create or continue the first research-start interview.",
+        "- `$longtable-start` to create or continue the first research-start interview.",
+        "- `$longtable-interview` to run a structured follow-up interview after a Research Specification exists.",
         "",
         "## Rules",
         "",
@@ -88,7 +89,8 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "- Prefer natural language over asking the researcher to run shell role commands.",
         "- For systematic review, meta-analysis, PDF collection, full-text extraction, institutionally licensed sources, or TDM work, ensure `longtable access setup` readiness exists or surface an ACCESS CHECKPOINT before continuing.",
         "- Access setup records capability status only. The researcher handles VPN/proxy/library/SSO login directly; LongTable must not store passwords, API keys, tokens, PDFs, or full text in setup state.",
-        "- For `$longtable-interview`, use natural-language turns for the interview and reserve structured options for final Research Specification confirmation; First Research Shape is only a shorter handle/resume layer.",
+        "- For `$longtable-start`, use natural-language turns for the interview and reserve structured options for final Research Specification confirmation; First Research Shape is only a shorter handle/resume layer.",
+        "- For `$longtable-interview`, use option-first follow-up choices only after a usable Research Specification exists. Always include an escape hatch such as Other, free text, or one open follow-up question.",
         "- Do not let unrelated pending Researcher Checkpoints interrupt the interview. Mention them only as separate unresolved checkpoints, and treat them as blocking only when the researcher is confirming, saving, or recording a research decision.",
         "- If a Researcher Checkpoint is needed, ask a short structured question with meaningful options and wait for the researcher.",
         "- If changing LongTable product language, README positioning, or checkpoint policy, ask a Meta-Decision Checkpoint first.",
@@ -120,13 +122,19 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
       ]
     },
     {
-      name: "longtable-interview",
-      description: "Use for `$longtable-interview`: create or continue a LongTable research-start interview inside Claude Code, then store a Research Specification through MCP/state, with First Research Shape kept as an optional short handle layer.",
-      triggers: ["$longtable-interview", "longtable interview", "start research interview", "first research shape"],
+      name: "longtable-start",
+      description: "Use for `$longtable-start`: create or continue a LongTable research-start interview inside Claude Code, then store a Research Specification through MCP/state, with First Research Shape kept as an optional short handle layer.",
+      triggers: ["$longtable-start", "longtable start", "start research interview", "first research shape"],
       body: [
         "## Purpose",
         "",
         "Run the LongTable research-start interview inside Claude Code. This is the primary project-start surface; CLI setup only prepares runtime permissions.",
+        "",
+        "## Required Routing",
+        "",
+        "- Use this flow when the user invokes `$longtable-start`.",
+        "- Use this flow when the user invokes `$longtable-interview` but the workspace has no usable Research Specification.",
+        "- If only a First Research Shape exists, continue into the next Research Specification question or preview before any option-only follow-up interview.",
         "",
         "## Flow",
         "",
@@ -216,6 +224,39 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
       ]
     },
     {
+      name: "longtable-interview",
+      description: "Use for `$longtable-interview`: run an option-first LongTable follow-up interview after a usable Research Specification exists; route to `$longtable-start` when no spec exists.",
+      triggers: ["$longtable-interview", "longtable interview", "follow-up research interview", "research specification interview"],
+      body: [
+        "## Purpose",
+        "",
+        "Run a post-start LongTable interview inside Claude Code. This skill is for structured follow-up decisions after the research has a usable Research Specification.",
+        "",
+        "## Required Routing",
+        "",
+        "- First inspect `CURRENT.md` and `.longtable/state.json` when available.",
+        "- If no usable Research Specification exists, route to `$longtable-start` immediately.",
+        "- If only a First Research Shape exists, route to `$longtable-start` and continue into the next Research Specification question or preview.",
+        "- Do not run an option-only interview before the Research Specification exists.",
+        "",
+        "## Flow",
+        "",
+        "1. Read the current Research Specification and identify the decision or section being interviewed.",
+        "2. Present a small option-first choice set tied to the current specification.",
+        "3. Include an escape hatch such as `Other`, free text, or `ask one open question first`.",
+        "4. If the answer changes the specification, propose or apply a Research Specification patch through MCP/state when available.",
+        "5. Record the resulting decision as a `DecisionRecord` or explicit open tension; never silently overwrite conflicting research commitments.",
+        "",
+        "## Option UI Policy",
+        "",
+        "- Use MCP/native structured elicitation when available.",
+        "- Use terminal selector only when the runtime has interactive TTY support.",
+        "- Use numbered/plain text fallback when structured UI is unavailable.",
+        "- Treat UI as transport. The durable product contract remains `QuestionRecord -> DecisionRecord`.",
+        "- Do not require tmux. If a future Codex popup transport is tmux-only, label it as optional and provide fallback."
+      ]
+    },
+    {
       name: "longtable-panel",
       description: "Use when a research decision needs visible disagreement from multiple LongTable roles.",
       triggers: ["lt panel", "longtable panel", "panel review", "team review", "disagreement", "conflict"],
@@ -283,7 +324,7 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
   ];
   return surface === "full"
     ? specs
-    : specs.filter((spec) => spec.name === "longtable" || spec.name === "longtable-interview");
+    : specs.filter((spec) => spec.name === "longtable" || spec.name === "longtable-start" || spec.name === "longtable-interview");
 }
 
 function mustAskQuestionsForRole(role: RoleDefinition): string[] {

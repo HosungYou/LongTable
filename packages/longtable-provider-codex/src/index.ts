@@ -167,7 +167,12 @@ export function questionRecordToNumberedCheckpointSpec(
       `Required: ${record.prompt.required ? "yes" : "no"}`
     ].filter(Boolean).join("\n"),
     options,
-    allowRationale: true
+    allowRationale: true,
+    selectionMode: record.prompt.type === "multi_choice"
+      ? "multi"
+      : record.prompt.type === "free_text"
+        ? "free_text"
+        : "single"
   };
 }
 
