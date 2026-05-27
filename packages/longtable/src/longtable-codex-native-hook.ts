@@ -7,6 +7,7 @@ import type {
   QuestionRecord
 } from "@longtable/core";
 import {
+  collectHardStopBlockers,
   createWorkspaceFollowUpQuestions,
   collectHardStopBlockers,
   type HardStopBlocker,
@@ -416,6 +417,22 @@ function buildSeparatePendingObligationNotice(obligation: LongTableQuestionOblig
     `Separate unresolved LongTable obligation: ${obligation.prompt}`,
     "This is not part of the active interview. Keep it visible only when the researcher is settling or saving the research direction."
   ].join("\n");
+}
+
+function buildHardStopContext(runtime: LongTableRuntime): string | null {
+  const verdict = collectHardStopBlockers(runtime.state);
+  const blocker = verdict.activeBlockers[0];
+  if (!blocker) {
+    return null;
+  }
+  return [
+    `Hard-stop Researcher Checkpoint is still pending: ${blocker.id}`,
+    `Affected Research Specification area: ${blocker.scope}`,
+    `Question/obligation: ${blocker.prompt}`,
+    `Reason: ${blocker.reason}`,
+    `Required next action: ${blocker.commandHint}; or clear/defer it with an explicit rationale.`,
+    verdict.activeBlockers.length > 1 ? `Additional hard-stop blockers: ${verdict.activeBlockers.length - 1}` : ""
+  ].filter(Boolean).join("\n");
 }
 
 function buildActiveInterviewContext(hook: LongTableHookRun): string {
