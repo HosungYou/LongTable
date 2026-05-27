@@ -2292,17 +2292,9 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
     `- hooks feature: ${status.providers.codex.codexHooksEnabled ? "enabled" : "missing"}`,
     `- managed hook coverage: ${status.providers.codex.missingManagedHookEvents.length === 0 ? "complete" : `missing ${status.providers.codex.missingManagedHookEvents.join(", ")}`}`,
     `- managed hook trust: ${status.providers.codex.missingManagedHookTrustState.length === 0 ? "current" : `missing/stale ${status.providers.codex.missingManagedHookTrustState.length}`}`,
-    `- Stop hard-stop: ${status.providers.codex.stopWouldBlock ? `would block (${status.providers.codex.activeBlockers.length})` : "clear"}`,
-    `- stale/unrelated pending questions: ${status.providers.codex.stalePendingQuestionCount}`,
-    `- stale/unrelated pending obligations: ${status.providers.codex.stalePendingObligationCount}`,
-    ...(status.providers.codex.activeBlockers.length > 0
-      ? [
-          "- active hard-stop blockers:",
-          ...status.providers.codex.activeBlockers.map((blocker) =>
-            `  - ${blocker.id}: ${blocker.scope}; ${blocker.nextAction}`
-          )
-        ]
-      : []),
+    `- Stop would block now: ${status.hardStop.stopWouldBlock ? "yes" : "no"}`,
+    `- active hard-stop blockers: ${status.hardStop.activeBlockers.length}`,
+    `- stale/unrelated pending questions: ${status.hardStop.staleOrUnrelatedPendingQuestionCount}`,
     "",
     ...renderProviderDoctorBlock("Claude", status.providers.claude),
     "",
@@ -2406,9 +2398,7 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
   }
   nextActions.push(...status.hardStop.nextActions);
   const firstQuestion = status.workspace.pendingQuestions?.[0];
-  if (status.providers.codex.nextActions.length > 0) {
-    nextActions.push(...status.providers.codex.nextActions);
-  } else if (firstQuestion) {
+  if (firstQuestion && status.hardStop.nextActions.length === 0) {
     nextActions.push(`longtable decide --question ${firstQuestion.id} --answer <value>`);
   }
   for (const action of status.workspace.hardStop?.nextActions ?? []) {
@@ -4807,7 +4797,35 @@ async function runCodexSubcommand(
     return;
   }
 
-  if (subcommand === "status" || subcommand === "hook-doctor") {
+  if (subcommand === "hook-doctor") {
+    const status = await collectDoctorStatus(args);
+    const hookDoctor = {
+      hooksPath: status.providers.codex.hooksPath,
+      hooksExists: status.providers.codex.hooksExists,
+      codexConfigPath: status.providers.codex.mcpConfigPath,
+      codexHooksEnabled: status.providers.codex.codexHooksEnabled,
+      missingManagedHookEvents: status.providers.codex.missingManagedHookEvents,
+      missingManagedHookTrustState: status.providers.codex.missingManagedHookTrustState,
+      stopWouldBlock: status.hardStop.stopWouldBlock,
+      activeBlockers: status.hardStop.activeBlockers,
+      staleOrUnrelatedPendingQuestionCount: status.hardStop.staleOrUnrelatedPendingQuestionCount,
+      nextActions: status.hardStop.nextActions
+    };
+    if (args.json === true) {
+      console.log(JSON.stringify(hookDoctor, null, 2));
+      return;
+    }
+    console.log("LongTable Codex hook doctor");
+    console.log(`- hooks file: ${hookDoctor.hooksExists ? "present" : "missing"} (${hookDoctor.hooksPath})`);
+    console.log(`- hooks feature: ${hookDoctor.codexHooksEnabled ? "enabled" : "missing"}`);
+    console.log(`- managed hook coverage: ${hookDoctor.missingManagedHookEvents.length === 0 ? "complete" : `missing ${hookDoctor.missingManagedHookEvents.join(", ")}`}`);
+    console.log(`- managed hook trust: ${hookDoctor.missingManagedHookTrustState.length === 0 ? "current" : `missing/stale ${hookDoctor.missingManagedHookTrustState.length}`}`);
+    console.log(`- Stop would block now: ${hookDoctor.stopWouldBlock ? "yes" : "no"}`);
+    console.log(`- active hard-stop blockers: ${hookDoctor.activeBlockers.length}`);
+    return;
+  }
+
+  if (subcommand === "status") {
     const aliases = await listInstalledCodexPromptAliases(customDir);
     const skills = await listInstalledCodexSkills(roles, customDir, skillSurface);
     const setupPath = resolveDefaultSetupPath(typeof args.path === "string" ? args.path : undefined).path;
@@ -4848,11 +4866,7 @@ async function runCodexSubcommand(
       missingManagedHookTrustState: hooksContent
         ? getMissingManagedCodexHookTrustState(configContent, hooksPath, hooksContent)
         : [],
-      stopWouldBlock: hardStop.stopWouldBlock,
-      activeBlockers: hardStop.activeBlockers,
-      stalePendingQuestionCount: hardStop.stalePendingQuestionCount,
-      stalePendingObligationCount: hardStop.stalePendingObligationCount,
-      nextActions: hardStop.nextActions
+      hardStop: await collectHardStopDiagnostics(typeof args.cwd === "string" ? args.cwd : cwd())
     };
 
     if (args.json === true) {
@@ -4888,15 +4902,9 @@ async function runCodexSubcommand(
     console.log(`- hooks file: ${status.hooksExists ? "present" : "missing"} (${status.hooksPath})`);
     console.log(`- managed hook coverage: ${status.missingManagedHookEvents.length === 0 ? "complete" : `missing ${status.missingManagedHookEvents.join(", ")}`}`);
     console.log(`- managed hook trust: ${status.missingManagedHookTrustState.length === 0 ? "current" : `missing/stale ${status.missingManagedHookTrustState.length}`}`);
-    console.log(`- Stop hard-stop: ${status.stopWouldBlock ? `would block (${status.activeBlockers.length})` : "clear"}`);
-    console.log(`- stale/unrelated pending questions: ${status.stalePendingQuestionCount}`);
-    console.log(`- stale/unrelated pending obligations: ${status.stalePendingObligationCount}`);
-    if (status.activeBlockers.length > 0) {
-      console.log("- active hard-stop blockers:");
-      for (const blocker of status.activeBlockers) {
-        console.log(`  - ${blocker.id}: ${blocker.scope}; ${blocker.nextAction}`);
-      }
-    }
+    console.log(`- Stop would block now: ${status.hardStop.stopWouldBlock ? "yes" : "no"}`);
+    console.log(`- active hard-stop blockers: ${status.hardStop.activeBlockers.length}`);
+    console.log(`- stale/unrelated pending questions: ${status.hardStop.staleOrUnrelatedPendingQuestionCount}`);
     return;
   }
 

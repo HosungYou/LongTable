@@ -392,40 +392,64 @@ const created = await createWorkspaceQuestion({
 
 const stopBlocked = await dispatchCodexHook({ hook_event_name: "Stop" }, workspaceTmp);
 assertEqual(stopBlocked?.decision, "block", "Stop hook should block when a hard-stop question is pending");
-assert(stopBlocked?.reason?.includes(created.question.id), "Stop block reason should include blocker id");
-assert(stopBlocked?.reason?.includes("construct"), "Stop block reason should include affected scope");
-assert(stopBlocked?.reason?.includes("decide, clear, or defer"), "Stop block reason should include exact next action");
+assert(stopBlocked?.reason?.includes(created.question.id), "Stop block reason should include the blocker id");
+assert(stopBlocked?.reason?.includes("Required next action"), "Stop block reason should include an actionable next step");
 
 const postToolNoop = await dispatchCodexHook({
   hook_event_name: "PostToolUse",
   tool_name: "Bash",
-  tool_input: { command: "pwd" },
+  command: "echo ok",
   exit_code: 0,
-  stdout: workspaceTmp
+  stdout: "ok"
 }, workspaceTmp);
 assertEqual(postToolNoop, null, "PostToolUse should stay quiet for successful no-op Bash");
 
 const postToolUnrelatedFailure = await dispatchCodexHook({
   hook_event_name: "PostToolUse",
   tool_name: "Bash",
-  tool_input: { command: "false" },
+  command: "false",
   exit_code: 1,
-  stderr: "generic failure"
+  stderr: "not a LongTable state command"
 }, workspaceTmp);
-assertEqual(postToolUnrelatedFailure, null, "PostToolUse should not block generic non-LongTable Bash failures");
+assertEqual(postToolUnrelatedFailure, null, "PostToolUse should not hard-block unrelated nonzero Bash output");
 
-const postToolStateMutation = await dispatchCodexHook({
+const postToolResearchMutation = await dispatchCodexHook({
   hook_event_name: "PostToolUse",
   tool_name: "Bash",
-  tool_input: { command: "touch .longtable/state.json" },
+  command: "touch .longtable/state.json",
   exit_code: 0
 }, workspaceTmp);
-assertEqual(postToolStateMutation?.hookSpecificOutput?.permissionDecision, "deny", "PostToolUse should deny research-state mutation while hard-stop blocker exists");
+assertEqual(postToolResearchMutation?.hookSpecificOutput?.permissionDecision, "deny", "PostToolUse should deny research-state mutation while a hard-stop blocker exists");
 
-let hardStopState = JSON.parse(readFileSync(join(workspaceTmp, ".longtable", "state.json"), "utf8"));
-let hardStopVerdict = collectHardStopBlockers(hardStopState);
-assertEqual(hardStopVerdict.stopWouldBlock, true, "Hard-stop verdict should block active hard-stop question");
-assert(hardStopVerdict.activeBlockers.some((blocker) => blocker.id === created.question.id && blocker.scope === "construct"), "Hard-stop verdict should include typed question blocker");
+const doctorJson = JSON.parse(runCli([
+  "doctor",
+  "--cwd", workspaceTmp,
+  "--codex-config", codexConfigPath,
+  "--hooks-path", hooksPath,
+  "--json"
+], workspaceTmp));
+assertEqual(doctorJson.hardStop.stopWouldBlock, true, "doctor --json should report active hard-stop blockers");
+assert(doctorJson.hardStop.activeBlockers.some((blocker) => blocker.id === created.question.id), "doctor --json should include the active blocker id");
+
+const codexStatusJson = JSON.parse(runCli([
+  "codex",
+  "status",
+  "--cwd", workspaceTmp,
+  "--codex-config", codexConfigPath,
+  "--hooks-path", hooksPath,
+  "--json"
+], workspaceTmp));
+assertEqual(codexStatusJson.hardStop.stopWouldBlock, true, "codex status --json should report Stop hard-stop verdict");
+
+const hookDoctorJson = JSON.parse(runCli([
+  "codex",
+  "hook-doctor",
+  "--cwd", workspaceTmp,
+  "--codex-config", codexConfigPath,
+  "--hooks-path", hooksPath,
+  "--json"
+], workspaceTmp));
+assertEqual(hookDoctorJson.stopWouldBlock, true, "codex hook-doctor --json should report Stop hard-stop verdict");
 
 const quietPromptWithPendingQuestion = await dispatchCodexHook({
   hook_event_name: "UserPromptSubmit",

@@ -565,12 +565,12 @@ function preToolUseOutput(runtime: LongTableRuntime, payload: CodexHookPayload):
     return null;
   }
 
-  const hardStopContext = buildHardStopContext(runtime);
-  if (hardStopContext && mutatesLongTableResearchState(command)) {
+  const blocker = hardStopBlockers(runtime.state)[0];
+  if (blocker && mutatesLongTableResearchState(command)) {
     return buildBlockOutput(
       "PreToolUse",
-      "A LongTable hard-stop is pending before a research-state Bash command.",
-      hardStopContext
+      "A LongTable hard-stop blocker is pending before a research-state Bash command.",
+      buildHardStopBlockerContext(blocker)
     );
   }
 
@@ -585,21 +585,21 @@ function postToolUseOutput(runtime: LongTableRuntime, payload: CodexHookPayload)
   const command = readCommandText(payload);
   const exitCode = readExitCode(payload);
   const output = readCombinedOutput(payload);
-  const hardStopContext = buildHardStopContext(runtime);
+  const blocker = hardStopBlockers(runtime.state)[0];
 
-  if (hardStopContext && mutatesLongTableResearchState(command)) {
+  if (blocker && mutatesLongTableResearchState(command)) {
     return buildBlockOutput(
       "PostToolUse",
-      "A research-state Bash command completed while LongTable still had an unresolved hard-stop.",
-      hardStopContext
+      "A research-state Bash command completed while LongTable still had a hard-stop blocker.",
+      buildHardStopBlockerContext(blocker)
     );
   }
 
   if (exitCode !== null && exitCode !== 0 && output && mutatesLongTableResearchState(command)) {
     return buildBlockOutput(
       "PostToolUse",
-      "A LongTable-relevant Bash command returned a non-zero exit code and should be reviewed before LongTable continues.",
-      "Review the command output and explain what failed before retrying or continuing."
+      "A LongTable research-state Bash command failed and needs review before continuing.",
+      "Review the LongTable state command output and explain what failed before retrying or continuing."
     );
   }
 
@@ -607,8 +607,9 @@ function postToolUseOutput(runtime: LongTableRuntime, payload: CodexHookPayload)
 }
 
 function stopOutput(runtime: LongTableRuntime): Record<string, unknown> | null {
-  const hardStopContext = buildHardStopContext(runtime);
-  return hardStopContext ? buildStopBlockOutput(hardStopContext) : null;
+  const verdict = collectHardStopBlockers(runtime.state);
+  const blocker = verdict.activeBlockers[0];
+  return blocker ? buildStopBlockOutput(buildStopBlockerReason(blocker, verdict.activeBlockers.length)) : null;
 }
 
 export async function dispatchCodexHook(
