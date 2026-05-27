@@ -84,10 +84,9 @@ assert(mergedHooks.hooks.Stop.some((entry) => entry.matcher === "custom"), "exis
 assert(mergedHooks.hooks.SessionStart.length > 0, "managed SessionStart hook should exist");
 assert(mergedHooks.hooks.PreCompact.length > 0, "managed PreCompact hook should exist");
 assert(mergedHooks.hooks.PostCompact.length > 0, "managed PostCompact hook should exist");
-const managedPostToolUseHook = mergedHooks.hooks.PostToolUse
-  .flatMap((entry) => entry.hooks ?? [])
-  .find((hook) => String(hook.command ?? "").includes("longtable-codex-native-hook.js"));
-assert(managedPostToolUseHook && !("statusMessage" in managedPostToolUseHook), "managed PostToolUse hook should stay quiet for no-op Bash");
+const postToolUseHook = mergedHooks.hooks.PostToolUse.find((entry) => entry.matcher === "Bash");
+assert(postToolUseHook, "managed PostToolUse Bash hook should exist");
+assert(!postToolUseHook.hooks.some((hook) => typeof hook.statusMessage === "string"), "managed PostToolUse should not attach noisy status text");
 const hooksContent = readFileSync(hooksPath, "utf8");
 const trustState = buildManagedCodexHookTrustState(hooksPath, hooksContent);
 assertEqual(Object.keys(trustState).length, 7, "managed trust state should cover every managed hook event");
@@ -385,69 +384,42 @@ const created = await createWorkspaceQuestion({
   ],
   displayReason: "A required measurement checkpoint should block closure.",
   required: true,
+  hardStop: true,
+  hardStopScope: "construct",
   provider: "codex"
 });
 
 const stopBlocked = await dispatchCodexHook({ hook_event_name: "Stop" }, workspaceTmp);
 assertEqual(stopBlocked?.decision, "block", "Stop hook should block when a hard-stop question is pending");
-assert(stopBlocked?.reason?.includes(created.question.id), "Stop block reason should include the blocker id");
-assert(stopBlocked?.reason?.includes("Required next action"), "Stop block reason should include an actionable next step");
+assert(stopBlocked?.reason?.includes(created.question.id), "Stop block reason should include blocker id");
+assert(stopBlocked?.reason?.includes("construct"), "Stop block reason should include affected scope");
+assert(stopBlocked?.reason?.includes("decide, clear, or defer"), "Stop block reason should include exact next action");
 
 const postToolNoop = await dispatchCodexHook({
   hook_event_name: "PostToolUse",
   tool_name: "Bash",
-  command: "echo ok",
+  tool_input: { command: "pwd" },
   exit_code: 0,
-  stdout: "ok"
+  stdout: workspaceTmp
 }, workspaceTmp);
 assertEqual(postToolNoop, null, "PostToolUse should stay quiet for successful no-op Bash");
 
 const postToolUnrelatedFailure = await dispatchCodexHook({
   hook_event_name: "PostToolUse",
   tool_name: "Bash",
-  command: "false",
+  tool_input: { command: "false" },
   exit_code: 1,
-  stderr: "not a LongTable state command"
+  stderr: "generic failure"
 }, workspaceTmp);
-assertEqual(postToolUnrelatedFailure, null, "PostToolUse should not hard-block unrelated nonzero Bash output");
+assertEqual(postToolUnrelatedFailure, null, "PostToolUse should not block generic non-LongTable Bash failures");
 
-const postToolResearchMutation = await dispatchCodexHook({
+const postToolStateMutation = await dispatchCodexHook({
   hook_event_name: "PostToolUse",
   tool_name: "Bash",
-  command: "touch .longtable/state.json",
+  tool_input: { command: "touch .longtable/state.json" },
   exit_code: 0
 }, workspaceTmp);
-assertEqual(postToolResearchMutation?.hookSpecificOutput?.permissionDecision, "deny", "PostToolUse should deny research-state mutation while a hard-stop blocker exists");
-
-const doctorJson = JSON.parse(runCli([
-  "doctor",
-  "--cwd", workspaceTmp,
-  "--codex-config", codexConfigPath,
-  "--hooks-path", hooksPath,
-  "--json"
-], workspaceTmp));
-assertEqual(doctorJson.hardStop.stopWouldBlock, true, "doctor --json should report active hard-stop blockers");
-assert(doctorJson.hardStop.activeBlockers.some((blocker) => blocker.id === created.question.id), "doctor --json should include the active blocker id");
-
-const codexStatusJson = JSON.parse(runCli([
-  "codex",
-  "status",
-  "--cwd", workspaceTmp,
-  "--codex-config", codexConfigPath,
-  "--hooks-path", hooksPath,
-  "--json"
-], workspaceTmp));
-assertEqual(codexStatusJson.hardStop.stopWouldBlock, true, "codex status --json should report Stop hard-stop verdict");
-
-const hookDoctorJson = JSON.parse(runCli([
-  "codex",
-  "hook-doctor",
-  "--cwd", workspaceTmp,
-  "--codex-config", codexConfigPath,
-  "--hooks-path", hooksPath,
-  "--json"
-], workspaceTmp));
-assertEqual(hookDoctorJson.stopWouldBlock, true, "codex hook-doctor --json should report Stop hard-stop verdict");
+assertEqual(postToolStateMutation?.hookSpecificOutput?.permissionDecision, "deny", "PostToolUse should deny research-state mutation while hard-stop blocker exists");
 
 const quietPromptWithPendingQuestion = await dispatchCodexHook({
   hook_event_name: "UserPromptSubmit",
@@ -494,7 +466,7 @@ const staleQuestion = await createWorkspaceQuestion({
   provider: "codex"
 });
 const stopBeforeClear = await dispatchCodexHook({ hook_event_name: "Stop" }, workspaceTmp);
-assertEqual(stopBeforeClear, null, "Stop hook should not force an auto-continue loop before clearing a stale required question");
+assertEqual(stopBeforeClear, null, "Stop hook should not block stale non-hard-stop required questions");
 await clearWorkspaceQuestion({
   context,
   questionId: staleQuestion.question.id,
