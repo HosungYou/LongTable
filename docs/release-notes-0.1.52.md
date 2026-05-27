@@ -1,26 +1,27 @@
-# LongTable 0.1.52
+# LongTable 0.1.52 Release Notes
 
-LongTable 0.1.52 makes Codex `Stop` honor LongTable-owned hard-stop research
-blockers while keeping product/tooling work quiet.
+Planned patch release for Codex Stop hard-stop behavior and hook diagnostics.
 
-## What Changed
+## Changes
 
-- Adds provider-neutral hard-stop metadata for `QuestionRecord` and question
-  obligations.
-- Adds one shared hard-stop verdict used by Codex hooks and diagnostics.
-- Makes Codex `Stop` return a block decision only for pending hard-stop
-  Research Specification blockers: research question/scope, constructs,
-  method/analysis, evidence/access, or protected decisions.
-- Keeps ordinary required questions and product/tooling prompts from becoming
-  Stop blockers by default.
-- Narrows `PostToolUse`: successful no-op Bash and unrelated nonzero Bash stay
-  quiet; LongTable research-state mutations remain protected while a hard-stop
-  is pending.
-- Extends `doctor --json` and `codex status --json` / `codex hook-doctor --json`
-  with `stopWouldBlock`, active blockers, stale pending counts, and next actions.
+- Adds provider-neutral hard-stop metadata and verdict collection for pending `QuestionRecord` and `LongTableQuestionObligation` state.
+- Wires Codex `Stop` to block only active hard-stop blockers that affect the Research Specification question, scope, constructs, method, evidence boundary, or protected decisions.
+- Keeps stale/product/tooling pending questions out of `Stop` blocking unless they are explicitly marked as hard-stop.
+- Narrows `PostToolUse`: successful no-op Bash stays quiet, unrelated nonzero Bash no longer hard-blocks, and LongTable research-state mutations are denied only while a hard-stop blocker exists.
+- Removes the noisy managed `PostToolUse` status message from new Codex hook installs.
+- Extends `doctor --json`, `codex status --json`, and `codex hook-doctor --json` with `stopWouldBlock`, `activeBlockers`, stale/unrelated pending question count, hook coverage, hook trust, and next actions.
 
-## Notes
+## Verification
 
-Tmux remains optional transport only. The durable contract is still
-`Researcher Checkpoint -> QuestionRecord -> DecisionRecord`; hooks consume that
-state but do not replace it.
+Run before publishing:
+
+```bash
+npm ci
+npm run build
+npm run smoke:hooks
+npm run test
+npm run release:check
+npm run pack:check
+```
+
+Publishing to npm or creating a GitHub release still requires explicit release authority.

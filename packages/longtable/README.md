@@ -85,3 +85,19 @@ longtable search --query "<topic>"
 npm run build --workspace @longtable/cli
 npm run typecheck --workspace @longtable/cli
 ```
+
+## Codex hard-stop diagnostics
+
+Codex `Stop` blocks only active LongTable hard-stop blockers: unresolved
+Research Specification question, scope, construct, method, evidence, or protected
+decision commitments. Use:
+
+```bash
+longtable codex hook-doctor --json
+longtable codex status --json
+longtable doctor --json
+```
+
+to inspect hook coverage/trust plus `stopWouldBlock`, `activeBlockers`, stale
+pending-question counts, and next actions. Tmux remains an optional terminal
+transport; LongTable state and hooks own the behavior.

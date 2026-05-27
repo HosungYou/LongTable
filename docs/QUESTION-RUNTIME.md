@@ -223,3 +223,16 @@ a transport and integration layer over `@longtable/core` and
 `@longtable/checkpoints`. If elicitation is unavailable, the same pending
 QuestionRecord must be rendered as a numbered fallback and answered with
 `longtable decide`.
+
+## Codex Stop hard-stop verdict
+
+Codex `Stop` consumes the provider-neutral LongTable hard-stop verdict. A pending
+question or obligation blocks closure only when it is explicitly marked
+`hardStop` or is derived from old state as affecting the Research Specification
+question, scope, construct map, method/analysis, evidence boundary, or protected
+decisions. `required` alone is not enough. Product, setup, hook, docs, npm, git,
+and release work should remain outside research-state checkpoint creation.
+
+`PostToolUse` is deliberately narrower than `Stop`: successful no-op Bash returns
+nothing, unrelated nonzero Bash is not a hard block, and LongTable research-state
+mutation is denied only while an active hard-stop blocker exists.

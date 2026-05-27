@@ -106,3 +106,18 @@ Workspace:
 If the current directory is not inside a LongTable workspace, that is not an
 error. It means `doctor` can only check global provider setup until you pass
 `--cwd <project>` or run it inside a project directory.
+
+## Hard-stop diagnostics
+
+`longtable doctor --json`, `longtable status --json`, and
+`longtable codex hook-doctor --json` report the current Codex hook coverage and
+LongTable Stop verdict. The additive fields are:
+
+- `stopWouldBlock` / `hardStop.stopWouldBlock`
+- `activeBlockers[]` with blocker id, type, scope, source, prompt/reason, and command hints
+- `staleOrUnrelatedPendingQuestionCount`
+- `nextActions[]`
+
+Diagnostics are read-only unless `--fix` is used for install/trust repair.
+Answer, clear, or explicitly defer hard-stop blockers with rationale before
+treating a Research Specification change as settled.

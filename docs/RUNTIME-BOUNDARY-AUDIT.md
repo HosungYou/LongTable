@@ -254,3 +254,16 @@ researcher for clarity.
 6. Keep release hooks as engineering safeguards, not research checkpoints.
 7. Keep state files interpretable; avoid adding durable records that have no
    researcher-facing meaning.
+
+## 2026-05-27 hard-stop boundary update
+
+LongTable now separates `required` from `hardStop`. Hard-stop blockers are only
+Research Specification-affecting questions or obligations: research question,
+scope, constructs/coding, method/analysis, evidence/access, or protected
+decisions. Product and tooling prompts may mention LongTable, hooks, setup, docs,
+npm, git, or release work without creating research-state `QuestionRecord`s or
+blocking Codex `Stop`.
+
+Codex hooks are consumers of this verdict, not the source of truth. `doctor`,
+`codex status`, and `codex hook-doctor` expose the same verdict so a provider UI
+and the CLI cannot disagree about whether closure would block.

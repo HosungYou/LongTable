@@ -201,3 +201,15 @@ longtable --help
 Actual npm publish and GitHub release creation require explicit release
 authority. Local implementation and verification can be completed before that
 external step.
+
+## Codex Stop hard-stop
+
+LongTable Codex hooks now expose a narrow hard-stop verdict. `Stop` blocks only
+Research Specification-affecting pending questions or obligations, while
+product/tooling/docs/release work remains non-blocking unless explicitly marked
+as a hard-stop research decision. `PostToolUse` stays quiet for no-op Bash and no
+longer hard-blocks unrelated nonzero Bash failures.
+
+Inspect the current verdict with `longtable codex hook-doctor --json` or
+`longtable doctor --json`; both report hook coverage/trust, `stopWouldBlock`,
+`activeBlockers`, stale pending-question counts, and next actions.
