@@ -289,6 +289,14 @@ export type QuestionCommitmentFamily =
   | "epistemic_authority"
   | "product_policy";
 
+export type QuestionHardStopScope =
+  | "research_question"
+  | "scope"
+  | "construct"
+  | "method"
+  | "evidence"
+  | "protected_decision";
+
 export type QuestionEpistemicBasis =
   | "researcher_knowledge"
   | "project_state"
@@ -542,7 +550,7 @@ export interface QuestionRecord {
   commitmentFamily?: QuestionCommitmentFamily;
   epistemicBasis?: QuestionEpistemicBasis;
   hardStop?: boolean;
-  hardStopScope?: LongTableHardStopScope;
+  hardStopScope?: QuestionHardStopScope;
   prompt: QuestionPrompt;
   transportStatus?: QuestionTransportState;
   answer?: QuestionAnswer;
@@ -725,7 +733,7 @@ export interface LongTableQuestionObligation {
   prompt: string;
   reason: string;
   hardStop?: boolean;
-  hardStopScope?: LongTableHardStopScope;
+  hardStopScope?: QuestionHardStopScope;
   questionId?: string;
   decisionId?: string;
   sourceHookId?: string;
