@@ -94,6 +94,7 @@ import {
   removeCodexHookTrustState,
   removeManagedCodexHooks
 } from "./codex-hooks.js";
+import { collectHardStopBlockers } from "./hard-stop.js";
 import {
   appendInvocationRecordToWorkspace,
   applyResearchSpecificationPatch,
@@ -184,13 +185,18 @@ interface CodexSkillHealth extends ProviderSkillHealth {
   mcpPackageSpec?: string;
   expectedMcpPackageSpec: string;
   missingMcpTools: string[];
-  missingResearchSpecificationMcpTools: string[];
-  mcpElicitationsAllowed: boolean;
-  hooksPath: string;
-  hooksExists: boolean;
-  codexHooksEnabled: boolean;
-  missingManagedHookEvents: string[];
-  missingManagedHookTrustState: string[];
+    missingResearchSpecificationMcpTools: string[];
+    mcpElicitationsAllowed: boolean;
+    hooksPath: string;
+    hooksExists: boolean;
+    codexHooksEnabled: boolean;
+    missingManagedHookEvents: string[];
+    missingManagedHookTrustState: string[];
+    stopWouldBlock: boolean;
+    activeBlockers: ReturnType<typeof collectHardStopBlockers>["activeBlockers"];
+    stalePendingQuestionCount: number;
+    stalePendingObligationCount: number;
+    nextActions: string[];
 }
 
 interface LongTableDoctorStatus {
@@ -2186,6 +2192,17 @@ async function collectDoctorStatus(args: Record<string, string | boolean>): Prom
   ]);
   const installedCodexSkills = codexSkills.map((skill) => skill.name);
   const installedClaudeSkills = claudeSkills.map((skill) => skill.name);
+  const hardStop = workspace.hardStop ?? collectHardStopBlockers({
+    explicitState: {},
+    workingState: {},
+    inferredHypotheses: [],
+    openTensions: [],
+    decisionLog: [],
+    invocationLog: [],
+    questionLog: [],
+    artifactRecords: [],
+    narrativeTraces: []
+  });
 
   return {
     setupPath,
@@ -2216,7 +2233,12 @@ async function collectDoctorStatus(args: Record<string, string | boolean>): Prom
         hooksExists: existsSync(codexHooksPath),
         codexHooksEnabled: codexHooksEnabled(codexMcpConfig),
         missingManagedHookEvents,
-        missingManagedHookTrustState
+        missingManagedHookTrustState,
+        stopWouldBlock: hardStop.stopWouldBlock,
+        activeBlockers: hardStop.activeBlockers,
+        stalePendingQuestionCount: hardStop.stalePendingQuestionCount,
+        stalePendingObligationCount: hardStop.stalePendingObligationCount,
+        nextActions: hardStop.nextActions
       },
       claude: {
         command: "claude",
@@ -2270,9 +2292,17 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
     `- hooks feature: ${status.providers.codex.codexHooksEnabled ? "enabled" : "missing"}`,
     `- managed hook coverage: ${status.providers.codex.missingManagedHookEvents.length === 0 ? "complete" : `missing ${status.providers.codex.missingManagedHookEvents.join(", ")}`}`,
     `- managed hook trust: ${status.providers.codex.missingManagedHookTrustState.length === 0 ? "current" : `missing/stale ${status.providers.codex.missingManagedHookTrustState.length}`}`,
-    `- Stop would block now: ${status.hardStop.stopWouldBlock ? "yes" : "no"}`,
-    `- active hard-stop blockers: ${status.hardStop.activeBlockers.length}`,
-    `- stale/unrelated pending questions: ${status.hardStop.staleOrUnrelatedPendingQuestionCount}`,
+    `- Stop hard-stop: ${status.providers.codex.stopWouldBlock ? `would block (${status.providers.codex.activeBlockers.length})` : "clear"}`,
+    `- stale/unrelated pending questions: ${status.providers.codex.stalePendingQuestionCount}`,
+    `- stale/unrelated pending obligations: ${status.providers.codex.stalePendingObligationCount}`,
+    ...(status.providers.codex.activeBlockers.length > 0
+      ? [
+          "- active hard-stop blockers:",
+          ...status.providers.codex.activeBlockers.map((blocker) =>
+            `  - ${blocker.id}: ${blocker.scope}; ${blocker.nextAction}`
+          )
+        ]
+      : []),
     "",
     ...renderProviderDoctorBlock("Claude", status.providers.claude),
     "",
