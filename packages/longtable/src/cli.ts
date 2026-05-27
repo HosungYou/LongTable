@@ -185,18 +185,18 @@ interface CodexSkillHealth extends ProviderSkillHealth {
   mcpPackageSpec?: string;
   expectedMcpPackageSpec: string;
   missingMcpTools: string[];
-    missingResearchSpecificationMcpTools: string[];
-    mcpElicitationsAllowed: boolean;
-    hooksPath: string;
-    hooksExists: boolean;
-    codexHooksEnabled: boolean;
-    missingManagedHookEvents: string[];
-    missingManagedHookTrustState: string[];
-    stopWouldBlock: boolean;
-    activeBlockers: ReturnType<typeof collectHardStopBlockers>["activeBlockers"];
-    stalePendingQuestionCount: number;
-    stalePendingObligationCount: number;
-    nextActions: string[];
+  missingResearchSpecificationMcpTools: string[];
+  mcpElicitationsAllowed: boolean;
+  hooksPath: string;
+  hooksExists: boolean;
+  codexHooksEnabled: boolean;
+  missingManagedHookEvents: string[];
+  missingManagedHookTrustState: string[];
+  stopWouldBlock: boolean;
+  activeBlockers: ReturnType<typeof collectHardStopBlockers>["activeBlockers"];
+  stalePendingQuestionCount: number;
+  stalePendingObligationCount: number;
+  nextActions: string[];
 }
 
 interface LongTableDoctorStatus {
