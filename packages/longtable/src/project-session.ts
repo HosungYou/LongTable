@@ -32,17 +32,13 @@ import type {
   ResearchState
 } from "@longtable/core";
 import type { SetupPersistedOutput } from "@longtable/setup";
+import { collectHardStopBlockers, type HardStopVerdict } from "@longtable/core";
 import {
-  collectHardStopBlockers,
   ensureFirstResearchShapeObligation,
   ensureRequiredQuestionObligation,
   pendingQuestionObligations,
   resolveQuestionObligationByQuestionId
 } from "./question-obligations.js";
-import {
-  collectHardStopBlockers,
-  type HardStopVerdict
-} from "./hard-stop.js";
 
 export type ProjectDisagreementPreference =
   | "synthesis_only"
@@ -291,21 +287,7 @@ export interface LongTableWorkspaceInspection {
     specPatches?: number;
     specRevisions?: number;
   };
-  hardStop?: {
-    stopWouldBlock: boolean;
-    activeBlockers: Array<{
-      type: "question" | "obligation";
-      id: string;
-      scope: string;
-      prompt: string;
-      reason: string;
-      sourceField: string;
-      commandHint: string;
-    }>;
-    stalePendingQuestionCount: number;
-    stalePendingObligationCount: number;
-    nextActions: string[];
-  };
+  hardStop?: HardStopVerdict;
   recentInvocations?: Array<{
     id: string;
     kind: string;
@@ -351,7 +333,6 @@ export interface LongTableWorkspaceInspection {
     issue: string;
     suggestion?: string;
   }>;
-  hardStop?: HardStopVerdict;
 }
 
 const CURRENT_FILE_NAME = "CURRENT.md";
@@ -1300,21 +1281,7 @@ function summarizeWorkspaceInspection(
       specPatches: (state.specPatches ?? []).length,
       specRevisions: (state.specRevisions ?? []).length
     },
-    hardStop: {
-      stopWouldBlock: hardStop.stopWouldBlock,
-      activeBlockers: hardStop.activeBlockers.map((blocker) => ({
-        type: blocker.type,
-        id: blocker.id,
-        scope: blocker.scope,
-        prompt: blocker.prompt,
-        reason: blocker.reason,
-        sourceField: blocker.sourceField,
-        commandHint: blocker.commandHint
-      })),
-      stalePendingQuestionCount: hardStop.stalePendingQuestionCount,
-      stalePendingObligationCount: hardStop.stalePendingObligationCount,
-      nextActions: hardStop.nextActions
-    },
+    hardStop,
     recentInvocations: recentInvocationRecords(state, 5).map((record) => ({
       id: record.id,
       kind: record.intent.kind,
@@ -1369,8 +1336,7 @@ function summarizeWorkspaceInspection(
           issue: `Numeric answer "${raw.trim()}" was stored as other text.`,
           ...(option ? { suggestion: `Use "${option.value}" (${option.label}) for this checkpoint option.` } : {})
         }];
-      }),
-    hardStop
+      })
   };
 }
 
@@ -3334,8 +3300,6 @@ export async function createWorkspaceQuestion(options: {
   hardStopScope?: HardStopScope;
   commitmentFamily?: QuestionCommitmentFamily;
   epistemicBasis?: QuestionEpistemicBasis;
-  hardStop?: boolean;
-  hardStopScope?: QuestionRecord["hardStopScope"];
 }): Promise<{
   question: QuestionRecord;
   state: ResearchState;

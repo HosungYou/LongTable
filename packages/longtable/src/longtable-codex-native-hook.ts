@@ -1,16 +1,12 @@
 import { pathToFileURL } from "node:url";
-import { collectHardStopBlockers } from "@longtable/core";
+import { collectHardStopBlockers, type HardStopBlocker } from "@longtable/core";
 import type {
-  HardStopBlocker,
   LongTableHookRun,
   LongTableQuestionObligation,
   QuestionRecord
 } from "@longtable/core";
 import {
-  collectHardStopBlockers,
   createWorkspaceFollowUpQuestions,
-  collectHardStopBlockers,
-  type HardStopBlocker,
   type LongTableProjectContext,
   loadProjectContextFromDirectory,
   loadWorkspaceState,
@@ -399,16 +395,6 @@ function buildPendingObligationContext(obligation: LongTableQuestionObligation):
     obligation.questionId
       ? `This obligation is linked to question ${obligation.questionId}; answer it before treating the direction as settled.`
       : "Resume the LongTable interview and let it ask the next research-facing checkpoint before settling the direction."
-  ].join("\n");
-}
-
-function buildHardStopContext(blocker: HardStopBlocker): string {
-  return [
-    `LongTable hard-stop blocker: ${blocker.id}`,
-    `Affected Research Specification area: ${blocker.scope}.`,
-    `Reason: ${blocker.reason}`,
-    `Next action: ${blocker.nextAction}.`,
-    "Do not close, compact away, or silently apply this research-state change until the researcher records the decision."
   ].join("\n");
 }
 

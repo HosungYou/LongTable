@@ -94,7 +94,6 @@ import {
   removeCodexHookTrustState,
   removeManagedCodexHooks
 } from "./codex-hooks.js";
-import { collectHardStopBlockers } from "./hard-stop.js";
 import {
   appendInvocationRecordToWorkspace,
   applyResearchSpecificationPatch,
@@ -2120,6 +2119,8 @@ async function collectHardStopDiagnostics(startPath: string): Promise<HardStopVe
     stopWouldBlock: false,
     activeBlockers: [],
     staleOrUnrelatedPendingQuestionCount: 0,
+    stalePendingQuestionCount: 0,
+    stalePendingObligationCount: 0,
     nextActions: []
   };
   const context = await loadProjectContextFromDirectory(startPath);
@@ -2192,17 +2193,6 @@ async function collectDoctorStatus(args: Record<string, string | boolean>): Prom
   ]);
   const installedCodexSkills = codexSkills.map((skill) => skill.name);
   const installedClaudeSkills = claudeSkills.map((skill) => skill.name);
-  const hardStop = workspace.hardStop ?? collectHardStopBlockers({
-    explicitState: {},
-    workingState: {},
-    inferredHypotheses: [],
-    openTensions: [],
-    decisionLog: [],
-    invocationLog: [],
-    questionLog: [],
-    artifactRecords: [],
-    narrativeTraces: []
-  });
 
   return {
     setupPath,
@@ -4830,6 +4820,7 @@ async function runCodexSubcommand(
       workspaceHardStop: workspace.hardStop ?? {
         stopWouldBlock: false,
         activeBlockers: [],
+        staleOrUnrelatedPendingQuestionCount: 0,
         stalePendingQuestionCount: 0,
         stalePendingObligationCount: 0,
         nextActions: []

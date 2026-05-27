@@ -487,13 +487,7 @@ export interface RoleAuditResult {
 
 export type QuestionPromptType = "single_choice" | "multi_choice" | "free_text";
 
-export type HardStopScope =
-  | "research_question"
-  | "scope"
-  | "construct"
-  | "method"
-  | "evidence"
-  | "protected_decision";
+export type HardStopScope = QuestionHardStopScope;
 
 export interface QuestionPrompt {
   id: string;
@@ -549,8 +543,6 @@ export interface QuestionRecord {
   hardStopScope?: HardStopScope;
   commitmentFamily?: QuestionCommitmentFamily;
   epistemicBasis?: QuestionEpistemicBasis;
-  hardStop?: boolean;
-  hardStopScope?: LongTableHardStopScope;
   prompt: QuestionPrompt;
   transportStatus?: QuestionTransportState;
   answer?: QuestionAnswer;
@@ -716,13 +708,7 @@ export type LongTableQuestionObligationStatus =
   | "satisfied"
   | "cleared";
 
-export type LongTableHardStopScope =
-  | "research_question"
-  | "scope"
-  | "construct"
-  | "method"
-  | "evidence"
-  | "protected_decision";
+export type LongTableHardStopScope = HardStopScope;
 
 export interface LongTableQuestionObligation {
   id: string;
@@ -732,8 +718,6 @@ export interface LongTableQuestionObligation {
   updatedAt: string;
   prompt: string;
   reason: string;
-  hardStop?: boolean;
-  hardStopScope?: LongTableHardStopScope;
   questionId?: string;
   decisionId?: string;
   sourceHookId?: string;
