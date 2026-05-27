@@ -33,6 +33,7 @@ import type {
 } from "@longtable/core";
 import type { SetupPersistedOutput } from "@longtable/setup";
 import {
+  collectHardStopBlockers,
   ensureFirstResearchShapeObligation,
   ensureRequiredQuestionObligation,
   pendingQuestionObligations,
@@ -281,12 +282,29 @@ export interface LongTableWorkspaceInspection {
     questions: number;
     pendingQuestions: number;
     pendingObligations: number;
+    stalePendingQuestions?: number;
+    stalePendingObligations?: number;
     answeredQuestions: number;
     decisions: number;
     interviewTurns?: number;
     evidenceRecords?: number;
     specPatches?: number;
     specRevisions?: number;
+  };
+  hardStop?: {
+    stopWouldBlock: boolean;
+    activeBlockers: Array<{
+      type: "question" | "obligation";
+      id: string;
+      scope: string;
+      prompt: string;
+      reason: string;
+      sourceField: string;
+      commandHint: string;
+    }>;
+    stalePendingQuestionCount: number;
+    stalePendingObligationCount: number;
+    nextActions: string[];
   };
   recentInvocations?: Array<{
     id: string;
@@ -1273,12 +1291,29 @@ function summarizeWorkspaceInspection(
       questions: questions.length,
       pendingQuestions: pendingQuestions.length,
       pendingObligations: pendingObligations.length,
+      stalePendingQuestions: hardStop.stalePendingQuestionCount,
+      stalePendingObligations: hardStop.stalePendingObligationCount,
       answeredQuestions: answeredQuestions.length,
       decisions: (state.decisionLog ?? []).length,
       interviewTurns: (state.interviewTurns ?? []).length,
       evidenceRecords: (state.evidenceRecords ?? []).length,
       specPatches: (state.specPatches ?? []).length,
       specRevisions: (state.specRevisions ?? []).length
+    },
+    hardStop: {
+      stopWouldBlock: hardStop.stopWouldBlock,
+      activeBlockers: hardStop.activeBlockers.map((blocker) => ({
+        type: blocker.type,
+        id: blocker.id,
+        scope: blocker.scope,
+        prompt: blocker.prompt,
+        reason: blocker.reason,
+        sourceField: blocker.sourceField,
+        commandHint: blocker.commandHint
+      })),
+      stalePendingQuestionCount: hardStop.stalePendingQuestionCount,
+      stalePendingObligationCount: hardStop.stalePendingObligationCount,
+      nextActions: hardStop.nextActions
     },
     recentInvocations: recentInvocationRecords(state, 5).map((record) => ({
       id: record.id,

@@ -2290,6 +2290,8 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
       `- invocations: ${workspace.counts?.invocations ?? 0}`,
       `- questions: ${workspace.counts?.questions ?? 0} (${workspace.counts?.pendingQuestions ?? 0} pending, ${workspace.counts?.answeredQuestions ?? 0} answered)`,
       `- obligations: ${workspace.counts?.pendingObligations ?? 0} pending`,
+      `- Stop hard-stop: ${workspace.hardStop?.stopWouldBlock ? "would block" : "clear"}`,
+      `- stale/unrelated pending: ${workspace.hardStop?.stalePendingQuestionCount ?? 0} questions, ${workspace.hardStop?.stalePendingObligationCount ?? 0} obligations`,
       `- decisions: ${workspace.counts?.decisions ?? 0}`
     );
     if ((workspace.recentInvocations ?? []).length > 0) {
@@ -2315,6 +2317,13 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
       lines.push("- pending obligations:");
       for (const obligation of workspace.pendingObligations ?? []) {
         lines.push(`  - ${obligation.id}: ${obligation.prompt}`);
+      }
+    }
+    if ((workspace.hardStop?.activeBlockers ?? []).length > 0) {
+      lines.push("- hard-stop blockers:");
+      for (const blocker of workspace.hardStop?.activeBlockers ?? []) {
+        lines.push(`  - ${blocker.id} [${blocker.scope}]: ${blocker.prompt}`);
+        lines.push(`    next: ${blocker.commandHint}`);
       }
     }
     if ((workspace.answerWarnings ?? []).length > 0) {
@@ -2369,6 +2378,11 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
   const firstQuestion = status.workspace.pendingQuestions?.[0];
   if (firstQuestion && status.hardStop.nextActions.length === 0) {
     nextActions.push(`longtable decide --question ${firstQuestion.id} --answer <value>`);
+  }
+  for (const action of status.workspace.hardStop?.nextActions ?? []) {
+    if (!nextActions.includes(action)) {
+      nextActions.push(action);
+    }
   }
 
   if (nextActions.length > 0) {
@@ -3632,7 +3646,7 @@ async function runAccess(subcommand: string | undefined, args: Record<string, st
     await runAccessSetup(args);
     return;
   }
-  if (subcommand === "status") {
+  if (subcommand === "status" || subcommand === "hook-doctor") {
     await runAccessStatus(args);
     return;
   }
@@ -4798,6 +4812,7 @@ async function runCodexSubcommand(
     const configContent = existsSync(configPath) ? await readFile(configPath, "utf8") : "";
     const hooksPath = resolveCodexHooksPath(args);
     const hooksContent = existsSync(hooksPath) ? await readFile(hooksPath, "utf8") : "";
+    const workspace = await inspectProjectWorkspace(typeof args.cwd === "string" ? args.cwd : cwd());
     const status = {
       setupPath,
       setupExists: existsSync(setupPath),
@@ -4818,7 +4833,13 @@ async function runCodexSubcommand(
       missingManagedHookTrustState: hooksContent
         ? getMissingManagedCodexHookTrustState(configContent, hooksPath, hooksContent)
         : [],
-      hardStop: await collectHardStopDiagnostics(typeof args.cwd === "string" ? args.cwd : cwd())
+      workspaceHardStop: workspace.hardStop ?? {
+        stopWouldBlock: false,
+        activeBlockers: [],
+        stalePendingQuestionCount: 0,
+        stalePendingObligationCount: 0,
+        nextActions: []
+      }
     };
 
     if (args.json === true) {
@@ -4826,7 +4847,7 @@ async function runCodexSubcommand(
       return;
     }
 
-    console.log("LongTable Codex status");
+    console.log(subcommand === "hook-doctor" ? "LongTable Codex hook doctor" : "LongTable Codex status");
     console.log(`- setup: ${status.setupExists ? "present" : "missing"} (${setupPath})`);
     console.log(`- codex runtime artifact: ${status.runtimeExists ? "present" : "missing"} (${runtimePath})`);
     console.log(`- skills dir: ${status.skillsDir}`);
@@ -4854,9 +4875,9 @@ async function runCodexSubcommand(
     console.log(`- hooks file: ${status.hooksExists ? "present" : "missing"} (${status.hooksPath})`);
     console.log(`- managed hook coverage: ${status.missingManagedHookEvents.length === 0 ? "complete" : `missing ${status.missingManagedHookEvents.join(", ")}`}`);
     console.log(`- managed hook trust: ${status.missingManagedHookTrustState.length === 0 ? "current" : `missing/stale ${status.missingManagedHookTrustState.length}`}`);
-    console.log(`- Stop would block now: ${status.hardStop.stopWouldBlock ? "yes" : "no"}`);
-    console.log(`- active hard-stop blockers: ${status.hardStop.activeBlockers.length}`);
-    console.log(`- stale/unrelated pending questions: ${status.hardStop.staleOrUnrelatedPendingQuestionCount}`);
+    console.log(`- Stop hard-stop: ${status.workspaceHardStop.stopWouldBlock ? "would block" : "clear"}`);
+    console.log(`- active hard-stop blockers: ${status.workspaceHardStop.activeBlockers.length}`);
+    console.log(`- stale/unrelated pending: ${status.workspaceHardStop.stalePendingQuestionCount} questions, ${status.workspaceHardStop.stalePendingObligationCount} obligations`);
     return;
   }
 
