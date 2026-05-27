@@ -4805,35 +4805,7 @@ async function runCodexSubcommand(
     return;
   }
 
-  if (subcommand === "hook-doctor") {
-    const status = await collectDoctorStatus(args);
-    const hookDoctor = {
-      hooksPath: status.providers.codex.hooksPath,
-      hooksExists: status.providers.codex.hooksExists,
-      codexConfigPath: status.providers.codex.mcpConfigPath,
-      codexHooksEnabled: status.providers.codex.codexHooksEnabled,
-      missingManagedHookEvents: status.providers.codex.missingManagedHookEvents,
-      missingManagedHookTrustState: status.providers.codex.missingManagedHookTrustState,
-      stopWouldBlock: status.hardStop.stopWouldBlock,
-      activeBlockers: status.hardStop.activeBlockers,
-      staleOrUnrelatedPendingQuestionCount: status.hardStop.staleOrUnrelatedPendingQuestionCount,
-      nextActions: status.hardStop.nextActions
-    };
-    if (args.json === true) {
-      console.log(JSON.stringify(hookDoctor, null, 2));
-      return;
-    }
-    console.log("LongTable Codex hook doctor");
-    console.log(`- hooks file: ${hookDoctor.hooksExists ? "present" : "missing"} (${hookDoctor.hooksPath})`);
-    console.log(`- hooks feature: ${hookDoctor.codexHooksEnabled ? "enabled" : "missing"}`);
-    console.log(`- managed hook coverage: ${hookDoctor.missingManagedHookEvents.length === 0 ? "complete" : `missing ${hookDoctor.missingManagedHookEvents.join(", ")}`}`);
-    console.log(`- managed hook trust: ${hookDoctor.missingManagedHookTrustState.length === 0 ? "current" : `missing/stale ${hookDoctor.missingManagedHookTrustState.length}`}`);
-    console.log(`- Stop would block now: ${hookDoctor.stopWouldBlock ? "yes" : "no"}`);
-    console.log(`- active hard-stop blockers: ${hookDoctor.activeBlockers.length}`);
-    return;
-  }
-
-  if (subcommand === "status") {
+  if (subcommand === "status" || subcommand === "hook-doctor") {
     const aliases = await listInstalledCodexPromptAliases(customDir);
     const skills = await listInstalledCodexSkills(roles, customDir, skillSurface);
     const setupPath = resolveDefaultSetupPath(typeof args.path === "string" ? args.path : undefined).path;
