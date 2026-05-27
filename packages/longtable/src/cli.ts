@@ -2406,7 +2406,9 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
   }
   nextActions.push(...status.hardStop.nextActions);
   const firstQuestion = status.workspace.pendingQuestions?.[0];
-  if (firstQuestion && status.hardStop.nextActions.length === 0) {
+  if (status.providers.codex.nextActions.length > 0) {
+    nextActions.push(...status.providers.codex.nextActions);
+  } else if (firstQuestion) {
     nextActions.push(`longtable decide --question ${firstQuestion.id} --answer <value>`);
   }
   for (const action of status.workspace.hardStop?.nextActions ?? []) {
