@@ -85,14 +85,12 @@ export function buildManagedCodexHooksConfig(packageRoot: string): ManagedCodexH
       ],
       PreToolUse: [
         buildCommandHook(command, {
-          matcher: "Bash",
-          statusMessage: "Running LongTable checkpoint guard"
+          matcher: "Bash"
         })
       ],
       PostToolUse: [
         buildCommandHook(command, {
-          matcher: "Bash",
-          statusMessage: "Reviewing LongTable post-tool state"
+          matcher: "Bash"
         })
       ],
       UserPromptSubmit: [
