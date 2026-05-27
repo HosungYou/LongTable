@@ -550,7 +550,7 @@ export interface QuestionRecord {
   commitmentFamily?: QuestionCommitmentFamily;
   epistemicBasis?: QuestionEpistemicBasis;
   hardStop?: boolean;
-  hardStopScope?: QuestionHardStopScope;
+  hardStopScope?: LongTableHardStopScope;
   prompt: QuestionPrompt;
   transportStatus?: QuestionTransportState;
   answer?: QuestionAnswer;
@@ -733,7 +733,7 @@ export interface LongTableQuestionObligation {
   prompt: string;
   reason: string;
   hardStop?: boolean;
-  hardStopScope?: QuestionHardStopScope;
+  hardStopScope?: LongTableHardStopScope;
   questionId?: string;
   decisionId?: string;
   sourceHookId?: string;
