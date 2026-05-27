@@ -104,7 +104,7 @@ function inferObligationHardStopScope(
     return null;
   }
   if (obligation.hardStop === true) {
-    return obligation.hardStopScope ?? linkedQuestion?.hardStopScope ?? inferQuestionHardStopScope(linkedQuestion as QuestionRecord) ?? "scope";
+    return obligation.hardStopScope ?? linkedQuestion?.hardStopScope ?? (linkedQuestion ? inferQuestionHardStopScope(linkedQuestion) : null) ?? "scope";
   }
   if (obligation.kind === "research_specification_confirmation") {
     return "scope";
