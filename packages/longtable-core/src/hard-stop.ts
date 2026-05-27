@@ -1,5 +1,5 @@
 import type {
-  type HardStopScope,
+  HardStopScope,
   LongTableQuestionObligation,
   QuestionCommitmentFamily,
   QuestionRecord,

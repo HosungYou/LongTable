@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
+import { collectHardStopBlockers } from "@longtable/core";
 import type {
-  collectHardStopBlockers,
-  type HardStopBlocker,
+  HardStopBlocker,
   LongTableHookRun,
   LongTableQuestionObligation,
   QuestionRecord

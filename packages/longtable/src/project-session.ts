@@ -17,7 +17,7 @@ import type {
   ProviderKind,
   QuestionOption,
   QuestionAnswer,
-  type HardStopScope,
+  HardStopScope,
   QuestionCommitmentFamily,
   QuestionEpistemicBasis,
   QuestionGenerationResult,
@@ -3221,6 +3221,8 @@ export async function createWorkspaceFollowUpQuestions(options: {
   prompt: string;
   provider?: ProviderKind;
   required?: boolean;
+  hardStop?: boolean;
+  hardStopScope?: HardStopScope;
   force?: boolean;
   auto?: boolean;
   requiredOnly?: boolean;
@@ -3289,6 +3291,8 @@ export async function createWorkspaceFollowUpQuestions(options: {
       updatedAt: createdAt,
       status: "pending",
       ...metadata,
+      ...(typeof options.hardStop === "boolean" ? { hardStop: options.hardStop } : {}),
+      ...(options.hardStopScope ? { hardStopScope: options.hardStopScope } : {}),
       prompt: {
         id: createId("question_prompt"),
         checkpointKey,
@@ -3326,6 +3330,8 @@ export async function createWorkspaceQuestion(options: {
   displayReason?: string;
   provider?: ProviderKind;
   required?: boolean;
+  hardStop?: boolean;
+  hardStopScope?: HardStopScope;
   commitmentFamily?: QuestionCommitmentFamily;
   epistemicBasis?: QuestionEpistemicBasis;
   hardStop?: boolean;
