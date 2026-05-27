@@ -60,13 +60,15 @@ than asking one extra question.
 
 ## Stop Scope
 
-My engineering recommendation is a full stop for the current work unit when a
-required Researcher Checkpoint is active.
+LongTable now treats hard-stop as narrower than `required`. A full stop is
+reserved for unresolved Researcher Checkpoints or obligations that can change
+the Research Specification question, scope, construct map, method/analysis,
+evidence boundary, or protected decisions.
 
-That does not mean LongTable should freeze the whole machine forever. It means
-the agent should not continue drafting, editing, coding data extraction rules,
-running analysis, writing a manuscript section, or updating project state when
-those actions depend on the unresolved decision.
+That does not mean LongTable should freeze the whole machine forever. Product,
+setup, hook, documentation, release, npm, git, and simulation-test work should
+not be blocked just because an unrelated required question exists. Research
+state changes that depend on the unresolved hard-stop still must wait.
 
 This is stricter than only blocking `.longtable/` state writes, and it is
 justified because Codex can otherwise complete many downstream actions before

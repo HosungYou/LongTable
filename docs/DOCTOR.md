@@ -18,6 +18,7 @@ longtable doctor
 longtable status
 longtable doctor --fix
 longtable doctor --json
+longtable codex hook-doctor --json
 ```
 
 `doctor` and `status` are equivalent at the top level.
@@ -51,6 +52,8 @@ between Codex and Claude Code.
 - stale legacy prompt files
 - missing project state
 - pending researcher decisions
+- whether Codex `Stop` would block on an active hard-stop blocker
+- stale or unrelated pending question counts
 - healthy state with no immediate action needed
 
 ## Repair Mode

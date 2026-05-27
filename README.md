@@ -5,6 +5,12 @@ helps a researcher keep research questions, construct boundaries, method
 choices, evidence standards, authorship judgments, and open tensions traceable
 across AI-assisted sessions.
 
+
+LongTable also exposes a narrow Codex hard-stop guard: unresolved Research
+Specification blockers can block session stop until the researcher decides,
+clears, or explicitly defers them. Product, setup, documentation, release, and
+hook-engineering prompts are not hard-stop blockers by default.
+
 LongTable is not a chatbot replacement. Codex, Claude Code, and other providers
 remain the execution environments. LongTable provides the durable research
 state, generated provider skills, Researcher Checkpoints, and command-line tools
