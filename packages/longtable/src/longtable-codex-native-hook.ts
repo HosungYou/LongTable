@@ -8,6 +8,8 @@ import type {
 } from "@longtable/core";
 import {
   createWorkspaceFollowUpQuestions,
+  collectHardStopBlockers,
+  type HardStopBlocker,
   type LongTableProjectContext,
   loadProjectContextFromDirectory,
   loadWorkspaceState,
@@ -399,6 +401,16 @@ function buildPendingObligationContext(obligation: LongTableQuestionObligation):
   ].join("\n");
 }
 
+function buildHardStopContext(blocker: HardStopBlocker): string {
+  return [
+    `LongTable hard-stop blocker: ${blocker.id}`,
+    `Affected Research Specification area: ${blocker.scope}.`,
+    `Reason: ${blocker.reason}`,
+    `Next action: ${blocker.nextAction}.`,
+    "Do not close, compact away, or silently apply this research-state change until the researcher records the decision."
+  ].join("\n");
+}
+
 function buildSeparatePendingObligationNotice(obligation: LongTableQuestionObligation): string {
   return [
     `Separate unresolved LongTable obligation: ${obligation.prompt}`,
@@ -536,12 +548,12 @@ function preToolUseOutput(runtime: LongTableRuntime, payload: CodexHookPayload):
     return null;
   }
 
-  const blocker = hardStopBlockers(runtime.state)[0];
-  if (blocker && mutatesLongTableResearchState(command)) {
+  const hardStopBlocker = collectHardStopBlockers(runtime.state).activeBlockers[0];
+  if (hardStopBlocker && mutatesLongTableResearchState(command)) {
     return buildBlockOutput(
       "PreToolUse",
-      "A LongTable hard-stop blocker is pending before a research-state Bash command.",
-      buildHardStopBlockerContext(blocker)
+      "A LongTable hard-stop blocker is still pending before a research-state Bash command.",
+      buildHardStopContext(hardStopBlocker)
     );
   }
 
@@ -556,21 +568,21 @@ function postToolUseOutput(runtime: LongTableRuntime, payload: CodexHookPayload)
   const command = readCommandText(payload);
   const exitCode = readExitCode(payload);
   const output = readCombinedOutput(payload);
-  const blocker = hardStopBlockers(runtime.state)[0];
+  const hardStopBlocker = collectHardStopBlockers(runtime.state).activeBlockers[0];
 
-  if (blocker && mutatesLongTableResearchState(command)) {
+  if (hardStopBlocker && mutatesLongTableResearchState(command)) {
     return buildBlockOutput(
       "PostToolUse",
       "A research-state Bash command completed while LongTable still had a hard-stop blocker.",
-      buildHardStopBlockerContext(blocker)
+      buildHardStopContext(hardStopBlocker)
     );
   }
 
   if (exitCode !== null && exitCode !== 0 && output && mutatesLongTableResearchState(command)) {
     return buildBlockOutput(
       "PostToolUse",
-      "A LongTable research-state Bash command failed and needs review before continuing.",
-      "Review the LongTable state command output and explain what failed before retrying or continuing."
+      "A LongTable research-state Bash command returned a non-zero exit code and should be reviewed before LongTable continues.",
+      "Review the command output and explain what failed before retrying or continuing."
     );
   }
 
@@ -578,9 +590,15 @@ function postToolUseOutput(runtime: LongTableRuntime, payload: CodexHookPayload)
 }
 
 function stopOutput(runtime: LongTableRuntime): Record<string, unknown> | null {
-  const verdict = collectHardStopBlockers(runtime.state);
-  const blocker = verdict.activeBlockers[0];
-  return blocker ? buildStopBlockOutput(buildStopBlockerReason(blocker, verdict.activeBlockers.length)) : null;
+  const blocker = collectHardStopBlockers(runtime.state).activeBlockers[0];
+  if (!blocker) {
+    return null;
+  }
+  return buildStopBlockOutput([
+    `LongTable hard-stop blocker ${blocker.id} affects ${blocker.scope}.`,
+    blocker.reason,
+    `Required next action: ${blocker.nextAction}.`
+  ].join(" "));
 }
 
 export async function dispatchCodexHook(
