@@ -29,7 +29,7 @@ The invocation record includes:
 - `PanelPlan`: which roles were selected and why
 - `PanelResult`: current planned panel result
 - provider and execution surface
-- degradation/fallback reason when native team execution is not used
+- degradation/fallback reason when provider-native panel execution is not used
 
 Panel planning also creates a pending `QuestionRecord` asking what human decision
 should follow the panel review. The `PanelResult` links to that question through
@@ -67,7 +67,7 @@ Without invocation records, a panel call only exists in the conversation. With
 invocation records, the project can later answer:
 
 - Which roles were consulted?
-- Was this a native team execution or sequential fallback?
+- Was this a provider-native panel execution or sequential fallback?
 - What decision or checkpoint should this invocation connect to?
 - Did a later claim depend on a previous panel result?
 

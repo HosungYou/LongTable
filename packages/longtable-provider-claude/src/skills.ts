@@ -76,8 +76,8 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "- `lt explore: ...`",
         "- `lt review: ...`",
         "- `lt panel: ...`",
-        "- `longtable: deploy a research team to review this measurement plan, show the main disagreements, and ask me what decision should be recorded before you revise it.`",
-        "- `longtable: use editor, reviewer, methods, measurement, and voice perspectives to evaluate this manuscript section. Do not collapse disagreement too early.`",
+        "- `longtable: run a panel review of this measurement plan, show the main disagreements, and ask me what decision should be recorded before you revise it.`",
+        "- `longtable: use editor, reviewer, methods, measurement, and voice perspectives as a panel to evaluate this manuscript section. Do not collapse disagreement too early.`",
         "- `$longtable-methods`, `$longtable-measure`, `$longtable-theory`, `$longtable-reviewer`, or `$longtable-voice` when the researcher explicitly wants that shortcut.",
         "- `$longtable-start` to create or continue the first research-start interview.",
         "- `$longtable-interview` to run a structured follow-up interview after a Research Specification exists.",
@@ -108,7 +108,7 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "",
         "## Panel And Question Ordering",
         "",
-        "- If the user asks for a panel, team, disagreement, or multiple perspectives, expose a structured deliberation record instead of a one-line summary.",
+        "- If the user asks for a panel, team-style review, debate, disagreement, or multiple perspectives, use the panel surface and expose a structured deliberation record instead of a one-line summary.",
         "- The structured deliberation record must include: roles consulted, each role's main claim or objection, the disagreement map, the decision options, the recommended option when defensible, and the exact researcher-facing question.",
         "- If the panel converges, explain what changed the disagreement; if it does not converge, preserve the unresolved conflict instead of collapsing it into one confident synthesis.",
         "- Ask and stop when missing context would decide a high-risk research commitment.",
@@ -259,7 +259,7 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
     {
       name: "longtable-panel",
       description: "Use when a research decision needs visible disagreement from multiple LongTable roles.",
-      triggers: ["lt panel", "longtable panel", "panel review", "team review", "disagreement", "conflict"],
+      triggers: ["lt panel", "longtable panel", "panel review", "team-style review", "disagreement", "conflict"],
       body: [
         "## Purpose",
         "",

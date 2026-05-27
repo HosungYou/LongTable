@@ -67,9 +67,41 @@ Automation fallback:
 - can create a workspace from explicit flags
 - should not be presented as the primary research-start experience
 
+### `longtable panel`
+
+Structured multi-role review:
+
+- creates a `PanelPlan`
+- creates a provider-neutral `InvocationIntent`
+- uses `sequential_fallback` as the stable execution surface
+- exposes planned `PanelResult` through `--json`
+- exposes the provider runtime prompt through `--print`
+- appends an `InvocationRecord` when run inside a LongTable workspace
+- creates a follow-up `QuestionRecord` when the next step depends on researcher
+  judgment
+
+Examples:
+
+```bash
+longtable panel --prompt "review this methods section" --json
+longtable panel --prompt "review this measurement plan" --role editor,measurement_auditor --json
+longtable panel --visibility always_visible --prompt "keep unresolved disagreement visible" --json
+```
+
+Team-style requests route through panel. Explicit debate-language requests route
+to panel debate records under `.longtable/panel/`; LongTable team execution is
+disabled for new work. Historical `.longtable/team/` records remain readable
+only as older workspace state.
+
 ## Question Transport
 
 LongTable state is canonical. Provider UI is transport.
+
+If the prompt contains an explicit collaboration directive such as `lt panel:`
+or `lt debate:`, `ask` delegates to the panel surface. If the request is less
+explicit but asks for multiple perspectives, LongTable uses panel as the
+lightest adequate surface so disagreement stays visible without invoking
+disabled team execution.
 
 Supported question surfaces:
 
@@ -92,6 +124,7 @@ longtable question --prompt "<decision context>"
 longtable decide --question <id> --answer <value>
 longtable spec read --cwd "<project-path>"
 longtable search --query "<topic>"
+longtable panel --prompt "<collaboration context>"
 longtable codex install-skills
 longtable claude install-skills
 longtable mcp install --provider all
@@ -101,5 +134,6 @@ longtable mcp install --provider all
 
 - Do not make provider-specific UI the product contract.
 - Do not make tmux required for research-start or checkpoint behavior.
+- Do not expose `longtable team` as a new collaboration surface.
 - Do not split start and interview into duplicated engines.
 - Do not treat First Research Shape as the substantive endpoint.

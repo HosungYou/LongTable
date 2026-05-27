@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -54,6 +54,19 @@ async function assertRejects(promiseFactory, expectedMessage, label) {
     return;
   }
   throw new Error(`${label}: expected rejection`);
+}
+
+function assertThrowsSync(fn, expectedMessage, label) {
+  try {
+    fn();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes(expectedMessage)) {
+      throw new Error(`${label}: expected error containing "${expectedMessage}", received "${message}"`);
+    }
+    return error;
+  }
+  throw new Error(`${label}: expected throw`);
 }
 
 function classify(prompt, fallbackMode) {
@@ -356,64 +369,92 @@ const freeTextDecision = await answerWorkspaceQuestion({
 assertEqual(freeTextDecision.question.answer?.selectedValues[0], "Pilot screening should flag mixed individual/organization measurement.", "free-text selected value");
 assertEqual(freeTextDecision.question.answer?.otherText, "Pilot screening should flag mixed individual/organization measurement.", "free-text otherText audit field");
 
-const teamTmp = mkdtempSync(join(tmpdir(), "longtable-team-cross-review-"));
-const team = JSON.parse(execFileSync("node", [
-  cli,
-  "team",
-  "--cwd", teamTmp,
-  "--prompt", "Review this measurement plan as an agent team.",
-  "--role", "editor,measurement_auditor",
-  "--json"
-], {
-  cwd: teamTmp,
-  encoding: "utf8"
-}));
-assertEqual(team.run.interactionDepth, "cross_reviewed", "team interaction depth");
-assertEqual(team.run.roundCount, 3, "team round count");
-const crossRound = team.run.rounds.find((round) => round.kind === "cross_review");
-if (!crossRound?.contributions.every((contribution) => typeof contribution.respondsToContributionId === "string")) {
-  throw new Error("Team cross-review contributions must reference independent contributions.");
-}
+const disabledTeamTmp = mkdtempSync(join(tmpdir(), "longtable-disabled-team-"));
+const disabledTeamError = assertThrowsSync(
+  () => execFileSync("node", [
+    cli,
+    "team",
+    "--cwd", disabledTeamTmp,
+    "--prompt", "Review this measurement plan as an agent team.",
+    "--role", "editor,measurement_auditor",
+    "--json"
+  ], {
+    cwd: tmpdir(),
+    encoding: "utf8",
+    stdio: "pipe"
+  }),
+  "`longtable team` is disabled",
+  "direct longtable team is disabled"
+);
+assertEqual(disabledTeamError.status, 1, "direct longtable team exit code");
+assertEqual(disabledTeamError.stdout, "", "direct longtable team stdout");
+assertEqual(existsSync(join(disabledTeamTmp, ".longtable", "team")), false, "disabled longtable team creates no team artifacts");
 
-const debateTmp = mkdtempSync(join(tmpdir(), "longtable-team-debate-"));
-const debate = JSON.parse(execFileSync("node", [
-  cli,
-  "team",
-  "--cwd", debateTmp,
-  "--prompt", "Debate this measurement plan before I commit.",
-  "--role", "editor,measurement_auditor",
-  "--debate",
-  "--json"
-], {
-  cwd: debateTmp,
-  encoding: "utf8"
-}));
-assertEqual(debate.run.interactionDepth, "debated", "debate interaction depth");
-assertEqual(debate.run.roundCount, 5, "debate round count");
+const disabledTeamDebateTmp = mkdtempSync(join(tmpdir(), "longtable-disabled-team-debate-"));
+const disabledTeamDebateError = assertThrowsSync(
+  () => execFileSync("node", [
+    cli,
+    "team",
+    "--cwd", disabledTeamDebateTmp,
+    "--prompt", "Debate this measurement plan before I commit.",
+    "--role", "editor,measurement_auditor",
+    "--debate",
+    "--json"
+  ], {
+    cwd: tmpdir(),
+    encoding: "utf8",
+    stdio: "pipe"
+  }),
+  "`longtable team` is disabled",
+  "direct longtable team debate is disabled"
+);
+assertEqual(disabledTeamDebateError.status, 1, "direct longtable team debate exit code");
+assertEqual(disabledTeamDebateError.stdout, "", "direct longtable team debate stdout");
+assertEqual(existsSync(join(disabledTeamDebateTmp, ".longtable", "team")), false, "disabled longtable team debate creates no team artifacts");
 
+const naturalTeamTmp = mkdtempSync(join(tmpdir(), "longtable-natural-team-"));
 const naturalTeam = JSON.parse(execFileSync("node", [
   cli,
   "ask",
-  "--cwd", mkdtempSync(join(tmpdir(), "longtable-natural-team-")),
+  "--cwd", naturalTeamTmp,
   "--prompt", "lt team: Review this measurement plan before I commit it.",
   "--json"
 ], {
   cwd: tmpdir(),
   encoding: "utf8"
 }));
-assertEqual(naturalTeam.run.interactionDepth, "cross_reviewed", "natural team interaction depth");
+assertEqual(naturalTeam.result.interactionDepth, "independent", "natural team routes to panel interaction depth");
+assertEqual(naturalTeam.execution.stableSurface, "sequential_fallback", "natural team uses panel surface");
 
+const naturalDebateTmp = mkdtempSync(join(tmpdir(), "longtable-natural-debate-"));
 const naturalDebate = JSON.parse(execFileSync("node", [
   cli,
   "ask",
-  "--cwd", mkdtempSync(join(tmpdir(), "longtable-natural-debate-")),
+  "--cwd", naturalDebateTmp,
   "--prompt", "lt debate: Review this measurement plan before I commit it.",
   "--json"
 ], {
   cwd: tmpdir(),
   encoding: "utf8"
 }));
-assertEqual(naturalDebate.run.interactionDepth, "debated", "natural debate interaction depth");
+assertEqual(naturalDebate.run.interactionDepth, "debated", "natural debate preserves panel debate route");
+assertEqual(existsSync(join(naturalDebateTmp, ".longtable", "team")), false, "natural debate creates no team artifacts");
+assertEqual(existsSync(join(naturalDebateTmp, ".longtable", "panel")), true, "natural debate creates panel artifacts");
+
+const naturalTeamDebateTmp = mkdtempSync(join(tmpdir(), "longtable-natural-team-debate-"));
+const naturalTeamDebate = JSON.parse(execFileSync("node", [
+  cli,
+  "ask",
+  "--cwd", naturalTeamDebateTmp,
+  "--prompt", "Use a team debate to argue both sides before I commit this measurement plan.",
+  "--json"
+], {
+  cwd: tmpdir(),
+  encoding: "utf8"
+}));
+assertEqual(naturalTeamDebate.run.interactionDepth, "debated", "natural team debate preserves debate route");
+assertEqual(existsSync(join(naturalTeamDebateTmp, ".longtable", "team")), false, "natural team debate creates no team artifacts");
+assertEqual(existsSync(join(naturalTeamDebateTmp, ".longtable", "panel")), true, "natural team debate creates panel artifacts");
 
 const stakesRoute = JSON.parse(execFileSync("node", [
   cli,
@@ -425,6 +466,7 @@ const stakesRoute = JSON.parse(execFileSync("node", [
   cwd: tmpdir(),
   encoding: "utf8"
 }));
-assertEqual(stakesRoute.run.interactionDepth, "debated", "external-facing disagreement routes to debate");
+assertEqual(stakesRoute.result.interactionDepth, "independent", "external-facing disagreement routes to panel");
+assertEqual(stakesRoute.execution.stableSurface, "sequential_fallback", "external-facing disagreement uses panel surface");
 
 console.log("checkpoint routing smoke passed");

@@ -5,16 +5,19 @@ helps a researcher keep research questions, construct boundaries, method
 choices, evidence standards, authorship judgments, and open tensions traceable
 across AI-assisted sessions.
 
+LongTable is not a chatbot replacement and not a prompt collection. It is a
+small research workspace system that runs through a CLI, provider skills,
+optional MCP state and checkpoint transport, and panel collaboration records.
 
 LongTable also exposes a narrow Codex hard-stop guard: unresolved Research
 Specification blockers can block session stop until the researcher decides,
 clears, or explicitly defers them. Product, setup, documentation, release, and
 hook-engineering prompts are not hard-stop blockers by default.
 
-LongTable is not a chatbot replacement. Codex, Claude Code, and other providers
-remain the execution environments. LongTable provides the durable research
-state, generated provider skills, Researcher Checkpoints, and command-line tools
-that keep important decisions from disappearing into chat history.
+Codex, Claude Code, and other providers remain the execution environments.
+LongTable provides the durable research state, generated provider skills,
+Researcher Checkpoints, and command-line tools that keep important decisions
+from disappearing into chat history.
 
 ## Core Workflow
 
@@ -134,6 +137,7 @@ longtable question --prompt "<decision context>"
 longtable decide --question <id> --answer <value>
 longtable spec read --cwd "<project-path>"
 longtable search --query "<topic>"
+longtable panel --prompt "review this measurement plan" --json
 ```
 
 Provider skill installation is explicit:
@@ -143,6 +147,31 @@ longtable codex install-skills
 longtable claude install-skills
 longtable mcp install --provider all
 ```
+
+## Panel Collaboration
+
+Panel is LongTable's public collaboration surface. Use it when role disagreement
+matters before a research commitment becomes project memory.
+
+```text
+$longtable: run a panel review of this measurement plan, keep disagreement
+visible, and ask me what decision should be recorded before revising it.
+
+lt panel: show theory, methods, measurement, reviewer, and voice disagreements
+before I commit this argument.
+```
+
+Scriptable equivalents:
+
+```bash
+longtable panel --prompt "review this measurement plan" --role editor,measurement_auditor --json
+longtable panel --visibility always_visible --prompt "keep unresolved disagreement visible" --json
+longtable ask --prompt "lt debate: debate this study design before I commit" --json
+```
+
+Team-style requests route through panel. Explicit debate-language requests
+write panel debate records under `.longtable/panel/`. LongTable team execution
+is disabled for new work, and `.longtable/team/` is historical state only.
 
 ## Researcher Checkpoints
 

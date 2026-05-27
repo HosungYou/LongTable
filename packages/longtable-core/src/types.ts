@@ -42,7 +42,7 @@ export type ProviderKind = "claude" | "codex";
 
 export type RoleKey = string;
 
-export type InvocationKind = "single_role" | "panel" | "team" | "team_debate" | "status";
+export type InvocationKind = "single_role" | "panel" | "panel_debate" | "team" | "team_debate" | "status";
 
 export type InvocationSurface =
   | "native_parallel"
@@ -50,6 +50,7 @@ export type InvocationSurface =
   | "generated_skill"
   | "prompt_alias"
   | "sequential_fallback"
+  | "file_backed_panel_debate"
   | "file_backed_debate"
   | "mcp_transport";
 
@@ -249,7 +250,7 @@ export interface TeamDebateRun {
   status: InvocationStatus;
   surface: InvocationSurface;
   interactionDepth: InteractionDepth;
-  roundPolicy: "fixed" | "team_cross_review";
+  roundPolicy: "fixed" | "panel_cross_review" | "team_cross_review";
   roundCount: number;
   artifactRoot: string;
   rounds: TeamDebateRound[];

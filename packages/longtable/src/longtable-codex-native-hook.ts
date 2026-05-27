@@ -301,7 +301,7 @@ function mutatesLongTableResearchState(command: string): boolean {
     return false;
   }
   return /\.longtable(?:\/|\b)|\bCURRENT\.md\b/.test(normalized)
-    || /\blongtable\s+(?:start|question|clear-question|prune-questions|ask|clarify|panel|team)\b/.test(normalized);
+    || /\blongtable\s+(?:start|question|clear-question|prune-questions|ask|clarify|panel)\b/.test(normalized);
 }
 
 async function loadLongTableRuntime(startPath: string): Promise<LongTableRuntime | null> {

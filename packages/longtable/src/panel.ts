@@ -264,7 +264,7 @@ export function createPlannedInvocationRecord(options: {
     interactionDepth: "independent",
     panelPlan: options.plan,
     panelResult: options.result,
-    degradationReason: "Native provider team execution is optional; sequential fallback is the stable LongTable surface."
+    degradationReason: "Sequential fallback is the stable LongTable panel surface."
   };
 }
 

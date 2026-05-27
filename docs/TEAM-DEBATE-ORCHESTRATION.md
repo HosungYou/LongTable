@@ -1,109 +1,19 @@
-# Team Debate Orchestration
+# Panel Debate Orchestration
 
-For user-facing guidance on choosing `panel`, `team`, or `team --debate`, see
-`docs/AGENT-TEAM-README.md`.
+LongTable team execution is disabled. The current collaborative surface is `panel`.
+Explicit debate-language requests use panel debate records, not a separate team
+command.
 
-## Decision
-
-LongTable team debate is an inspectable research-harness protocol, not a
-general worker-team runtime. It exists to slow closure by making role
-disagreement visible before a researcher commits to a claim, design, draft, or
-submission path.
-
-The v1 execution model is file-backed. The artifact directory and workspace
-state are the source of truth.
-
-## Command Surface
+Use these replacements:
 
 ```bash
-longtable team --prompt "Review this measurement plan." --role editor,measurement_auditor
-longtable team --debate --prompt "Review this measurement plan." --role editor,measurement_auditor,theory_critic
-longtable team --debate --json --prompt "Review this measurement plan."
+longtable panel --prompt "Review this measurement plan." --role editor,measurement_auditor --json
+longtable panel --prompt "Keep unresolved disagreement visible before I decide." --visibility always_visible --json
+longtable ask --prompt "lt debate: Debate this measurement plan before I commit." --json
 ```
 
-The v1 `team` protocol uses fixed three-round cross-review. `--rounds 3` is
-accepted for explicitness. The v1 `team --debate` protocol uses fixed five-round
-debate. `--rounds 5` is accepted for explicitness. Other round counts are
-intentionally rejected until the protocols have enough evaluation evidence.
-
-## Artifact Contract
-
-Each run writes a durable record under `.longtable/team/<teamId>/`:
-
-```text
-prompt.txt
-plan.json
-run.json
-invocation.json
-checkpoint.json
-synthesis.json
-round-1-independent/
-round-2-cross-review/
-```
-
-Debate runs also include:
-
-```text
-round-3-rebuttal/
-round-4-convergence/
-```
-
-The artifact directory is the canonical debate record. If the command runs
-inside a LongTable workspace, LongTable also appends an `InvocationRecord` and a
-pending `QuestionRecord` to `.longtable/state.json`, then refreshes `CURRENT.md`.
-Workspace loading uses the current directory where `.longtable/` is found as
-the authoritative project root, so moved or synced workspaces do not write to an
-old absolute `projectPath` from another machine.
-
-## Three-Round Team Protocol
-
-1. Independent review
-   - each role states claims, objections, open questions, evidence needs, tacit
-     assumptions, and checkpoint triggers
-2. Cross-review
-   - each role responds to another role's independent contribution and records
-     the referenced contribution id
-3. Coordinator synthesis and checkpoint
-   - LongTable records consensus, disagreement, unresolved gaps, and a
-     researcher-facing checkpoint
-
-## Five-Round Debate Protocol
-
-1. Independent review
-   - each role states claims, objections, open questions, evidence needs, tacit
-     assumptions, and checkpoint triggers
-2. Cross-review
-   - each role challenges the likely blind spots of the other roles
-3. Rebuttal and revision
-   - each role revises or preserves its position after critique
-4. Convergence and unresolved gaps
-   - each role states what it can accept and what must remain open
-5. Coordinator synthesis and checkpoint
-   - LongTable records consensus, disagreement, unresolved gaps, and a
-     researcher-facing checkpoint
-
-The default stop policy is fixed completion. LongTable does not stop early when
-roles appear to agree because premature consensus is one of the risks the
-protocol is meant to expose.
-
-## Researcher Authority
-
-Team debate must not answer the final decision for the researcher. The expected
-end state is:
-
-```text
-role debate -> synthesis -> Researcher Checkpoint -> DecisionRecord
-```
-
-The checkpoint asks whether to revise, gather evidence, proceed with risk, keep
-the issue open, or enter another decision. This preserves LongTable's
-researcher-centered contract while still allowing autonomous role disagreement
-to surface.
-
-## Non-Goals
-
-- no worker queue
-- no mailbox protocol
-- no hidden agent-to-agent private transcript
-- no autonomous final decision
-- no replacement for `QuestionRecord -> DecisionRecord`
+Panel debate artifacts are written under `.longtable/panel/<id>/`. The older
+`.longtable/team/<id>/` artifact contract is retained only as historical context
+for existing workspaces that already contain those records. New help, provider
+skills, and routing should not recommend `longtable team` or
+`longtable team --debate`.

@@ -124,8 +124,6 @@ import {
 } from "./project-session.js";
 import {
   buildTeamDebate,
-  buildTeamReview,
-  renderTeamDebateSummary,
   type TeamDebateBundle
 } from "./debate.js";
 import { createPromptRenderer } from "./prompt-renderer.js";
@@ -392,7 +390,6 @@ function usage(): string {
     "  longtable access probe --doi <doi> [--publisher auto|elsevier|springer_nature|wiley|taylor_francis] [--json]",
     "  longtable search --query <text> [--intent literature|theory|measurement|citation|metadata|venue] [--field <text>] [--source all|crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj,unpaywall] [--must <term[,term]>] [--exclude <term[,term]>] [--limit <n>] [--allow-partial] [--publisher-access] [--record] [--cwd <path>] [--json]",
     "  longtable sentinel --prompt <text> [--cwd <path>] [--json] [--record]",
-    "  longtable team --prompt <text> [--role <role[,role]>] [--debate] [--rounds 3|5] [--cwd <path>] [--json]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable clarify --prompt <task-context> [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json] [--force]",
     "  longtable question --prompt <decision-context> [--title <text>] [--text <question>] [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json]",
@@ -2941,7 +2938,7 @@ function inferModeFromPrompt(prompt: string): InteractionMode | "panel" | "statu
   return "explore";
 }
 
-type CollaborationRoute = "panel" | "team" | "debate";
+type CollaborationRoute = "panel" | "debate";
 
 function inferCollaborationRoute(prompt: string): CollaborationRoute | null {
   const normalized = prompt.toLowerCase();
@@ -2952,11 +2949,11 @@ function inferCollaborationRoute(prompt: string): CollaborationRoute | null {
     return "debate";
   }
 
-  const explicitTeam =
+  const explicitPanelTeam =
     /\bagent team\b|\bresearch team\b|\bteam review\b|\bteam-style\b|\buse a team\b/i.test(prompt) ||
     /에이전트\s*팀|연구\s*팀|팀\s*(리뷰|검토)|팀으로/.test(prompt);
-  if (explicitTeam) {
-    return "team";
+  if (explicitPanelTeam) {
+    return "panel";
   }
 
   const panelCue =
@@ -2979,11 +2976,11 @@ function inferCollaborationRoute(prompt: string): CollaborationRoute | null {
     trigger.requiresQuestionBeforeClosure;
 
   if (panelCue && trigger.signal.artifactStakes === "external_submission") {
-    return "debate";
+    return "panel";
   }
 
   if (highStakes) {
-    return "team";
+    return "panel";
   }
 
   return "panel";
@@ -4274,10 +4271,10 @@ async function runAsk(args: Record<string, string | boolean>): Promise<void> {
       ? "panel"
       : inferCollaborationRoute(effectivePrompt) ?? (inferred === "panel" ? "panel" : null));
 
-  if (collaborationRoute === "team" || collaborationRoute === "debate") {
-    await runTeam({
+  if (collaborationRoute === "debate") {
+    await runPanelDebateCommand({
       ...delegatedArgs,
-      debate: collaborationRoute === "debate"
+      debate: true
     });
     return;
   }
@@ -4300,21 +4297,21 @@ async function writeJsonFile(path: string, value: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-async function writeTeamDebateArtifacts(bundle: TeamDebateBundle, teamDir: string, prompt: string): Promise<void> {
-  await mkdir(teamDir, { recursive: true });
-  await writeFile(join(teamDir, "prompt.txt"), prompt, "utf8");
-  await writeJsonFile(join(teamDir, "plan.json"), bundle.plan);
-  await writeJsonFile(join(teamDir, "run.json"), bundle.run);
+async function writePanelDebateArtifacts(bundle: TeamDebateBundle, panelDir: string, prompt: string): Promise<void> {
+  await mkdir(panelDir, { recursive: true });
+  await writeFile(join(panelDir, "prompt.txt"), prompt, "utf8");
+  await writeJsonFile(join(panelDir, "plan.json"), bundle.plan);
+  await writeJsonFile(join(panelDir, "run.json"), bundle.run);
   for (const round of bundle.run.rounds) {
     await mkdir(round.artifactDir, { recursive: true });
     await writeJsonFile(join(round.artifactDir, "round.json"), round);
     for (const contribution of round.contributions) {
-      await writeJsonFile(join(teamDir, contribution.artifactPath), contribution);
+      await writeJsonFile(join(panelDir, contribution.artifactPath), contribution);
     }
   }
-  await writeJsonFile(join(teamDir, "synthesis.json"), bundle.run.synthesis);
-  await writeJsonFile(join(teamDir, "checkpoint.json"), bundle.questionRecord);
-  await writeJsonFile(join(teamDir, "invocation.json"), bundle.invocationRecord);
+  await writeJsonFile(join(panelDir, "synthesis.json"), bundle.run.synthesis);
+  await writeJsonFile(join(panelDir, "checkpoint.json"), bundle.questionRecord);
+  await writeJsonFile(join(panelDir, "invocation.json"), bundle.invocationRecord);
 }
 
 function sentinelSummary(prompt: string, workingDirectory: string) {
@@ -4400,19 +4397,15 @@ async function runSentinel(args: Record<string, string | boolean>): Promise<void
   }
 }
 
-async function runTeam(args: Record<string, string | boolean>): Promise<void> {
+async function runPanelDebateCommand(args: Record<string, string | boolean>): Promise<void> {
   const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
   const prompt = await resolvePrompt(typeof args.prompt === "string" ? args.prompt : undefined);
   if (!prompt) {
     throw new Error("A prompt is required.");
   }
-  const isDebate = args.debate === true;
-  const expectedRounds = isDebate ? 5 : 3;
-  const rounds = typeof args.rounds === "string" ? Number(args.rounds) : expectedRounds;
-  if (!Number.isInteger(rounds) || rounds !== expectedRounds) {
-    throw new Error(isDebate
-      ? "LongTable team debate v1 supports `--rounds 5` only."
-      : "LongTable team v1 supports `--rounds 3` cross-review only.");
+  const rounds = typeof args.rounds === "string" ? Number(args.rounds) : 5;
+  if (!Number.isInteger(rounds) || rounds !== 5) {
+    throw new Error("LongTable panel debate v1 supports `--rounds 5` only.");
   }
   const setup = await loadOptionalSetup(typeof args.setup === "string" ? args.setup : undefined);
   const projectContext = await loadProjectContextFromDirectory(workingDirectory);
@@ -4420,85 +4413,38 @@ async function runTeam(args: Record<string, string | boolean>): Promise<void> {
     await assertWorkspaceNotBlocked(projectContext);
   }
   const projectAware = await buildProjectAwarePrompt(prompt, workingDirectory);
-  const teamId = localId("team");
-  const teamDir = join(workingDirectory, ".longtable", "team", teamId);
+  const panelId = localId("panel_debate");
+  const panelDir = join(workingDirectory, ".longtable", "panel", panelId);
 
-  if (isDebate) {
-    const debate = buildTeamDebate({
-      teamId,
-      teamDir,
-      prompt: projectAware.prompt,
-      roleFlag: typeof args.role === "string" ? args.role : undefined,
-      provider: setup?.providerSelection.provider as ProviderKind | undefined,
-      visibility: "always_visible",
-      roundCount: rounds
-    });
-    await writeTeamDebateArtifacts(debate, teamDir, prompt);
-
-    const canRecordWorkspace = projectAware.projectContextFound && projectContext && existsSync(projectContext.stateFilePath);
-    if (canRecordWorkspace) {
-      await appendInvocationRecordToWorkspace(projectContext, debate.invocationRecord, [debate.questionRecord]);
-    }
-
-    if (args.json === true) {
-      console.log(
-        JSON.stringify(
-          {
-            teamId,
-            teamDir,
-            plan: debate.plan,
-            run: debate.run,
-            questionRecord: debate.questionRecord,
-            invocationRecord: debate.invocationRecord,
-            execution: {
-              status: "completed",
-              surface: debate.run.surface,
-              projectContextFound: projectAware.projectContextFound,
-              invocationLogged: canRecordWorkspace
-            }
-          },
-          null,
-          2
-        )
-      );
-      return;
-    }
-
-    console.log(renderTeamDebateSummary(debate.run));
-    console.log(`- checkpoint: ${debate.questionRecord.id}`);
-    return;
-  }
-
-  const team = buildTeamReview({
-    teamId,
-    teamDir,
+  const debate = buildTeamDebate({
+    teamId: panelId,
+    teamDir: panelDir,
     prompt: projectAware.prompt,
     roleFlag: typeof args.role === "string" ? args.role : undefined,
     provider: setup?.providerSelection.provider as ProviderKind | undefined,
     visibility: "always_visible",
     roundCount: rounds
   });
-  await writeTeamDebateArtifacts(team, teamDir, prompt);
+  await writePanelDebateArtifacts(debate, panelDir, prompt);
 
   const canRecordWorkspace = projectAware.projectContextFound && projectContext && existsSync(projectContext.stateFilePath);
   if (canRecordWorkspace) {
-    await appendInvocationRecordToWorkspace(projectContext, team.invocationRecord, [team.questionRecord]);
+    await appendInvocationRecordToWorkspace(projectContext, debate.invocationRecord, [debate.questionRecord]);
   }
 
   if (args.json === true) {
     console.log(
       JSON.stringify(
         {
-          teamId,
-          teamDir,
-          plan: team.plan,
-          run: team.run,
-          questionRecord: team.questionRecord,
-          invocationRecord: team.invocationRecord,
+          panelId,
+          panelDir,
+          plan: debate.plan,
+          run: debate.run,
+          questionRecord: debate.questionRecord,
+          invocationRecord: debate.invocationRecord,
           execution: {
             status: "completed",
-            surface: team.run.surface,
-            interactionDepth: team.run.interactionDepth,
+            surface: debate.run.surface,
             projectContextFound: projectAware.projectContextFound,
             invocationLogged: canRecordWorkspace
           }
@@ -4510,8 +4456,17 @@ async function runTeam(args: Record<string, string | boolean>): Promise<void> {
     return;
   }
 
-  console.log(renderTeamDebateSummary(team.run));
-  console.log(`- checkpoint: ${team.questionRecord.id}`);
+  console.log("LongTable Panel Debate");
+  console.log(`- panel: ${panelId}`);
+  console.log(`- interaction depth: ${debate.run.interactionDepth}`);
+  console.log(`- rounds: ${debate.run.roundCount}`);
+  console.log(`- checkpoint: ${debate.questionRecord.id}`);
+}
+
+function disabledTeamCommandError(): Error {
+  return new Error(
+    "`longtable team` is disabled. Use `longtable panel --prompt <text>` for visible multi-role review, or `longtable ask --prompt \"lt debate: <text>\"` when debate is explicitly requested."
+  );
 }
 
 async function runDecide(args: Record<string, string | boolean>): Promise<void> {
@@ -5041,8 +4996,7 @@ async function main(): Promise<void> {
   }
 
   if (command === "team") {
-    await runTeam(values);
-    return;
+    throw disabledTeamCommandError();
   }
 
   if (command === "decide") {

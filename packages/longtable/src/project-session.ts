@@ -3074,7 +3074,7 @@ const COMMITMENT_FAMILY_BY_CHECKPOINT: Array<[RegExp, QuestionCommitmentFamily]>
   [/research_question|research_direction|scope|boundary|inclusion|exclusion/, "scope"],
   [/theory|construct|conceptual/, "construct"],
   [/measurement|coding|codebook|extraction/, "coding"],
-  [/method|analysis|panel_disagreement|team_debate|review/, "method"],
+  [/method|analysis|panel_disagreement|panel_debate|team_debate|review/, "method"],
   [/evidence|scholarly_access|source_authority/, "evidence"],
   [/knowledge_gap|tacit_assumption|epistemic/, "epistemic_authority"]
 ];

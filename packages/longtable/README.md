@@ -4,7 +4,8 @@ Researcher-facing CLI for LongTable.
 
 LongTable keeps scholarly project state in `.longtable/` and exposes generated
 provider skills for Codex and Claude Code. The CLI installs setup, state,
-checkpoint, search, and diagnostic tooling. It does not replace the provider.
+checkpoint, search, panel, and diagnostic tooling. It does not replace the
+provider.
 
 ## Install
 
@@ -74,10 +75,33 @@ longtable question --prompt "<decision context>"
 longtable decide --question <id> --answer <value>
 longtable spec read --cwd "<project-path>"
 longtable search --query "<topic>"
+longtable panel --prompt "review this measurement plan" --json
 ```
 
 `longtable start` remains available for scripted workspace creation with
 `--no-interview --json`, but it is not the primary research-start surface.
+
+## Panel Orchestration
+
+Panel orchestration is for moments where disagreement matters: methods risk,
+measurement validity, theory fit, literature positioning, and claims that need
+challenge before they become project memory.
+
+The CLI creates a provider-neutral `PanelPlan` and returns a planned
+`PanelResult`. When native subagents are unavailable, LongTable uses a stable
+sequential fallback prompt. That keeps the same research semantics available in
+Codex and Claude Code without making either provider's native question or agent
+tool the source of truth.
+
+```bash
+longtable panel --prompt "Review this measurement plan." --role editor,measurement_auditor --json
+longtable panel --visibility always_visible --prompt "Keep unresolved disagreement visible." --json
+longtable ask --prompt "lt debate: Review this design before I commit it." --json
+```
+
+Team-style requests route through panel. Explicit debate-language requests write
+panel debate records under `.longtable/panel/`; LongTable team execution is
+disabled for new work.
 
 ## Development
 

@@ -115,6 +115,6 @@ For the next patch release:
    MCP elicitation UI for Researcher Checkpoints.
 4. Remove the persistent HUD command surface; use `status`, `doctor`,
    `CURRENT.md`, and pending checkpoint tools for visibility.
-5. Add `longtable team --debate --prompt ...` for file-backed five-round debate.
+5. Add debate-oriented `longtable panel --prompt ...` behavior for visible disagreement without exposing a separate team command.
 6. Update README and release notes to clarify that npm install does not alter
    provider runtime state.

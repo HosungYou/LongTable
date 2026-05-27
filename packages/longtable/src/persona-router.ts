@@ -15,7 +15,7 @@ export interface LongTableInvocationDirective {
   explicit: boolean;
   cleanedPrompt: string;
   mode?: InteractionMode | "panel" | "status";
-  collaboration?: "panel" | "team" | "debate";
+  collaboration?: "panel" | "debate";
   roles: CanonicalPersona[];
   panel: boolean;
   showConflicts: boolean;
@@ -27,7 +27,7 @@ const INVOCATION_PREFIX = /^(?:lt|longtable|long table|롱테이블)\s+/i;
 const DIRECTIVE_MAP: Array<{
   key: string;
   mode?: InteractionMode | "panel" | "status";
-  collaboration?: "panel" | "team" | "debate";
+  collaboration?: "panel" | "debate";
   roles?: CanonicalPersona[];
   panel?: boolean;
   showConflicts?: boolean;
@@ -38,8 +38,8 @@ const DIRECTIVE_MAP: Array<{
   { key: "draft", mode: "draft" },
   { key: "commit", mode: "commit" },
   { key: "panel", mode: "panel", collaboration: "panel", panel: true, showConflicts: true },
-  { key: "team", mode: "review", collaboration: "team", panel: true, showConflicts: true },
-  { key: "debate", mode: "review", collaboration: "debate", panel: true, showConflicts: true },
+  { key: "team", mode: "panel", collaboration: "panel", panel: true, showConflicts: true },
+  { key: "debate", mode: "panel", collaboration: "debate", panel: true, showConflicts: true },
   { key: "status", mode: "status" },
   { key: "editor", mode: "review", roles: ["editor"] },
   { key: "reviewer", mode: "review", roles: ["reviewer"] },
