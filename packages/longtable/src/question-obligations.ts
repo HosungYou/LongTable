@@ -225,7 +225,6 @@ export function collectHardStopBlockers(state: ResearchState): LongTableHardStop
   }
   const activeBlockers = [...byKey.values()].sort((left, right) =>
     left.priority - right.priority ||
-    left.createdAt?.localeCompare?.(right.createdAt ?? "") ||
     left.id.localeCompare(right.id)
   );
 
