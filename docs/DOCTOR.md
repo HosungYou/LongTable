@@ -37,6 +37,8 @@ and `--claude-runtime-path`.
 - nearest `.longtable/` workspace
 - recent invocation records
 - pending question records
+- active hard-stop blockers and whether Codex `Stop` would block now
+- stale or unrelated pending question/obligation counts
 - recorded decisions
 
 ## Why This Matters
@@ -52,8 +54,7 @@ between Codex and Claude Code.
 - stale legacy prompt files
 - missing project state
 - pending researcher decisions
-- whether Codex `Stop` would block on an active hard-stop blocker
-- stale or unrelated pending question counts
+- active hard-stop blockers that require decide, clear, defer, or DecisionRecord action
 - healthy state with no immediate action needed
 
 ## Repair Mode
@@ -89,6 +90,9 @@ Codex:
 - skills: 12/12 installed
 - missing skills: none
 - legacy prompt files: 0
+- Stop hard-stop: clear
+- stale/unrelated pending questions: 0
+- stale/unrelated pending obligations: 0
 
 Claude:
 - command: present

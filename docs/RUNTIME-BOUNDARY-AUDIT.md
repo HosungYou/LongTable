@@ -60,20 +60,22 @@ than asking one extra question.
 
 ## Stop Scope
 
-LongTable now treats hard-stop as narrower than `required`. A full stop is
-reserved for unresolved Researcher Checkpoints or obligations that can change
-the Research Specification question, scope, construct map, method/analysis,
-evidence boundary, or protected decisions.
+LongTable now separates `required` from hard-stop. A required Researcher
+Checkpoint keeps a decision visible; a hard-stop blocks Codex `Stop` only when
+closure would risk losing or silently changing the Research Specification's
+question, scope, constructs, method, evidence boundary, or protected decisions.
 
-That does not mean LongTable should freeze the whole machine forever. Product,
-setup, hook, documentation, release, npm, git, and simulation-test work should
-not be blocked just because an unrelated required question exists. Research
-state changes that depend on the unresolved hard-stop still must wait.
+That does not mean LongTable should freeze the whole machine forever. It means
+the agent should not continue drafting, editing, coding data extraction rules,
+running analysis, writing a manuscript section, or updating project state when
+those actions depend on the unresolved hard-stop decision. Stale, product,
+setup, hook, docs, release, npm, git, and simulation-test questions should stay
+out of hard-stop blocking.
 
-This is stricter than only blocking `.longtable/` state writes, and it is
-justified because Codex can otherwise complete many downstream actions before
-the unresolved research decision is visible. The cost is interruption. The
-benefit is avoiding false closure.
+This is stricter than only blocking `.longtable/` state writes but narrower than
+blocking every required question. The cost is interruption only at protected
+research-state boundaries. The benefit is avoiding false closure without making
+LongTable unusable during product engineering.
 
 Product and engineering tasks are different. LongTable product work, hook
 debugging, setup, docs, and release tasks should not create research-state
@@ -103,7 +105,7 @@ Ask and stop if the assumption would change research commitments.
 LongTable becomes too heavy when it optimizes for visible governance instead of
 research judgment. Current risk areas:
 
-- hook noise that exposes internal harness text
+- hook noise that exposes internal harness text or no-op PostToolUse status text
 - too many state files or records that the researcher cannot interpret
 - panels that claim "discussion" but only show a short synthesis
 - broad trigger rules that mistake product work for research commitments

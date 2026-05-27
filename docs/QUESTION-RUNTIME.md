@@ -36,7 +36,9 @@ Researcher Checkpoint -> QuestionRecord -> DecisionRecord
 
 `QuestionAnswer` is normalized. Claude native choices, Codex numbered responses, MCP form arrays, and future web form selections should all become the same shape before they update LongTable state: `selectedValues` preserves all choices, `otherText` preserves researcher-supplied Other/free-text content, and the linked `DecisionRecord.selectedOption` remains a first-value compatibility field while `selectedOptions` carries the full selection.
 
-`QuestionRecord` is durable lifecycle state. It exists so a required question is not inferred from prompt text alone. It may carry two optional inspection fields, `commitmentFamily` and `epistemicBasis`, when LongTable can state them without pretending to know more than it does.
+`QuestionRecord` is durable lifecycle state. It exists so a required question is not inferred from prompt text alone. It may carry optional inspection fields, including `commitmentFamily`, `epistemicBasis`, and the hard-stop discriminator `hardStop` / `hardStopScope`, when LongTable can state them without pretending to know more than it does.
+
+`required` and `hardStop` are intentionally separate. Required means the checkpoint should be answered before LongTable treats a decision as settled. Hard-stop means silent closure, compaction, or research-state mutation could lose or overwrite the Research Specification's question, scope, construct map, method, evidence boundary, or protected decisions. Product/tooling/setup/docs/release questions should not become hard-stop records.
 
 Those fields are AI-engineering metadata, not a new always-on ontology layer:
 they make logs easier to audit by showing what kind of commitment is being
@@ -156,10 +158,10 @@ Native hook support is the surrounding guard layer:
 
 - `SessionStart` restores current research context
 - `UserPromptSubmit` injects pending-checkpoint context
-- `Stop` blocks silent closure only when a pending hard-stop blocker can change the Research Specification question, scope, construct map, method, evidence boundary, or protected decisions
+- `Stop` blocks silent closure only when the shared hard-stop verdict finds an active Research Specification-affecting blocker
 - `PreCompact` / `PostCompact` preserve and restore compact, decision-relevant
   context around Codex compaction without creating new checkpoint semantics
-- `PreToolUse` / `PostToolUse` review LongTable-relevant Bash side effects without blocking successful no-op or unrelated failed Bash commands
+- `PreToolUse` / `PostToolUse` review Bash-side effects without becoming the source of truth; successful no-op Bash stays quiet, and generic nonzero Bash failures are not hard-blocked unless they are LongTable research-state relevant
 
 LongTable does not currently own Codex `PermissionRequest` hooks. Permission
 policy remains a provider/runtime concern unless a future LongTable feature has
