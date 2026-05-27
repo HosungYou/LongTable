@@ -38,6 +38,10 @@ import {
   pendingQuestionObligations,
   resolveQuestionObligationByQuestionId
 } from "./question-obligations.js";
+import {
+  collectHardStopBlockers,
+  type HardStopVerdict
+} from "./hard-stop.js";
 
 export type ProjectDisagreementPreference =
   | "synthesis_only"
@@ -300,6 +304,8 @@ export interface LongTableWorkspaceInspection {
     question: string;
     commitmentFamily?: QuestionCommitmentFamily;
     epistemicBasis?: QuestionEpistemicBasis;
+    hardStop?: boolean;
+    hardStopScope?: string;
     options: string[];
     required: boolean;
   }>;
@@ -308,6 +314,8 @@ export interface LongTableWorkspaceInspection {
     kind: string;
     prompt: string;
     reason: string;
+    hardStop?: boolean;
+    hardStopScope?: string;
     questionId?: string;
   }>;
   recentDecisions?: Array<{
@@ -325,6 +333,7 @@ export interface LongTableWorkspaceInspection {
     issue: string;
     suggestion?: string;
   }>;
+  hardStop?: HardStopVerdict;
 }
 
 const CURRENT_FILE_NAME = "CURRENT.md";
@@ -1224,6 +1233,7 @@ function summarizeWorkspaceInspection(
   const pendingQuestions = questions.filter((record) => record.status === "pending");
   const answeredQuestions = questions.filter((record) => record.status === "answered");
   const pendingObligations = visiblePendingObligations(state);
+  const hardStop = collectHardStopBlockers(state);
 
   return {
     found: true,
@@ -1286,6 +1296,8 @@ function summarizeWorkspaceInspection(
       question: record.prompt.question,
       ...(record.commitmentFamily ? { commitmentFamily: record.commitmentFamily } : {}),
       ...(record.epistemicBasis ? { epistemicBasis: record.epistemicBasis } : {}),
+      ...(typeof record.hardStop === "boolean" ? { hardStop: record.hardStop } : {}),
+      ...(record.hardStopScope ? { hardStopScope: record.hardStopScope } : {}),
       options: formatQuestionOptionValues(record),
       required: record.prompt.required
     })),
@@ -1294,6 +1306,8 @@ function summarizeWorkspaceInspection(
       kind: obligation.kind,
       prompt: obligation.prompt,
       reason: obligation.reason,
+      ...(typeof obligation.hardStop === "boolean" ? { hardStop: obligation.hardStop } : {}),
+      ...(obligation.hardStopScope ? { hardStopScope: obligation.hardStopScope } : {}),
       ...(obligation.questionId ? { questionId: obligation.questionId } : {})
     })),
     recentDecisions: (state.decisionLog ?? []).slice(-5).reverse().map((record) => ({
@@ -1320,7 +1334,8 @@ function summarizeWorkspaceInspection(
           issue: `Numeric answer "${raw.trim()}" was stored as other text.`,
           ...(option ? { suggestion: `Use "${option.value}" (${option.label}) for this checkpoint option.` } : {})
         }];
-      })
+      }),
+    hardStop
   };
 }
 
@@ -3278,6 +3293,8 @@ export async function createWorkspaceQuestion(options: {
   required?: boolean;
   commitmentFamily?: QuestionCommitmentFamily;
   epistemicBasis?: QuestionEpistemicBasis;
+  hardStop?: boolean;
+  hardStopScope?: QuestionRecord["hardStopScope"];
 }): Promise<{
   question: QuestionRecord;
   state: ResearchState;
@@ -3314,6 +3331,8 @@ export async function createWorkspaceQuestion(options: {
     updatedAt: createdAt,
     status: "pending",
     ...metadata,
+    ...(typeof options.hardStop === "boolean" ? { hardStop: options.hardStop } : {}),
+    ...(options.hardStopScope ? { hardStopScope: options.hardStopScope } : {}),
     prompt: {
       id: createId("question_prompt"),
       checkpointKey,
