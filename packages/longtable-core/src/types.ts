@@ -531,6 +531,8 @@ export interface QuestionRecord {
   status: QuestionRecordStatus;
   commitmentFamily?: QuestionCommitmentFamily;
   epistemicBasis?: QuestionEpistemicBasis;
+  hardStop?: boolean;
+  hardStopScope?: LongTableHardStopScope;
   prompt: QuestionPrompt;
   transportStatus?: QuestionTransportState;
   answer?: QuestionAnswer;
@@ -696,6 +698,14 @@ export type LongTableQuestionObligationStatus =
   | "satisfied"
   | "cleared";
 
+export type LongTableHardStopScope =
+  | "research_question"
+  | "scope"
+  | "construct"
+  | "method"
+  | "evidence"
+  | "protected_decision";
+
 export interface LongTableQuestionObligation {
   id: string;
   kind: LongTableQuestionObligationKind;
@@ -704,6 +714,8 @@ export interface LongTableQuestionObligation {
   updatedAt: string;
   prompt: string;
   reason: string;
+  hardStop?: boolean;
+  hardStopScope?: LongTableHardStopScope;
   questionId?: string;
   decisionId?: string;
   sourceHookId?: string;
