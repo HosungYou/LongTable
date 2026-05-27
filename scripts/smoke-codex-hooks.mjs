@@ -12,6 +12,7 @@ const {
   codexHooksEnabled,
   clearWorkspaceQuestion,
   createWorkspaceQuestion,
+  collectHardStopBlockers,
   getMissingManagedCodexHookTrustState,
   loadProjectContextFromDirectory,
   mergeCodexHookTrustState,
@@ -421,6 +422,11 @@ const postToolStateMutation = await dispatchCodexHook({
 }, workspaceTmp);
 assertEqual(postToolStateMutation?.hookSpecificOutput?.permissionDecision, "deny", "PostToolUse should deny research-state mutation while hard-stop blocker exists");
 
+let hardStopState = JSON.parse(readFileSync(join(workspaceTmp, ".longtable", "state.json"), "utf8"));
+let hardStopVerdict = collectHardStopBlockers(hardStopState);
+assertEqual(hardStopVerdict.stopWouldBlock, true, "Hard-stop verdict should block active hard-stop question");
+assert(hardStopVerdict.activeBlockers.some((blocker) => blocker.id === created.question.id && blocker.scope === "construct"), "Hard-stop verdict should include typed question blocker");
+
 const quietPromptWithPendingQuestion = await dispatchCodexHook({
   hook_event_name: "UserPromptSubmit",
   prompt: "Continue the research work."
@@ -467,6 +473,10 @@ const staleQuestion = await createWorkspaceQuestion({
 });
 const stopBeforeClear = await dispatchCodexHook({ hook_event_name: "Stop" }, workspaceTmp);
 assertEqual(stopBeforeClear, null, "Stop hook should not block stale non-hard-stop required questions");
+hardStopState = JSON.parse(readFileSync(join(workspaceTmp, ".longtable", "state.json"), "utf8"));
+hardStopVerdict = collectHardStopBlockers(hardStopState);
+assertEqual(hardStopVerdict.stopWouldBlock, false, "Hard-stop verdict should ignore explicit non-hard-stop stale question");
+assert(hardStopVerdict.stalePendingQuestionCount >= 1, "Hard-stop verdict should count stale/unrelated pending questions");
 await clearWorkspaceQuestion({
   context,
   questionId: staleQuestion.question.id,
@@ -474,6 +484,28 @@ await clearWorkspaceQuestion({
 });
 const stopAfterClear = await dispatchCodexHook({ hook_event_name: "Stop" }, workspaceTmp);
 assertEqual(stopAfterClear, null, "Stop hook should clear after explicit stale-question cleanup");
+
+const doctorStatus = JSON.parse(runCli([
+  "doctor",
+  "--cwd", workspaceTmp,
+  "--codex-config", codexConfigPath,
+  "--hooks-path", hooksPath,
+  "--json"
+], workspaceTmp));
+assertEqual(doctorStatus.providers.codex.stopWouldBlock, false, "doctor --json should report clear Stop hard-stop state");
+assert(Array.isArray(doctorStatus.providers.codex.activeBlockers), "doctor --json should expose activeBlockers");
+assert(doctorStatus.providers.codex.stalePendingQuestionCount >= 0, "doctor --json should expose stale pending question count");
+
+const codexStatus = JSON.parse(runCli([
+  "codex",
+  "status",
+  "--cwd", workspaceTmp,
+  "--codex-config", codexConfigPath,
+  "--hooks-path", hooksPath,
+  "--json"
+], workspaceTmp));
+assertEqual(codexStatus.stopWouldBlock, false, "codex status --json should report clear Stop hard-stop state");
+assert(Array.isArray(codexStatus.activeBlockers), "codex status --json should expose activeBlockers");
 
 const statePath = join(workspaceTmp, ".longtable", "state.json");
 const state = JSON.parse(readFileSync(statePath, "utf8"));
