@@ -1,17 +1,10 @@
 import type {
+  type HardStopScope,
   LongTableQuestionObligation,
   QuestionCommitmentFamily,
   QuestionRecord,
   ResearchState
 } from "./types.js";
-
-export type HardStopScope =
-  | "research_question"
-  | "scope"
-  | "construct"
-  | "method"
-  | "evidence"
-  | "protected_decision";
 
 export type HardStopBlockerType = "question" | "obligation";
 

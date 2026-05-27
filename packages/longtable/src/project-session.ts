@@ -17,6 +17,7 @@ import type {
   ProviderKind,
   QuestionOption,
   QuestionAnswer,
+  type HardStopScope,
   QuestionCommitmentFamily,
   QuestionEpistemicBasis,
   QuestionGenerationResult,
@@ -3111,6 +3112,31 @@ function inferEpistemicBasis(input: {
   return unique[0];
 }
 
+
+function inferHardStopScope(
+  input: { checkpointKey?: string; title?: string; question?: string; prompt?: string; rationale?: string[] },
+  commitmentFamily?: QuestionCommitmentFamily
+): HardStopScope | undefined {
+  if (commitmentFamily === "product_policy") return undefined;
+  if (commitmentFamily === "scope") return "scope";
+  if (commitmentFamily === "construct" || commitmentFamily === "coding") return "construct";
+  if (commitmentFamily === "method") return "method";
+  if (commitmentFamily === "evidence") return "evidence";
+  if (commitmentFamily === "epistemic_authority") return "protected_decision";
+
+  const text = compactMetadataText([input.checkpointKey, input.title, input.question, input.prompt, input.rationale]);
+  if (textMatchesAny(text, [/product_runtime|checkpoint policy|hook ux|setup|install|cli|npm|release|git|github|docs?|readme|package|workflow/])) {
+    return undefined;
+  }
+  if (textMatchesAny(text, [/protected_decision|closure/])) return "protected_decision";
+  if (textMatchesAny(text, [/research_question|research direction|question_freeze/])) return "research_question";
+  if (textMatchesAny(text, [/scope|boundary|inclusion|exclusion/])) return "scope";
+  if (textMatchesAny(text, [/construct|theory|frame|ontology|measurement|coding|validity/])) return "construct";
+  if (textMatchesAny(text, [/method|design|sample|analysis|strategy|model/])) return "method";
+  if (textMatchesAny(text, [/evidence|access|source|corpus|pdf|full[-_ ]?text|scholarly/])) return "evidence";
+  return undefined;
+}
+
 function resolveQuestionRecordMetadata(input: {
   checkpointKey?: string;
   triggerFamily?: string;
@@ -3123,12 +3149,16 @@ function resolveQuestionRecordMetadata(input: {
 }): {
   commitmentFamily?: QuestionCommitmentFamily;
   epistemicBasis?: QuestionEpistemicBasis;
+  hardStop?: boolean;
+  hardStopScope?: HardStopScope;
 } {
   const commitmentFamily = input.commitmentFamily ?? inferCommitmentFamily(input);
   const epistemicBasis = input.epistemicBasis ?? inferEpistemicBasis(input);
+  const hardStopScope = inferHardStopScope(input, commitmentFamily);
   return {
     ...(commitmentFamily ? { commitmentFamily } : {}),
-    ...(epistemicBasis ? { epistemicBasis } : {})
+    ...(epistemicBasis ? { epistemicBasis } : {}),
+    ...(hardStopScope ? { hardStop: true, hardStopScope } : {})
   };
 }
 
