@@ -249,7 +249,7 @@ export function createRequiredQuestionObligation(question: QuestionRecord): Long
     updatedAt: timestamp,
     prompt: question.prompt.question,
     reason: question.prompt.displayReason ?? "A required LongTable checkpoint is pending.",
-    ...(question.hardStop !== undefined ? { hardStop: question.hardStop } : {}),
+    ...(typeof question.hardStop === "boolean" ? { hardStop: question.hardStop } : {}),
     ...(question.hardStopScope ? { hardStopScope: question.hardStopScope } : {}),
     questionId: question.id
   };
