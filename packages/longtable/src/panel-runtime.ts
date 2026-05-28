@@ -69,7 +69,7 @@ function workerTaskPrompt(fallback: PanelFallback, worker: PanelWorkerRecord): s
     "- Do not expose or persist hidden reasoning, private tool traces, or chain-of-thought.",
     "- Persist only the structured final role output to the result path below.",
     "- Return JSON matching this shape:",
-    "  {\"role\":\"...\",\"label\":\"...\",\"status\":\"completed\",\"summary\":\"...\",\"claims\":[],\"objections\":[],\"openQuestions\":[],\"evidenceRefs\":[]}",
+    "  {\"role\":\"...\",\"label\":\"...\",\"status\":\"completed\",\"summary\":\"...\",\"claims\":[],\"objections\":[],\"openQuestions\":[],\"evidenceRefs\":[],\"error\":\"\"}",
     "",
     `Result path: ${worker.resultPath}`,
     `Log path: ${worker.logPath}`,
@@ -82,7 +82,7 @@ function workerTaskPrompt(fallback: PanelFallback, worker: PanelWorkerRecord): s
 const PANEL_WORKER_OUTPUT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["role", "label", "status"],
+  required: ["role", "label", "status", "summary", "claims", "objections", "openQuestions", "evidenceRefs", "error"],
   properties: {
     role: { type: "string" },
     label: { type: "string" },
@@ -99,6 +99,7 @@ const PANEL_WORKER_OUTPUT_SCHEMA = {
 function launcherScript(run: PanelWorkerRun, worker: PanelWorkerRecord): string {
   const role = shellQuote(worker.role);
   const label = shellQuote(worker.label);
+  const stdoutPath = `${worker.resultPath}.stdout`;
   return [
     "#!/usr/bin/env bash",
     "set +e",
@@ -113,16 +114,21 @@ function launcherScript(run: PanelWorkerRun, worker: PanelWorkerRecord): string 
       `-C ${shellQuote(run.workingDirectory)}`,
       "--skip-git-repo-check",
       `--output-schema ${shellQuote(run.outputSchemaPath)}`,
-      `-o ${shellQuote(worker.resultPath)}`,
       "-",
       `< ${shellQuote(worker.taskPath)}`,
-      ">/dev/null 2>/dev/null"
+      `> ${shellQuote(stdoutPath)} 2>/dev/null`
     ].join(" "),
     "code=$?",
+    `if [ -s ${shellQuote(stdoutPath)} ]; then`,
+    `  node -e 'const fs=require("fs"); const [stdoutPath,resultPath]=process.argv.slice(1); const parsed=JSON.parse(fs.readFileSync(stdoutPath,"utf8").trim()); fs.writeFileSync(resultPath, JSON.stringify(parsed, null, 2)+"\\n");' ${shellQuote(stdoutPath)} ${shellQuote(worker.resultPath)}`,
+    "  parse_code=$?",
+    `  rm -f ${shellQuote(stdoutPath)}`,
+    `  if [ "$parse_code" -ne 0 ]; then code=1; fi`,
+    "fi",
     `printf '{"exitCode":%s,"completedAt":"%s"}\\n' "$code" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > ${shellQuote(worker.exitCodePath ?? `${worker.resultPath}.exit.json`)}`,
     `printf 'exit_code=%s\\n' "$code" >> ${shellQuote(worker.logPath)}`,
     `if [ "$code" -ne 0 ] && [ ! -s ${shellQuote(worker.resultPath)} ]; then`,
-    `  node -e 'const fs=require("fs"); const [path,role,label,code]=process.argv.slice(1); fs.writeFileSync(path, JSON.stringify({role,label,status:"error",error:\`codex exec exited ${"${code}"}\`}, null, 2)+"\\n");' ${shellQuote(worker.resultPath)} ${role} ${label} "$code"`,
+    `  node -e 'const fs=require("fs"); const [path,role,label,code]=process.argv.slice(1); fs.writeFileSync(path, JSON.stringify({role,label,status:"error",summary:"",claims:[],objections:[],openQuestions:[],evidenceRefs:[],error:\`codex exec exited ${"${code}"}\`}, null, 2)+"\\n");' ${shellQuote(worker.resultPath)} ${role} ${label} "$code"`,
     "fi",
     "exit $code",
     ""
@@ -241,16 +247,22 @@ function parseWorkerResult(worker: PanelWorkerRecord): PanelMemberResult | null 
     return null;
   }
   const parsed = JSON.parse(readFileSyncUtf8(worker.resultPath)) as Partial<PanelMemberResult>;
+  const roleMismatch = typeof parsed.role === "string" && parsed.role !== worker.role;
+  const labelMismatch = typeof parsed.label === "string" && parsed.label !== worker.label;
+  const identityError = [
+    roleMismatch ? `role mismatch: expected ${worker.role}, received ${parsed.role}` : "",
+    labelMismatch ? `label mismatch: expected ${worker.label}, received ${parsed.label}` : ""
+  ].filter(Boolean).join("; ");
   return {
-    role: parsed.role ?? worker.role,
-    label: parsed.label ?? worker.label,
-    status: parsed.status ?? "completed",
+    role: worker.role,
+    label: worker.label,
+    status: identityError ? "error" : parsed.status ?? "completed",
     summary: parsed.summary,
     claims: parsed.claims,
     objections: parsed.objections,
     openQuestions: parsed.openQuestions,
     evidenceRefs: parsed.evidenceRefs,
-    error: parsed.error
+    error: identityError || parsed.error
   };
 }
 
@@ -267,6 +279,9 @@ function statusFromWorkers(workers: PanelWorkerRecord[]): PanelWorkerRunStatus {
   }
   if (workers.some((worker) => worker.status === "failed")) {
     return "resumable";
+  }
+  if (workers.some((worker) => worker.status === "blocked")) {
+    return "blocked";
   }
   if (workers.some((worker) => worker.status === "stop_requested")) {
     return "stop_requested";
@@ -290,7 +305,7 @@ function tmuxPaneAlive(paneId: string): boolean {
 }
 
 function terminalStatus(status: PanelWorkerRunStatus): boolean {
-  return status === "completed" || status === "stopped" || status === "degraded";
+  return status === "completed" || status === "blocked" || status === "stopped" || status === "degraded";
 }
 
 function launchWorkerPane(run: PanelWorkerRun, worker: PanelWorkerRecord): string {
@@ -386,7 +401,7 @@ export async function launchPanelWorkerRun(run: PanelWorkerRun): Promise<PanelWo
         paneId: paneId || launchable.paneId,
         startedAt: launchedAt,
         updatedAt: launchedAt,
-        diagnostics: appendDiagnostic(launchable.diagnostics, "Launched with tmux/codex read-only native worker command.")
+        diagnostics: appendDiagnostic(launchable.diagnostics, "Launched with tmux/codex read-only native worker command; launcher persists the structured final output file.")
       } satisfies PanelWorkerRecord;
     } catch (error) {
       return {
@@ -419,6 +434,17 @@ export async function refreshPanelWorkerRun(run: PanelWorkerRun): Promise<{
     try {
       const result = parseWorkerResult(worker);
       if (!result) {
+        if (worker.status === "stop_requested") {
+          const stopped = !worker.paneId || !tmuxPaneAlive(worker.paneId);
+          return stopped
+            ? {
+                ...worker,
+                status: "stopped",
+                updatedAt,
+                diagnostics: appendDiagnostic(worker.diagnostics, "Stop-requested worker reconciled after pane exit.")
+              } satisfies PanelWorkerRecord
+            : worker;
+        }
         if (worker.status === "running" && worker.paneId && !tmuxPaneAlive(worker.paneId)) {
           return {
             ...worker,
@@ -431,10 +457,12 @@ export async function refreshPanelWorkerRun(run: PanelWorkerRun): Promise<{
         return worker;
       }
       memberResults.push(result);
+      const nextStatus: PanelWorkerStatus =
+        result.status === "error" ? "failed" : result.status === "blocked" ? "blocked" : "completed";
       return {
         ...worker,
-        status: result.status === "error" ? "failed" : "completed",
-        completedAt: result.status === "error" ? worker.completedAt : updatedAt,
+        status: nextStatus,
+        completedAt: nextStatus === "failed" ? worker.completedAt : updatedAt,
         updatedAt,
         error: result.error
       } satisfies PanelWorkerRecord;
@@ -455,7 +483,7 @@ export async function refreshPanelWorkerRun(run: PanelWorkerRun): Promise<{
     status: statusFromWorkers(workers),
     updatedAt
   };
-  if (nextRun.status === "completed") {
+  if (nextRun.status === "completed" || nextRun.status === "blocked") {
     const aggregate: PanelResult = {
       id: createId("panel_result"),
       planId: run.planId,
@@ -463,7 +491,7 @@ export async function refreshPanelWorkerRun(run: PanelWorkerRun): Promise<{
       updatedAt,
       provider: run.provider,
       surface: "native_workers",
-      status: "completed",
+      status: nextRun.status,
       interactionDepth: "independent",
       memberResults,
       linkedQuestionRecordIds: [],
@@ -489,16 +517,18 @@ export async function requestPanelWorkerStop(run: PanelWorkerRun): Promise<Panel
       if (worker.status === "completed") {
         return worker;
       }
+      let stopped = !worker.paneId;
       if (worker.paneId && commandAvailable("tmux")) {
         try {
           execFileSync("tmux", ["kill-pane", "-t", worker.paneId], { stdio: "ignore" });
+          stopped = true;
         } catch {
-          // A missing pane is handled as a stopped worker below.
+          stopped = true;
         }
       }
       return {
         ...worker,
-        status: worker.paneId ? "stop_requested" : "stopped",
+        status: stopped ? "stopped" : "stop_requested",
         updatedAt,
         diagnostics: appendDiagnostic(worker.diagnostics, "Stop requested through LongTable panel runtime.")
       } satisfies PanelWorkerRecord;

@@ -41,28 +41,28 @@ process.exit(0);
 chmodSync(join(fakeBin, "tmux"), 0o755);
 
 writeFileSync(join(fakeBin, "codex"), `#!/usr/bin/env node
-const { appendFileSync, readFileSync, writeFileSync } = require("fs");
+const { appendFileSync, readFileSync } = require("fs");
 const log = process.env.LONGTABLE_FAKE_CODEX_LOG;
 const args = process.argv.slice(2);
 if (log) appendFileSync(log, JSON.stringify(args) + "\\n");
-const outputIndex = args.indexOf("-o");
-if (outputIndex < 0 || !args[outputIndex + 1]) {
-  process.exit(2);
-}
 const task = readFileSync(0, "utf8");
 const roleMatch = task.match(/Role: (.+) \\(([^)]+)\\)/);
 const label = roleMatch?.[1] ?? "Reviewer";
 const role = roleMatch?.[2] ?? "reviewer";
-writeFileSync(args[outputIndex + 1], JSON.stringify({
+const blocked = task.includes("blocked-role-output");
+console.log(JSON.stringify({
   role,
   label,
-  status: "completed",
-  summary: "Fake Codex worker completed a structured role review.",
-  claims: ["Native worker output was normalized into PanelResult shape."],
+  status: blocked ? "blocked" : "completed",
+  summary: blocked
+    ? "Fake Codex worker reported a blocked role review."
+    : "Fake Codex worker completed a structured role review.",
+  claims: blocked ? [] : ["Native worker output was normalized into PanelResult shape."],
   objections: [],
-  openQuestions: [],
-  evidenceRefs: ["fake-codex-worker"]
-}, null, 2) + "\\n");
+  openQuestions: blocked ? ["Required evidence is missing."] : [],
+  evidenceRefs: ["fake-codex-worker"],
+  error: blocked ? "blocked-role-output" : ""
+}, null, 2));
 process.exit(0);
 `);
 chmodSync(join(fakeBin, "codex"), 0o755);
@@ -147,6 +147,20 @@ runCli([
   "--json"
 ]);
 
+const claudeNativeWorkersPanel = JSON.parse(runCli([
+  "panel",
+  "--cwd", projectPath,
+  "--provider", "claude",
+  "--native-workers",
+  "--prompt", "Claude provider should not launch LongTable-native Codex workers.",
+  "--json"
+]));
+assertEqual(claudeNativeWorkersPanel.plan.preferredSurface, "sequential_fallback", "Claude native worker flag falls back to sequential panel surface");
+assertEqual(claudeNativeWorkersPanel.execution.nativeParallel, "not_requested", "Claude provider does not request native Codex workers");
+assertEqual(claudeNativeWorkersPanel.execution.nativeRunCreated, false, "Claude provider native worker flag creates no native worker run");
+assertEqual(claudeNativeWorkersPanel.nativeRun, null, "Claude provider native worker flag returns no native run");
+runCli(["decide", "--cwd", projectPath, "--question", claudeNativeWorkersPanel.questionRecord.id, "--answer", "defer", "--json"]);
+
 const panel = JSON.parse(runCli([
   "panel",
   "--cwd", projectPath,
@@ -166,12 +180,19 @@ assert(panel.nativeRun.workers.length > 0, "native worker tasks are present");
 const runFile = join(projectPath, ".longtable", "panel-runs", panel.nativeRun.id, "run.json");
 assert(existsSync(runFile), "native worker run file exists");
 assert(existsSync(panel.nativeRun.aggregateResultPath), "native worker aggregate panel result exists");
+const outputSchema = JSON.parse(readFileSync(panel.nativeRun.outputSchemaPath, "utf8"));
+for (const key of Object.keys(outputSchema.properties)) {
+  assert(outputSchema.required.includes(key), `strict output schema requires ${key}`);
+}
 const firstTask = panel.nativeRun.workers[0].taskPath;
 assertIncludes(readFileSync(firstTask, "utf8"), "Do not expose or persist hidden reasoning", "task forbids hidden reasoning persistence");
+assertIncludes(readFileSync(firstTask, "utf8"), '"error":""', "task includes strict-schema error field");
 assertIncludes(readFileSync(fakeTmuxLog, "utf8"), "new-window", "tmux launch was requested");
 const codexLog = readFileSync(fakeCodexLog, "utf8");
 assertIncludes(codexLog, "exec", "codex exec was requested");
 assertIncludes(codexLog, "read-only", "codex exec uses read-only sandbox");
+assert(!codexLog.includes("workspace-write"), "codex exec does not grant workspace-write to review workers");
+assert(!codexLog.includes('"-o"'), "codex exec does not write result files from inside the worker sandbox");
 assertIncludes(codexLog, "--output-schema", "codex exec receives output schema");
 
 const status = JSON.parse(runCli([
@@ -188,6 +209,20 @@ const handoffText = readFileSync(handoff.path, "utf8");
 assertIncludes(handoffText, "Native worker note", "handoff includes native worker guidance");
 assertIncludes(handoffText, "fake-codex-worker", "handoff preserves native worker evidence refs");
 runCli(["decide", "--cwd", projectPath, "--question", panel.questionRecord.id, "--answer", "defer", "--json"]);
+
+const blockedPanel = JSON.parse(runCli([
+  "panel",
+  "--cwd", projectPath,
+  "--provider", "codex",
+  "--native-workers",
+  "--wait", "2000",
+  "--prompt", "Return a blocked-role-output from the native workers.",
+  "--json"
+]));
+assertEqual(blockedPanel.nativeRun.status, "blocked", "blocked worker output keeps native run blocked");
+assertEqual(blockedPanel.recordedPanelResult.status, "blocked", "blocked worker output records blocked panel status");
+assert(blockedPanel.nativeRun.workers.every((worker) => worker.status === "blocked"), "blocked worker outputs are not collapsed to completed");
+runCli(["decide", "--cwd", projectPath, "--question", blockedPanel.questionRecord.id, "--answer", "defer", "--json"]);
 
 const stoppablePanel = JSON.parse(runCli([
   "panel",

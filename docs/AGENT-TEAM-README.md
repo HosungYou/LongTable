@@ -46,13 +46,14 @@ role result files. Provider-native subagents through `--native-subagents`
 remain a compatibility adapter. Both native paths must normalize final role
 outputs back to the same panel record.
 
-Completed native worker runs are recorded into workspace evidence by
-`longtable panel --native-workers --wait`, `longtable panel status --wait`, or
-`longtable panel resume --wait`. When a provider or external worker returns real
-role outputs outside that lifecycle, record them before generating a
-continuation packet. Result files should include final summaries, claims,
-objections, open questions, and evidence refs only; do not paste hidden
-reasoning, raw tool traces, or tmux logs into LongTable state:
+Terminal native worker runs (`completed` or `blocked`) are recorded into
+workspace evidence by `longtable panel --native-workers --wait`, `longtable
+panel status --wait`, or `longtable panel resume --wait`; blocked role outputs
+remain blocked in the handoff instead of being collapsed into completion. When a
+provider or external worker returns real role outputs outside that lifecycle,
+record them before generating a continuation packet. Result files should include
+final summaries, claims, objections, open questions, and evidence refs only; do
+not paste hidden reasoning, raw tool traces, or tmux logs into LongTable state:
 
 ```bash
 longtable panel record \

@@ -200,6 +200,7 @@ export type PanelWorkerStatus =
   | "pending"
   | "running"
   | "completed"
+  | "blocked"
   | "failed"
   | "stop_requested"
   | "stopped";
@@ -208,6 +209,7 @@ export type PanelWorkerRunStatus =
   | "planned"
   | "running"
   | "completed"
+  | "blocked"
   | "failed"
   | "degraded"
   | "stop_requested"

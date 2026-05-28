@@ -1659,6 +1659,66 @@ function latestPanelInvocation(state: ResearchState): InvocationRecord | undefin
     .find((record) => record.intent.kind === "panel" && record.panelResult);
 }
 
+function sanitizeStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const normalized = value.filter((entry): entry is string => typeof entry === "string");
+  return normalized.length > 0 ? normalized : [];
+}
+
+function isInvocationStatus(value: unknown): value is InvocationStatus {
+  return (
+    value === "planned" ||
+    value === "running" ||
+    value === "completed" ||
+    value === "blocked" ||
+    value === "degraded" ||
+    value === "error"
+  );
+}
+
+function isInvocationSurface(value: unknown): value is InvocationSurface {
+  return (
+    value === "native_parallel" ||
+    value === "native_subagents" ||
+    value === "native_workers" ||
+    value === "generated_skill" ||
+    value === "prompt_alias" ||
+    value === "sequential_fallback" ||
+    value === "file_backed_panel_debate" ||
+    value === "file_backed_debate" ||
+    value === "mcp_transport"
+  );
+}
+
+function sanitizePanelMemberResult(
+  member: Partial<PanelMemberResult> & { role: string },
+  fallback?: PanelMemberResult
+): PanelMemberResult {
+  const label = typeof member.label === "string" && member.label.trim()
+    ? member.label
+    : fallback?.label ?? member.role;
+  const status = isInvocationStatus(member.status)
+    ? member.status
+    : fallback?.status ?? "completed";
+  const claims = sanitizeStringArray(member.claims);
+  const objections = sanitizeStringArray(member.objections);
+  const openQuestions = sanitizeStringArray(member.openQuestions);
+  const evidenceRefs = sanitizeStringArray(member.evidenceRefs);
+  return {
+    role: member.role,
+    label,
+    status,
+    ...(typeof member.summary === "string" ? { summary: member.summary } : fallback?.summary ? { summary: fallback.summary } : {}),
+    ...(claims !== undefined ? { claims } : fallback?.claims ? { claims: fallback.claims } : {}),
+    ...(objections !== undefined ? { objections } : fallback?.objections ? { objections: fallback.objections } : {}),
+    ...(openQuestions !== undefined ? { openQuestions } : fallback?.openQuestions ? { openQuestions: fallback.openQuestions } : {}),
+    ...(evidenceRefs !== undefined ? { evidenceRefs } : fallback?.evidenceRefs ? { evidenceRefs: fallback.evidenceRefs } : {}),
+    ...(typeof member.error === "string" ? { error: member.error } : fallback?.error ? { error: fallback.error } : {})
+  };
+}
+
 function mergePanelMemberResults(
   existing: PanelMemberResult[],
   incoming: Array<Partial<PanelMemberResult> & { role: string }> = []
@@ -1667,31 +1727,16 @@ function mergePanelMemberResults(
   const merged = existing.map((member) => {
     const update = incomingByRole.get(member.role);
     if (!update) {
-      return member;
+      return sanitizePanelMemberResult(member);
     }
-    return {
-      ...member,
-      ...update,
-      label: update.label ?? member.label,
-      status: update.status ?? "completed"
-    };
+    return sanitizePanelMemberResult(update, member);
   });
   const existingRoles = new Set(existing.map((member) => member.role));
   for (const update of incoming) {
     if (existingRoles.has(update.role)) {
       continue;
     }
-    merged.push({
-      role: update.role,
-      label: update.label ?? update.role,
-      status: update.status ?? "completed",
-      ...(update.summary ? { summary: update.summary } : {}),
-      ...(update.claims ? { claims: update.claims } : {}),
-      ...(update.objections ? { objections: update.objections } : {}),
-      ...(update.openQuestions ? { openQuestions: update.openQuestions } : {}),
-      ...(update.evidenceRefs ? { evidenceRefs: update.evidenceRefs } : {}),
-      ...(update.error ? { error: update.error } : {})
-    });
+    merged.push(sanitizePanelMemberResult(update));
   }
   return merged;
 }
@@ -1721,6 +1766,13 @@ export async function recordPanelResultInWorkspace(options: {
   }
   if (!targetInvocation.panelResult) {
     throw new Error(`Invocation ${targetInvocation.id} does not have a panel result.`);
+  }
+
+  if (options.result.status !== undefined && !isInvocationStatus(options.result.status)) {
+    throw new Error(`Invalid panel result status: ${String(options.result.status)}.`);
+  }
+  if (options.result.surface !== undefined && !isInvocationSurface(options.result.surface)) {
+    throw new Error(`Invalid panel result surface: ${String(options.result.surface)}.`);
   }
 
   const timestamp = nowIso();

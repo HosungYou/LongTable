@@ -3071,11 +3071,11 @@ function panelWorkerNextCommands(context: LongTableProjectContext, runId: string
   };
 }
 
-async function recordCompletedNativeWorkerRun(
+async function recordTerminalNativeWorkerRun(
   context: LongTableProjectContext,
   run: PanelWorkerRun
 ): Promise<PanelResultRecordOutput | null> {
-  if (run.status !== "completed" || !existsSync(run.aggregateResultPath)) {
+  if ((run.status !== "completed" && run.status !== "blocked") || !existsSync(run.aggregateResultPath)) {
     return null;
   }
   const aggregate = JSON.parse(await readFile(run.aggregateResultPath, "utf8")) as PanelResultRecordInput;
@@ -3085,7 +3085,7 @@ async function recordCompletedNativeWorkerRun(
       ...aggregate,
       invocationId: run.invocationId,
       surface: "native_workers",
-      status: "completed"
+      status: aggregate.status ?? run.status
     }
   });
 }
@@ -3108,7 +3108,7 @@ async function runPanelStatusCommand(args: Record<string, string | boolean>): Pr
   const waitMs = parseWaitMs(args.wait);
   const initial = await refreshPanelWorkerRun(await readPanelWorkerRun(context.project.projectPath, runId));
   const refreshed = waitMs ? await waitForPanelWorkerRun(initial.run, waitMs) : initial.run;
-  const recordedPanelResult = await recordCompletedNativeWorkerRun(context, refreshed);
+  const recordedPanelResult = await recordTerminalNativeWorkerRun(context, refreshed);
   const nextCommands = panelWorkerNextCommands(context, refreshed.id);
 
   if (args.json === true) {
@@ -3140,8 +3140,12 @@ async function runPanelStopCommand(args: Record<string, string | boolean>): Prom
     return;
   }
 
-  console.log("LongTable panel run stopped");
+  console.log("LongTable panel run stop requested");
   console.log(`- run: ${stopped.id}`);
+  console.log(`- status: ${stopped.status}`);
+  for (const worker of stopped.workers) {
+    console.log(`- ${worker.label} (${worker.role}): ${worker.status}`);
+  }
   console.log(`- resume: ${nextCommands.resume}`);
 }
 
@@ -3152,7 +3156,7 @@ async function runPanelResumeCommand(args: Record<string, string | boolean>): Pr
   const { run } = await refreshPanelWorkerRun(await readPanelWorkerRun(context.project.projectPath, runId));
   const resumed = run.status === "completed" ? run : await launchPanelWorkerRun(await resumePanelWorkerRun(run));
   const finalRun = waitMs ? await waitForPanelWorkerRun(resumed, waitMs) : resumed;
-  const recordedPanelResult = await recordCompletedNativeWorkerRun(context, finalRun);
+  const recordedPanelResult = await recordTerminalNativeWorkerRun(context, finalRun);
   const nextCommands = panelWorkerNextCommands(context, finalRun.id);
 
   if (args.json === true) {
@@ -3302,7 +3306,7 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
   }
 
   const waitMs = parseWaitMs(args.wait);
-  const nativeWorkersRequested = args["native-workers"] === true;
+  const nativeWorkersRequested = args["native-workers"] === true && fallback.plan.preferredSurface === "native_workers";
   const nativeRunContext = nativeWorkersRequested
     ? await loadProjectContextFromDirectory(workingDirectory)
     : null;
@@ -3319,7 +3323,7 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
     : null;
   const finalNativeRun = nativeRun && waitMs ? await waitForPanelWorkerRun(nativeRun, waitMs) : nativeRun;
   const recordedPanelResult = finalNativeRun && nativeRunContext
-    ? await recordCompletedNativeWorkerRun(nativeRunContext, finalNativeRun)
+    ? await recordTerminalNativeWorkerRun(nativeRunContext, finalNativeRun)
     : null;
 
   if (args.json === true) {
@@ -3375,6 +3379,11 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
     console.log(`- resume: ${nextCommands.resume}`);
     if (recordedPanelResult) {
       console.log(`- recorded evidence: ${recordedPanelResult.evidenceRecords.length}`);
+    }
+    if (finalNativeRun.status === "degraded") {
+      console.log("- degraded: native workers are unavailable; use the sequential fallback prompt below.");
+      console.log("");
+      console.log(fallback.prompt);
     }
     return;
   }

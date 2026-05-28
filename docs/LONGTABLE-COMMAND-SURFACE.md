@@ -98,12 +98,13 @@ longtable panel --provider codex --native-subagents --prompt "legacy native suba
 longtable panel --visibility always_visible --prompt "keep unresolved disagreement visible" --json
 ```
 
-When a native worker run completes through `longtable panel --native-workers
---wait`, `longtable panel status --wait`, or `longtable panel resume --wait`,
-LongTable records the normalized `PanelResult` into workspace evidence. When a
-provider or external worker returns a result file outside that lifecycle, record
-the structured result before asking LongTable for a handoff or Research
-Specification patch:
+When a native worker run reaches a terminal `completed` or `blocked` state
+through `longtable panel --native-workers --wait`, `longtable panel status
+--wait`, or `longtable panel resume --wait`, LongTable records the normalized
+`PanelResult` into workspace evidence without collapsing blocked role outputs
+into completion. When a provider or external worker returns a result file
+outside that lifecycle, record the structured result before asking LongTable for
+a handoff or Research Specification patch:
 
 ```bash
 longtable panel record --invocation <invocation_record_id> --result-file panel-result.json

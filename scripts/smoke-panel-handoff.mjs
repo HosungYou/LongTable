@@ -32,6 +32,23 @@ function assertIncludes(text, expected, label) {
   }
 }
 
+function assertNotIncludes(text, unexpected, label) {
+  if (text.includes(unexpected)) {
+    throw new Error(`${label}: expected text not to include ${unexpected}`);
+  }
+}
+
+function assertThrowsSync(fn, expectedMessage, label) {
+  try {
+    fn();
+  } catch (error) {
+    const message = error.stderr?.toString() || error.message || String(error);
+    assertIncludes(message, expectedMessage, label);
+    return;
+  }
+  throw new Error(`${label}: expected command to throw`);
+}
+
 runCli([
   "setup",
   "--provider", "codex",
@@ -111,6 +128,19 @@ assertEqual(nativeWorkersPanel.execution.nativeRunCreated, true, "native workers
 assertEqual(nativeWorkersPanel.nativeRun.requestedSurface, "native_workers", "native workers run surface");
 runCli(["decide", "--cwd", projectPath, "--question", nativeWorkersPanel.questionRecord.id, "--answer", "defer", "--json"]);
 
+const claudeNativeWorkersPanel = JSON.parse(runCli([
+  "panel",
+  "--cwd", projectPath,
+  "--provider", "claude",
+  "--native-workers",
+  "--prompt", "Review provider gating for native workers.",
+  "--json"
+]));
+assertEqual(claudeNativeWorkersPanel.plan.preferredSurface, "sequential_fallback", "Claude native workers request remains sequential fallback");
+assertEqual(claudeNativeWorkersPanel.execution.nativeParallel, "not_requested", "Claude native workers request does not launch Codex workers");
+assertEqual(claudeNativeWorkersPanel.execution.nativeRunCreated, false, "Claude native workers request creates no native worker run");
+runCli(["decide", "--cwd", projectPath, "--question", claudeNativeWorkersPanel.questionRecord.id, "--answer", "defer", "--json"]);
+
 const bothFlagsPanel = JSON.parse(runCli([
   "panel",
   "--cwd", projectPath,
@@ -124,6 +154,52 @@ const bothFlagsPanel = JSON.parse(runCli([
 assertEqual(bothFlagsPanel.plan.preferredSurface, "native_workers", "native workers preferred when both native flags are present");
 assertEqual(bothFlagsPanel.execution.nativeParallel, "longtable_native_workers", "native workers marker when both flags are present");
 runCli(["decide", "--cwd", projectPath, "--question", bothFlagsPanel.questionRecord.id, "--answer", "defer", "--json"]);
+
+const invalidResultFile = join(projectPath, "invalid-panel-result.json");
+writeFileSync(invalidResultFile, JSON.stringify({
+  surface: "raw_tool_logs",
+  status: "not_a_status",
+  memberResults: [
+    {
+      role: "reviewer",
+      summary: "Invalid top-level fields must not be persisted."
+    }
+  ]
+}, null, 2));
+assertThrowsSync(
+  () => runCli([
+    "panel",
+    "record",
+    "--cwd", projectPath,
+    "--invocation", bothFlagsPanel.invocationRecord.id,
+    "--result-file", invalidResultFile,
+    "--json"
+  ], { stdio: "pipe" }),
+  "Invalid panel result status",
+  "panel record rejects invalid result-file status"
+);
+writeFileSync(invalidResultFile, JSON.stringify({
+  surface: "raw_tool_logs",
+  status: "completed",
+  memberResults: [
+    {
+      role: "reviewer",
+      summary: "Invalid top-level surface must not be persisted."
+    }
+  ]
+}, null, 2));
+assertThrowsSync(
+  () => runCli([
+    "panel",
+    "record",
+    "--cwd", projectPath,
+    "--invocation", bothFlagsPanel.invocationRecord.id,
+    "--result-file", invalidResultFile,
+    "--json"
+  ], { stdio: "pipe" }),
+  "Invalid panel result surface",
+  "panel record rejects invalid result-file surface"
+);
 
 const resultFile = join(projectPath, "panel-result.json");
 writeFileSync(resultFile, JSON.stringify({
@@ -139,7 +215,9 @@ writeFileSync(resultFile, JSON.stringify({
       claims: ["A handoff packet reduces ambiguous continuation."],
       objections: ["A generic summary is not enough for implementation."],
       openQuestions: ["Which spec section should change first?"],
-      evidenceRefs: ["panel-runs/run_fixture/results/reviewer.json"]
+      evidenceRefs: ["panel-runs/run_fixture/results/reviewer.json"],
+      hiddenReasoning: "secret-chain-should-not-persist",
+      rawToolLog: "raw-tool-log-should-not-persist"
     },
     {
       role: "measurement_auditor",
@@ -163,6 +241,9 @@ const record = JSON.parse(runCli([
 if (record.evidenceRecords.length < 2) {
   throw new Error(`expected panel recording to create evidence records, got ${record.evidenceRecords.length}`);
 }
+const stateText = readFileSync(join(projectPath, ".longtable", "state.json"), "utf8");
+assertNotIncludes(stateText, "secret-chain-should-not-persist", "panel record strips hidden reasoning fields");
+assertNotIncludes(stateText, "raw-tool-log-should-not-persist", "panel record strips raw tool log fields");
 
 const unincorporated = JSON.parse(runCli(["spec", "unincorporated", "--cwd", projectPath, "--json"]));
 if (unincorporated.evidenceRecords.length < 2) {

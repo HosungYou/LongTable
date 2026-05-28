@@ -283,7 +283,7 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "- Use multiple research perspectives when the request touches methods, theory, measurement, venue fit, ethics, or authorship.",
         "- Do not collapse disagreement too early.",
         "- Use a Researcher Checkpoint before treating panel synthesis as settled.",
-        "- LongTable-native workers are a CLI/runtime option under `longtable panel --provider codex --native-workers`; `--wait <ms>` asks LongTable to wait briefly for completed result files. In Claude Code, treat them as recorded panel evidence rather than as a Claude product contract.",
+        "- LongTable-native workers are a CLI/runtime option under `longtable panel --provider codex --native-workers`; `--wait <ms>` asks LongTable to wait briefly for terminal result files. In Claude Code, treat them as recorded panel evidence rather than as a Claude product contract.",
         "- If Claude Code exposes a native multi-agent/subagent surface in the current session, it may be used as an adapter; if not, run the same panel roles sequentially and disclose the fallback.",
         "- Sequential fallback is always the stable degradation path; any native worker or native subagent output must normalize final role outputs back into `PanelResult`.",
         "- Do not use OMX `$team` or worker vocabulary as the LongTable product contract. LongTable panel records are the source of truth.",
@@ -292,7 +292,7 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "- Do not expose hidden reasoning or tool logs.",
         "- If `.longtable/` exists, align the panel with `CURRENT.md` and project state.",
         "- If `longtable panel --print --prompt \"...\"` is available, it may be used to obtain the canonical fallback prompt.",
-        "- Completed native worker runs are recorded by `longtable panel --native-workers --wait`, `longtable panel status --wait`, or `longtable panel resume --wait`. For external/provider results outside that lifecycle, persist structured role outputs with `longtable panel record --invocation <id> --result-file <json>` before generating `longtable handoff`.",
+        "- Terminal native worker runs (`completed` or `blocked`) are recorded by `longtable panel --native-workers --wait`, `longtable panel status --wait`, or `longtable panel resume --wait`; blocked role outputs remain blocked in the handoff. For external/provider results outside that lifecycle, persist structured role outputs with `longtable panel record --invocation <id> --result-file <json>` before generating `longtable handoff`.",
         "- A result file should contain final role summaries, claims, objections, open questions, and evidence refs only; do not persist hidden reasoning, raw tool traces, or tmux logs."
       ]
     },
