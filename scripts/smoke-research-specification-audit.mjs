@@ -289,6 +289,57 @@ if (history.revisions.length !== 3 || history.evidenceRecords.length < 2) {
   throw new Error("CLI spec history should expose revisions and evidence records.");
 }
 
+const confirmProjectPath = join(tmp, "confirm-project");
+runCli([
+  "start",
+  "--setup", setupPath,
+  "--name", "Spec Confirm Smoke",
+  "--path", confirmProjectPath,
+  "--goal", "Confirm a Research Specification through CLI fallback",
+  "--blocker", "Need confirmation side effects to match MCP confirmation",
+  "--no-interview",
+  "--json"
+]);
+const confirmContext = await projectSession.loadProjectContextFromDirectory(confirmProjectPath);
+if (!confirmContext) {
+  throw new Error("Expected confirmation smoke workspace context.");
+}
+await projectSession.summarizeLongTableResearchSpecification({
+  context: confirmContext,
+  specification: completeSpecification()
+});
+const confirmationQuestion = await projectSession.createWorkspaceQuestion({
+  context: confirmContext,
+  prompt: "Research Specification Preview",
+  title: "Research Specification Confirmation",
+  question: "How should LongTable handle this Research Specification?",
+  checkpointKey: "research_specification_confirmation",
+  questionOptions: [
+    { value: "confirm_specification", label: "Confirm and save", description: "Save this Research Specification." },
+    { value: "keep_open", label: "Keep open", description: "Leave this Research Specification as a draft." }
+  ],
+  required: true
+});
+await projectSession.answerWorkspaceQuestion({
+  context: confirmContext,
+  questionId: confirmationQuestion.question.id,
+  answer: "confirm_specification",
+  provider: "codex"
+});
+const confirmedState = await projectSession.loadWorkspaceState(confirmContext);
+const confirmedReadiness = core.evaluateResearchSpecificationReadiness({
+  researchSpecification: confirmedState.researchSpecification,
+  questionLog: confirmedState.questionLog,
+  questionObligations: confirmedState.questionObligations
+});
+if (confirmedReadiness.status !== "confirmed" || !confirmedReadiness.usableForInterview) {
+  throw new Error(`CLI fallback confirmation should make Research Specification usable; got ${confirmedReadiness.status}.`);
+}
+const confirmedSession = JSON.parse(readFileSync(join(confirmProjectPath, ".longtable", "current-session.json"), "utf8"));
+if (confirmedSession.researchSpecification?.status !== "confirmed" || !confirmedSession.researchSpecification?.confirmedAt) {
+  throw new Error("CLI fallback confirmation should persist confirmed Research Specification to current-session.json.");
+}
+
 const selfTest = JSON.parse(execFileSync("node", [mcpServer, "--self-test"], {
   cwd: repoRoot,
   encoding: "utf8"

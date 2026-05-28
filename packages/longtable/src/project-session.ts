@@ -1070,6 +1070,20 @@ function changeSummaryForRevision(changes: ResearchSpecificationChange[]): strin
   return changes.slice(0, 12).map((change) => change.summary);
 }
 
+function researchSpecificationAnswerConfirms(answer: string | undefined): boolean {
+  return answer === "confirm_specification";
+}
+
+function researchSpecificationAnswerStatus(answer: string | undefined): "confirmed" | "deferred" | "draft" {
+  if (researchSpecificationAnswerConfirms(answer)) {
+    return "confirmed";
+  }
+  if (answer === "keep_open") {
+    return "deferred";
+  }
+  return "draft";
+}
+
 export function applyResearchSpecificationAuditUpdate(
   state: LongTableWorkspaceState,
   options: {
@@ -3676,7 +3690,57 @@ export async function answerWorkspaceQuestion(options: {
     )
   };
   const withDecision = appendDecisionToResearchState(withQuestion, decision);
-  const updated = resolveQuestionObligationByQuestionId(withDecision, question.id, decision.id);
+  let updated = resolveQuestionObligationByQuestionId(withDecision, question.id, decision.id);
+
+  if (question.prompt.checkpointKey === "research_specification_confirmation") {
+    const specification = (updated as LongTableWorkspaceState).researchSpecification ?? options.context.session.researchSpecification;
+    const selectedAnswer = answer.selectedValues[0];
+    if (specification) {
+      const nextStatus = researchSpecificationAnswerStatus(selectedAnswer);
+      const confirmedSpecification: ResearchSpecification = {
+        ...specification,
+        status: nextStatus,
+        updatedAt: timestamp,
+        ...(nextStatus === "confirmed" ? { confirmedAt: specification.confirmedAt ?? timestamp } : {})
+      };
+      const withHookStatus: LongTableWorkspaceState = {
+        ...(updated as LongTableWorkspaceState),
+        hooks: ((updated as LongTableWorkspaceState).hooks ?? []).map((hook) => {
+          if (hook.id !== confirmedSpecification.sourceHookId) {
+            return hook;
+          }
+          return {
+            ...hook,
+            status: nextStatus === "draft" ? "active" : nextStatus,
+            updatedAt: timestamp,
+            researchSpecification: confirmedSpecification,
+            linkedQuestionRecordIds: mergeStringLists(hook.linkedQuestionRecordIds, [question.id]),
+            linkedDecisionRecordIds: mergeStringLists(hook.linkedDecisionRecordIds, [decision.id])
+          };
+        })
+      };
+      const sourceEvidenceIds = (withHookStatus.evidenceRecords ?? [])
+        .filter((record) => record.sourceHookId && record.sourceHookId === confirmedSpecification.sourceHookId)
+        .map((record) => record.id);
+      updated = applyResearchSpecificationAuditUpdate(withHookStatus, {
+        specification: confirmedSpecification,
+        timestamp,
+        source: "decision",
+        title: `Research Specification confirmation: ${confirmedSpecification.title}`,
+        rationale: `Research Specification confirmation answer: ${selectedAnswer}`,
+        sourceEvidenceIds,
+        questionRecordId: question.id,
+        decisionRecordId: decision.id,
+        createDecisionRecord: false
+      }).state;
+      options.context.session = {
+        ...options.context.session,
+        researchSpecification: confirmedSpecification,
+        lastUpdatedAt: timestamp
+      };
+      await writeFile(options.context.sessionFilePath, JSON.stringify(options.context.session, null, 2), "utf8");
+    }
+  }
 
   await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
   await syncCurrentWorkspaceView(options.context);
