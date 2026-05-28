@@ -1,5 +1,9 @@
 import { pathToFileURL } from "node:url";
-import { collectHardStopBlockers, type HardStopBlocker } from "@longtable/core";
+import {
+  collectHardStopBlockers,
+  evaluateResearchSpecificationReadiness,
+  type HardStopBlocker
+} from "@longtable/core";
 import type {
   LongTableHookRun,
   LongTableQuestionObligation,
@@ -315,13 +319,22 @@ async function loadLongTableRuntime(startPath: string): Promise<LongTableRuntime
 
 function buildWorkspaceSummary(runtime: LongTableRuntime, detail: "compact" | "full" = "compact"): string[] {
   const { context, state } = runtime;
+  const readiness = evaluateResearchSpecificationReadiness({
+    firstResearchShape: state.firstResearchShape ?? context.session.firstResearchShape,
+    researchSpecification: state.researchSpecification ?? context.session.researchSpecification,
+    questionLog: state.questionLog,
+    questionObligations: state.questionObligations
+  });
   if (detail === "compact") {
-    const primaryContext = state.firstResearchShape
+    const primaryContext = state.researchSpecification
+      ? `Research Specification: ${compactContextValue(state.researchSpecification.title, 96)} (${readiness.status}).`
+      : state.firstResearchShape
       ? `First research shape: ${compactContextValue(state.firstResearchShape.handle, 96)}.`
       : `Current goal: ${compactContextValue(context.session.currentGoal, 120)}.`;
     return [
       "LongTable workspace detected; research context restored.",
       primaryContext,
+      readiness.usableForInterview || readiness.status === "no_spec" ? "" : `Research Specification readiness: ${readiness.status}; next action: ${readiness.nextAction}.`,
       context.session.nextAction ? `Next action: ${compactContextValue(context.session.nextAction)}.` : "",
       context.session.protectedDecision ? "Protected decision: active; full text is in `.longtable/` and `CURRENT.md`." : ""
     ].filter(Boolean);
@@ -333,6 +346,8 @@ function buildWorkspaceSummary(runtime: LongTableRuntime, detail: "compact" | "f
     context.session.currentBlocker ? `Current blocker: ${context.session.currentBlocker}.` : "",
     context.session.protectedDecision ? `Protected decision: ${context.session.protectedDecision}.` : "",
     state.firstResearchShape ? `First research shape: ${state.firstResearchShape.handle}.` : "",
+    state.researchSpecification ? `Research Specification: ${state.researchSpecification.title} (${readiness.status}).` : "",
+    readiness.usableForInterview || readiness.status === "no_spec" ? "" : `Research Specification readiness: ${readiness.status}; next action: ${readiness.nextAction}; gaps: ${readiness.blockingGaps.join("; ")}.`,
     context.session.nextAction ? `Next action: ${context.session.nextAction}.` : ""
   ].filter(Boolean);
   return lines;
@@ -427,7 +442,7 @@ function buildActiveInterviewContext(hook: LongTableHookRun): string {
     "A LongTable interview is currently active.",
     `Interview status: ${hook.status}.`,
     `Turns recorded: ${turnCount}.`,
-    "Do not finalize the research direction until the interview is either summarized into a First Research Shape or explicitly cleared."
+    "Do not finalize the research direction until the interview has created a Research Specification and either confirmed it or left an explicit pending/deferred confirmation."
   ].join("\n");
 }
 

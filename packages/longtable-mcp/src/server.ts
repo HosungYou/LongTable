@@ -18,8 +18,10 @@ import type {
   QuestionOption,
   QuestionPromptType,
   QuestionRecord,
+  ResearchSpecificationReadiness,
   QuestionTransportStatus
 } from "@longtable/core";
+import { evaluateResearchSpecificationReadiness } from "@longtable/core";
 import { loadSetupOutput } from "@longtable/setup";
 import {
   answerWorkspaceQuestion,
@@ -164,7 +166,7 @@ interface InterviewHookRun {
   status: "pending" | "active" | "ready_to_confirm" | "confirmed" | "deferred" | "cancelled";
   createdAt: string;
   updatedAt: string;
-  targetOutcome: "first_research_handle";
+  targetOutcome: "first_research_handle" | "research_specification";
   depth: InterviewDepth;
   provider?: ProviderKind;
   turns: Array<{
@@ -383,6 +385,49 @@ function asInterviewState(state: Awaited<ReturnType<typeof loadWorkspaceState>>)
   return state as InterviewState;
 }
 
+function researchSpecificationReadinessFromState(
+  state: InterviewState,
+  session?: { firstResearchShape?: FirstResearchShape; researchSpecification?: ResearchSpecification },
+  specification?: ResearchSpecification
+): ResearchSpecificationReadiness {
+  return evaluateResearchSpecificationReadiness({
+    firstResearchShape: state.firstResearchShape ?? session?.firstResearchShape,
+    researchSpecification: specification ?? state.researchSpecification ?? session?.researchSpecification,
+    questionLog: state.questionLog,
+    questionObligations: state.questionObligations
+  });
+}
+
+function nextStartQuestionForReadiness(
+  readiness: ResearchSpecificationReadiness,
+  openingQuestion?: string
+): string {
+  if (readiness.status === "shape_only") {
+    return "A First Research Shape is saved, but the Research Specification is still missing. Continue with the next Research Specification question: what research question, construct boundary, evidence boundary, or method commitment must be preserved before follow-up interview starts?";
+  }
+  if (readiness.status === "structurally_incomplete") {
+    return `The Research Specification draft is missing: ${readiness.blockingGaps.join(", ")}. Ask the next natural-language question that resolves the highest-risk missing section.`;
+  }
+  if (readiness.status === "draft_pending_confirmation") {
+    return "A Research Specification draft is saved. Show the Research Specification Preview and run confirm_research_specification before moving to option-first follow-up interview.";
+  }
+  if (readiness.status === "deferred") {
+    return "Research Specification confirmation is deferred. Resume the confirmation checkpoint before moving to option-first follow-up interview.";
+  }
+  if (readiness.status === "confirmed") {
+    return "The Research Specification is confirmed. Use $longtable-interview for structured follow-up decisions.";
+  }
+  return openingQuestion ?? "What do you want to research? If it is not clear yet, describe the problem in its rough form.";
+}
+
+async function currentResearchSpecificationReadiness(
+  context: Awaited<ReturnType<typeof requireContext>>,
+  specification?: ResearchSpecification
+): Promise<ResearchSpecificationReadiness> {
+  const state = asInterviewState(await loadWorkspaceState(context));
+  return researchSpecificationReadinessFromState(state, context.session, specification);
+}
+
 function isInterviewHookRun(hook: { kind?: string } | undefined): hook is InterviewHookRun {
   return hook?.kind === "longtable_interview";
 }
@@ -593,23 +638,14 @@ async function beginInterviewHook(
   options: { provider?: ProviderKind; openingQuestion?: string; seedAnswer?: string }
 ) {
   const state = asInterviewState(await loadWorkspaceState(context));
+  const readiness = researchSpecificationReadinessFromState(state, context.session);
   const existing = activeInterviewHook(state);
   if (existing) {
-    return { hook: existing, state };
-  }
-  const confirmedShape = state.firstResearchShape?.confirmedAt ? state.firstResearchShape : undefined;
-  if (confirmedShape) {
-    const confirmedHook = [...(state.hooks ?? [])].reverse().find((hook): hook is InterviewHookRun =>
-      isInterviewHookRun(hook) &&
-      hook.status === "confirmed" &&
-      hook.firstResearchShape?.handle === confirmedShape.handle
-    );
     return {
-      hook: confirmedHook,
       state,
-      alreadyConfirmed: true,
-      shape: confirmedShape,
-      nextQuestion: options.openingQuestion ?? confirmedShape.openQuestions[0] ?? confirmedShape.nextAction
+      hook: existing,
+      readiness,
+      nextQuestion: nextStartQuestionForReadiness(readiness, options.openingQuestion)
     };
   }
   const timestamp = new Date().toISOString();
@@ -619,13 +655,16 @@ async function beginInterviewHook(
     status: "active",
     createdAt: timestamp,
     updatedAt: timestamp,
-    targetOutcome: "first_research_handle",
+    targetOutcome: readiness.status === "no_spec" ? "first_research_handle" : "research_specification",
     depth: "gathering_context",
     provider: options.provider,
     turns: [],
     qualityNotes: [],
     rationale: [
-      "Official LongTable research start surface is provider-native `$longtable-start`, not the CLI start questionnaire."
+      "Official LongTable research start surface is provider-native `$longtable-start`, not the CLI start questionnaire.",
+      ...(readiness.status === "shape_only"
+        ? ["Confirmed First Research Shape is not enough; continue into Research Specification before follow-up interview."]
+        : [])
     ]
   };
   const updated = upsertInterviewHook(state, hook);
@@ -638,7 +677,12 @@ async function beginInterviewHook(
   };
   await writeFile(context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
   await syncCurrentWorkspaceView(context);
-  return { hook, state: updated };
+  return {
+    hook,
+    state: updated,
+    readiness,
+    nextQuestion: nextStartQuestionForReadiness(readiness, options.openingQuestion)
+  };
 }
 
 async function appendInterviewTurn(
@@ -774,7 +818,13 @@ async function summarizeInterviewHook(
   await writeFile(context.sessionFilePath, JSON.stringify(session, null, 2), "utf8");
   await writeFile(context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
   await syncCurrentWorkspaceView(context);
-  return { hook, shape, state: updated, session };
+  return {
+    hook,
+    shape,
+    state: updated,
+    session,
+    readiness: researchSpecificationReadinessFromState(updated, session)
+  };
 }
 
 function normalizeStringArray(values: string[] | undefined): string[] {
@@ -904,7 +954,13 @@ async function summarizeResearchSpecificationHook(
   await writeFile(context.sessionFilePath, JSON.stringify(session, null, 2), "utf8");
   await writeFile(context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
   await syncCurrentWorkspaceView(context);
-  return { hook, specification, state: updated, session };
+  return {
+    hook,
+    specification,
+    state: updated,
+    session,
+    readiness: researchSpecificationReadinessFromState(updated, session, specification)
+  };
 }
 
 async function cancelInterviewHook(
@@ -1161,7 +1217,12 @@ async function markFirstResearchShapeConfirmation(
   await writeFile(context.sessionFilePath, JSON.stringify(session, null, 2), "utf8");
   await writeFile(context.stateFilePath, JSON.stringify(nextState, null, 2), "utf8");
   await syncCurrentWorkspaceView(context);
-  return { state: nextState, session, shape: confirmedShape };
+  return {
+    state: nextState,
+    session,
+    shape: confirmedShape,
+    readiness: researchSpecificationReadinessFromState(nextState, session)
+  };
 }
 
 async function markAlreadyConfirmedFirstResearchShape(
@@ -1206,7 +1267,12 @@ async function markAlreadyConfirmedFirstResearchShape(
   await writeFile(context.sessionFilePath, JSON.stringify(session, null, 2), "utf8");
   await writeFile(context.stateFilePath, JSON.stringify(nextState, null, 2), "utf8");
   await syncCurrentWorkspaceView(context);
-  return { state: nextState, session, shape: confirmedShape };
+  return {
+    state: nextState,
+    session,
+    shape: confirmedShape,
+    readiness: researchSpecificationReadinessFromState(nextState, session)
+  };
 }
 
 async function markResearchSpecificationConfirmation(
@@ -1283,7 +1349,12 @@ async function markResearchSpecificationConfirmation(
   await writeFile(context.sessionFilePath, JSON.stringify(session, null, 2), "utf8");
   await writeFile(context.stateFilePath, JSON.stringify(nextState, null, 2), "utf8");
   await syncCurrentWorkspaceView(context);
-  return { state: nextState, session, specification: confirmedSpecification };
+  return {
+    state: nextState,
+    session,
+    specification: confirmedSpecification,
+    readiness: researchSpecificationReadinessFromState(nextState, session, confirmedSpecification)
+  };
 }
 
 async function markAlreadyConfirmedResearchSpecification(
@@ -1329,7 +1400,12 @@ async function markAlreadyConfirmedResearchSpecification(
   await writeFile(context.sessionFilePath, JSON.stringify(session, null, 2), "utf8");
   await writeFile(context.stateFilePath, JSON.stringify(nextState, null, 2), "utf8");
   await syncCurrentWorkspaceView(context);
-  return { state: nextState, session, specification: confirmedSpecification };
+  return {
+    state: nextState,
+    session,
+    specification: confirmedSpecification,
+    readiness: researchSpecificationReadinessFromState(nextState, session, confirmedSpecification)
+  };
 }
 
 function statusForElicitationError(error: unknown): QuestionTransportStatus {
@@ -1481,7 +1557,10 @@ export function createLongTableMcpServer(): McpServer {
             state: context.stateFilePath,
             current: context.currentFilePath
           },
-          nextQuestion: "What do you want to research? If it is not clear yet, describe the problem in its rough form."
+          readiness: "readiness" in interview ? interview.readiness : undefined,
+          nextQuestion: "nextQuestion" in interview
+            ? interview.nextQuestion
+            : "What do you want to research? If it is not clear yet, describe the problem in its rough form."
         });
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
@@ -1512,6 +1591,7 @@ export function createLongTableMcpServer(): McpServer {
           hook: compactInterviewHook(result.hook),
           alreadyConfirmed: "alreadyConfirmed" in result ? Boolean(result.alreadyConfirmed) : false,
           shape: "shape" in result ? result.shape : result.hook?.firstResearchShape,
+          readiness: "readiness" in result ? result.readiness : undefined,
           nextQuestion: "nextQuestion" in result ? result.nextQuestion : openingQuestion,
           workspace: {
             projectName: context.project.projectName,
@@ -1586,6 +1666,7 @@ export function createLongTableMcpServer(): McpServer {
         return textResult({
           hook: compactInterviewHook(result.hook),
           shape: result.shape,
+          readiness: result.readiness,
           session: {
             currentGoal: result.session.currentGoal,
             currentBlocker: result.session.currentBlocker,
@@ -1620,6 +1701,7 @@ export function createLongTableMcpServer(): McpServer {
           hook: compactInterviewHook(result.hook as InterviewHookRun | undefined),
           specification: result.specification,
           preview: renderResearchSpecificationPreview(result.specification as ResearchSpecification),
+          readiness: result.readiness,
           session: {
             currentGoal: result.session.currentGoal,
             currentBlocker: result.session.currentBlocker,
@@ -1650,13 +1732,15 @@ export function createLongTableMcpServer(): McpServer {
         if (!specification) {
           return textResult({
             found: false,
+            readiness: researchSpecificationReadinessFromState(state, session),
             message: "No Research Specification was found. Run summarize_research_specification first."
           });
         }
         return textResult({
           found: true,
           specification,
-          preview: renderResearchSpecificationPreview(specification)
+          preview: renderResearchSpecificationPreview(specification),
+          readiness: researchSpecificationReadinessFromState(state, session, specification)
         });
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
@@ -1851,6 +1935,7 @@ export function createLongTableMcpServer(): McpServer {
           const confirmation = await markAlreadyConfirmedFirstResearchShape(context, shape);
           return textResult({
             shape: confirmation.shape,
+            readiness: confirmation.readiness,
             elicitation: { attempted: false, reason: "already_confirmed" }
           });
         }
@@ -1883,6 +1968,7 @@ export function createLongTableMcpServer(): McpServer {
           return textResult({
             question: marked ?? created.question,
             shape,
+            readiness: await currentResearchSpecificationReadiness(context),
             elicitation: { attempted: false, reason: "fallbackOnly" },
             fallback
           });
@@ -1907,6 +1993,7 @@ export function createLongTableMcpServer(): McpServer {
             return textResult({
               question: cleared?.question ?? marked ?? created.question,
               shape,
+              readiness: await currentResearchSpecificationReadiness(context),
               elicitation: { attempted: true, action: elicited.action },
               fallback
             });
@@ -1928,6 +2015,7 @@ export function createLongTableMcpServer(): McpServer {
           );
           return textResult({
             shape: confirmation.shape,
+            readiness: confirmation.readiness,
             question: marked ? { ...decided.question, transportStatus: marked.transportStatus } : decided.question,
             decision: decided.decision,
             elicitation: { attempted: true, action: elicited.action }
@@ -1939,6 +2027,7 @@ export function createLongTableMcpServer(): McpServer {
           return textResult({
             question: marked ?? created.question,
             shape,
+            readiness: await currentResearchSpecificationReadiness(context),
             elicitation: {
               attempted: true,
               supported: status !== "unsupported" ? undefined : false,
@@ -1980,6 +2069,7 @@ export function createLongTableMcpServer(): McpServer {
           return textResult({
             specification: confirmation.specification,
             preview: renderResearchSpecificationPreview(confirmation.specification),
+            readiness: confirmation.readiness,
             elicitation: { attempted: false, reason: "already_confirmed" }
           });
         }
@@ -2002,6 +2092,7 @@ export function createLongTableMcpServer(): McpServer {
             question: marked ?? created.question,
             specification,
             preview: renderResearchSpecificationPreview(specification),
+            readiness: await currentResearchSpecificationReadiness(context, specification),
             elicitation: { attempted: false, reason: "fallbackOnly" },
             fallback
           });
@@ -2027,6 +2118,7 @@ export function createLongTableMcpServer(): McpServer {
               question: cleared?.question ?? marked ?? created.question,
               specification,
               preview: renderResearchSpecificationPreview(specification),
+              readiness: await currentResearchSpecificationReadiness(context, specification),
               elicitation: { attempted: true, action: elicited.action },
               fallback
             });
@@ -2049,6 +2141,7 @@ export function createLongTableMcpServer(): McpServer {
           return textResult({
             specification: confirmation.specification,
             preview: renderResearchSpecificationPreview(confirmation.specification),
+            readiness: confirmation.readiness,
             question: marked ? { ...decided.question, transportStatus: marked.transportStatus } : decided.question,
             decision: decided.decision,
             elicitation: { attempted: true, action: elicited.action }
@@ -2061,6 +2154,7 @@ export function createLongTableMcpServer(): McpServer {
             question: marked ?? created.question,
             specification,
             preview: renderResearchSpecificationPreview(specification),
+            readiness: await currentResearchSpecificationReadiness(context, specification),
             elicitation: {
               attempted: true,
               supported: status !== "unsupported" ? undefined : false,

@@ -28,11 +28,17 @@ import type {
   ResearchSpecificationChange,
   ResearchSpecificationPatch,
   ResearchSpecificationPatchSource,
+  ResearchSpecificationReadiness,
   ResearchSpecificationRevision,
   ResearchState
 } from "@longtable/core";
 import type { SetupPersistedOutput } from "@longtable/setup";
-import { collectHardStopBlockers, type HardStopVerdict } from "@longtable/core";
+import {
+  collectHardStopBlockers,
+  evaluateResearchSpecificationReadiness,
+  requiredResearchSpecificationGaps,
+  type HardStopVerdict
+} from "@longtable/core";
 import {
   ensureFirstResearchShapeObligation,
   ensureRequiredQuestionObligation,
@@ -288,6 +294,7 @@ export interface LongTableWorkspaceInspection {
     specRevisions?: number;
   };
   hardStop?: HardStopVerdict;
+  researchSpecificationReadiness?: ResearchSpecificationReadiness;
   recentInvocations?: Array<{
     id: string;
     kind: string;
@@ -524,12 +531,16 @@ function renderResearchSpecificationStatus(
   session: LongTableSessionRecord,
   locale: "en" | "ko"
 ): string[] {
-  if (!session.firstResearchShape && !session.researchSpecification) {
+  const readiness = evaluateResearchSpecificationReadiness({
+    firstResearchShape: session.firstResearchShape,
+    researchSpecification: session.researchSpecification
+  });
+  if (readiness.status === "no_spec") {
     return [];
   }
 
   const korean = locale === "ko";
-  if (!session.researchSpecification) {
+  if (readiness.status === "shape_only") {
     return [
       "",
       korean ? "## Research Specification 상태" : "## Research Specification Status",
@@ -545,10 +556,7 @@ function renderResearchSpecificationStatus(
     ];
   }
 
-  const status = session.researchSpecification.confirmedAt
-    ? "confirmed"
-    : session.researchSpecification.status ?? "draft";
-  if (status === "confirmed") {
+  if (readiness.status === "confirmed") {
     return [];
   }
 
@@ -556,11 +564,20 @@ function renderResearchSpecificationStatus(
     "",
     korean ? "## Research Specification 상태" : "## Research Specification Status",
     korean
-      ? `- 상태: ${status}. Research Specification은 저장되어 있지만 아직 확정된 종료 지점이 아닙니다.`
-      : `- Status: ${status}. Research Specification exists, but it is not a confirmed closure point yet.`,
+      ? `- 상태: ${readiness.status}. Research Specification은 저장되어 있지만 아직 확정된 종료 지점이 아닙니다.`
+      : `- Status: ${readiness.status}. Research Specification exists, but it is not a confirmed closure point yet.`,
+    ...(readiness.blockingGaps.length > 0
+      ? [korean
+          ? `- 남은 gap: ${readiness.blockingGaps.join("; ")}.`
+          : `- Remaining gaps: ${readiness.blockingGaps.join("; ")}.`]
+      : []),
     korean
-      ? "- 다음 프로토콜: 명세를 업데이트한 뒤 `confirm_research_specification`으로 다시 preview 확인을 받아야 합니다."
-      : "- Next protocol: update the specification, then return to `confirm_research_specification` for another preview confirmation."
+      ? readiness.nextAction === "start"
+        ? "- 다음 프로토콜: `$longtable-start`에서 빠진 섹션을 더 묻고 Research Specification을 업데이트해야 합니다."
+        : "- 다음 프로토콜: `confirm_research_specification`으로 preview 확인을 받아야 합니다."
+      : readiness.nextAction === "start"
+        ? "- Next protocol: stay in `$longtable-start`, ask for the missing sections, and update the Research Specification."
+        : "- Next protocol: return to `confirm_research_specification` for preview confirmation."
   ];
 }
 
@@ -976,44 +993,6 @@ function mergeStringLists(...lists: Array<string[] | undefined>): string[] {
   return [...new Set(lists.flatMap((list) => list ?? []).filter(Boolean))];
 }
 
-function requiredResearchSpecificationGaps(specification: ResearchSpecification): string[] {
-  const gaps: string[] = [];
-  if (!specification.researchDirection.question?.trim()) {
-    gaps.push("research question");
-  }
-  if (specification.constructOntology.coreConstructs.length === 0) {
-    gaps.push("construct map/core constructs");
-  }
-  if (
-    specification.researchDirection.inclusionCriteria?.length === 0 &&
-    specification.researchDirection.exclusionCriteria?.length === 0
-  ) {
-    gaps.push("inclusion/exclusion rule");
-  }
-  if (
-    specification.evidenceAccess.requiredSources?.length === 0 &&
-    specification.evidenceAccess.evidenceStandards?.length === 0
-  ) {
-    gaps.push("evidence boundary");
-  }
-  if (
-    !specification.methodAnalysis.design?.trim() &&
-    specification.methodAnalysis.analysisOptions.length === 0
-  ) {
-    gaps.push("method commitment");
-  }
-  if (specification.openQuestions.length === 0 && specification.protectedDecisions.length === 0) {
-    gaps.push("unresolved decisions/protected decisions");
-  }
-  if (
-    specification.evidenceAccess.accessRequirements?.length === 0 &&
-    specification.evidenceAccess.requiredSources?.length === 0
-  ) {
-    gaps.push("search/access assumptions");
-  }
-  return gaps;
-}
-
 function buildResearchSpecificationGapQuestion(
   gaps: string[],
   timestamp: string,
@@ -1233,6 +1212,12 @@ function summarizeWorkspaceInspection(
   const answeredQuestions = questions.filter((record) => record.status === "answered");
   const pendingObligations = visiblePendingObligations(state);
   const hardStop = collectHardStopBlockers(state);
+  const researchSpecificationReadiness = evaluateResearchSpecificationReadiness({
+    firstResearchShape: state.firstResearchShape ?? context.session.firstResearchShape,
+    researchSpecification: state.researchSpecification ?? context.session.researchSpecification,
+    questionLog: state.questionLog,
+    questionObligations: state.questionObligations
+  });
 
   return {
     found: true,
@@ -1282,6 +1267,7 @@ function summarizeWorkspaceInspection(
       specRevisions: (state.specRevisions ?? []).length
     },
     hardStop,
+    researchSpecificationReadiness,
     recentInvocations: recentInvocationRecords(state, 5).map((record) => ({
       id: record.id,
       kind: record.intent.kind,

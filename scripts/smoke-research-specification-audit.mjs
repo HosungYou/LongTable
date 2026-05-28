@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 const repoRoot = resolve(new URL("..", import.meta.url).pathname);
 const cli = join(repoRoot, "packages", "longtable", "dist", "cli.js");
 const mcpServer = join(repoRoot, "packages", "longtable-mcp", "dist", "server.js");
+const core = await import(join(repoRoot, "packages", "longtable-core", "dist", "index.js"));
 const projectSession = await import(join(repoRoot, "packages", "longtable", "dist", "project-session.js"));
 const tmp = mkdtempSync(join(tmpdir(), "longtable-spec-audit-smoke-"));
 
@@ -67,6 +68,65 @@ function completeSpecification(overrides = {}) {
     confidence: "high",
     ...overrides
   };
+}
+
+const readinessShape = {
+  handle: "AI adoption factors",
+  currentGoal: "Map organizational AI adoption factors.",
+  openQuestions: ["Which evidence boundary matters?"],
+  nextAction: "Create the Research Specification.",
+  confidence: "medium"
+};
+const readinessCases = [
+  [core.evaluateResearchSpecificationReadiness({}), "no_spec", false],
+  [core.evaluateResearchSpecificationReadiness({ firstResearchShape: readinessShape }), "shape_only", false],
+  [
+    core.evaluateResearchSpecificationReadiness({
+      researchSpecification: completeSpecification({
+        researchDirection: {
+          purpose: "Thin draft without a research question."
+        },
+        constructOntology: {
+          coreConstructs: [],
+          distinctions: []
+        },
+        methodAnalysis: {
+          analysisOptions: []
+        },
+        evidenceAccess: {},
+        protectedDecisions: [],
+        openQuestions: []
+      })
+    }),
+    "structurally_incomplete",
+    false
+  ],
+  [
+    core.evaluateResearchSpecificationReadiness({
+      researchSpecification: completeSpecification()
+    }),
+    "draft_pending_confirmation",
+    false
+  ],
+  [
+    core.evaluateResearchSpecificationReadiness({
+      researchSpecification: completeSpecification({ status: "deferred" })
+    }),
+    "deferred",
+    false
+  ],
+  [
+    core.evaluateResearchSpecificationReadiness({
+      researchSpecification: completeSpecification({ status: "confirmed", confirmedAt: "2026-05-28T00:00:00.000Z" })
+    }),
+    "confirmed",
+    true
+  ]
+];
+for (const [readiness, expectedStatus, expectedUsable] of readinessCases) {
+  if (readiness.status !== expectedStatus || readiness.usableForInterview !== expectedUsable) {
+    throw new Error(`Unexpected Research Specification readiness: expected ${expectedStatus}/${expectedUsable}, got ${readiness.status}/${readiness.usableForInterview}.`);
+  }
 }
 
 const setupPath = join(tmp, "setup.json");
