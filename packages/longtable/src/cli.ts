@@ -87,11 +87,13 @@ import { PERSONA_DEFINITIONS, listRoleDefinitions } from "./personas.js";
 import { buildPanelFallback, renderPanelSummary } from "./panel.js";
 import {
   createPanelWorkerRun,
+  launchPanelWorkerRun,
   panelWorkerRunPath,
   readPanelWorkerRun,
   refreshPanelWorkerRun,
   requestPanelWorkerStop,
-  resumePanelWorkerRun
+  resumePanelWorkerRun,
+  waitForPanelWorkerRun
 } from "./panel-runtime.js";
 import {
   LONGTABLE_MANAGED_HOOK_EVENTS,
@@ -407,10 +409,10 @@ function usage(): string {
     "  longtable clarify --prompt <task-context> [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json] [--force]",
     "  longtable question --prompt <decision-context> [--title <text>] [--text <question>] [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json]",
     "  longtable clear-question --question <id> --reason <text> [--cwd <path>] [--json]",
-    "  longtable panel [--prompt <text>] [--role <role[,role]>] [--mode review|critique|draft|commit] [--visibility synthesis_only|show_on_conflict|always_visible] [--provider codex|claude] [--native-workers|--native-subagents] [--print] [--json] [--setup <path>] [--cwd <path>]",
-    "  longtable panel status --run <panel_run_id> [--cwd <path>] [--json]",
+    "  longtable panel [--prompt <text>] [--role <role[,role]>] [--mode review|critique|draft|commit] [--visibility synthesis_only|show_on_conflict|always_visible] [--provider codex|claude] [--native-workers|--native-subagents] [--wait [ms]] [--print] [--json] [--setup <path>] [--cwd <path>]",
+    "  longtable panel status --run <panel_run_id> [--wait [ms]] [--cwd <path>] [--json]",
     "  longtable panel stop --run <panel_run_id> [--cwd <path>] [--json]",
-    "  longtable panel resume --run <panel_run_id> [--cwd <path>] [--json]",
+    "  longtable panel resume --run <panel_run_id> [--wait [ms]] [--cwd <path>] [--json]",
     "  longtable panel record [--invocation <id>] --result-file <json> [--surface sequential_fallback|native_subagents|native_workers] [--cwd <path>] [--json]",
     "  longtable handoff [--cwd <path>] [--output <file>] [--print] [--json]",
     "  longtable decide [--question <id>] --answer <value-or-text> [--rationale <text>] [--provider codex|claude] [--cwd <path>] [--json]",
@@ -3038,6 +3040,22 @@ function commandAvailable(command: string): boolean {
   }
 }
 
+function parseWaitMs(value: string | boolean | undefined): number | undefined {
+  if (value === undefined || value === false) {
+    return undefined;
+  }
+  if (value === true) {
+    return 30_000;
+  }
+  const trimmed = value.trim();
+  const multiplier = trimmed.endsWith("s") ? 1000 : 1;
+  const numeric = Number.parseInt(trimmed.endsWith("s") ? trimmed.slice(0, -1) : trimmed, 10);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    throw new Error(`Invalid --wait value: ${value}. Use milliseconds or a value like 30s.`);
+  }
+  return numeric * multiplier;
+}
+
 function panelWorkerNextCommands(context: LongTableProjectContext, runId: string): {
   status: string;
   stop: string;
@@ -3054,7 +3072,9 @@ function panelWorkerNextCommands(context: LongTableProjectContext, runId: string
 async function runPanelStatusCommand(args: Record<string, string | boolean>): Promise<void> {
   const context = await requireWorkspaceContext(args);
   const runId = requireRunId(args);
-  const { run: refreshed } = await refreshPanelWorkerRun(await readPanelWorkerRun(context.project.projectPath, runId));
+  const waitMs = parseWaitMs(args.wait);
+  const initial = await refreshPanelWorkerRun(await readPanelWorkerRun(context.project.projectPath, runId));
+  const refreshed = waitMs ? await waitForPanelWorkerRun(initial.run, waitMs) : initial.run;
   const nextCommands = panelWorkerNextCommands(context, refreshed.id);
 
   if (args.json === true) {
@@ -3091,18 +3111,20 @@ async function runPanelStopCommand(args: Record<string, string | boolean>): Prom
 async function runPanelResumeCommand(args: Record<string, string | boolean>): Promise<void> {
   const context = await requireWorkspaceContext(args);
   const runId = requireRunId(args);
+  const waitMs = parseWaitMs(args.wait);
   const { run } = await refreshPanelWorkerRun(await readPanelWorkerRun(context.project.projectPath, runId));
-  const resumed = run.status === "completed" ? run : await resumePanelWorkerRun(run);
-  const nextCommands = panelWorkerNextCommands(context, resumed.id);
+  const resumed = run.status === "completed" ? run : await launchPanelWorkerRun(await resumePanelWorkerRun(run));
+  const finalRun = waitMs ? await waitForPanelWorkerRun(resumed, waitMs) : resumed;
+  const nextCommands = panelWorkerNextCommands(context, finalRun.id);
 
   if (args.json === true) {
-    console.log(JSON.stringify({ ...resumed, nextCommands }, null, 2));
+    console.log(JSON.stringify({ ...finalRun, nextCommands }, null, 2));
     return;
   }
 
   console.log("LongTable panel run resume requested");
-  console.log(`- run: ${resumed.id}`);
-  console.log(`- status: ${resumed.status}`);
+  console.log(`- run: ${finalRun.id}`);
+  console.log(`- status: ${finalRun.status}`);
   console.log(`- status command: ${nextCommands.status}`);
 }
 
@@ -3233,12 +3255,18 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
     }
   }
 
+  if (args.print === true) {
+    console.log(fallback.prompt);
+    return;
+  }
+
+  const waitMs = parseWaitMs(args.wait);
   const nativeWorkersRequested = args["native-workers"] === true;
   const nativeRunContext = nativeWorkersRequested
     ? await loadProjectContextFromDirectory(workingDirectory)
     : null;
   const nativeRun = nativeWorkersRequested && nativeRunContext
-    ? await createPanelWorkerRun({
+    ? await launchPanelWorkerRun(await createPanelWorkerRun({
         workingDirectory: nativeRunContext.project.projectPath,
         fallback,
         initialStatus: "planned",
@@ -3246,8 +3274,9 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
           commandAvailable("tmux") ? "tmux:available" : "tmux:unavailable",
           commandAvailable("codex") ? "codex:available" : "codex:unavailable"
         ]
-      })
+      }))
     : null;
+  const finalNativeRun = nativeRun && waitMs ? await waitForPanelWorkerRun(nativeRun, waitMs) : nativeRun;
 
   if (args.json === true) {
     console.log(
@@ -3259,7 +3288,7 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
           invocationRecord: fallback.invocationRecord,
           questionRecord: fallback.questionRecord,
           execution: {
-            status: nativeRun?.status ?? "planned",
+            status: finalNativeRun?.status ?? "planned",
             stableSurface: "sequential_fallback",
             preferredSurface: fallback.plan.preferredSurface,
             nativeParallel: fallback.plan.preferredSurface === "native_workers"
@@ -3269,12 +3298,15 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
               : "not_requested",
             projectContextFound: projectAware.projectContextFound,
             invocationLogged: projectAware.projectContextFound,
-            nativeRunCreated: Boolean(nativeRun),
-            degradedReason: nativeWorkersRequested && !nativeRun
+            nativeRunCreated: Boolean(finalNativeRun),
+            waitMs,
+            degradedReason: nativeWorkersRequested && !finalNativeRun
               ? "native workers require an existing LongTable workspace; sequential fallback prompt returned"
+              : finalNativeRun?.status === "degraded"
+              ? "native workers require local tmux and codex commands; sequential fallback remains available"
               : undefined
           },
-          nativeRun,
+          nativeRun: finalNativeRun,
           fallbackPrompt: fallback.prompt
         },
         null,
@@ -3284,20 +3316,15 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
     return;
   }
 
-  if (args.print === true) {
-    console.log(fallback.prompt);
-    return;
-  }
-
   console.log(renderPanelSummary(fallback.plan));
   console.log("");
 
-  if (nativeRun) {
+  if (finalNativeRun) {
     console.log("LongTable native panel worker run created");
-    console.log(`- run: ${nativeRun.id}`);
-    console.log(`- status: ${nativeRun.status}`);
-    console.log(`- state: ${panelWorkerRunPath(nativeRunContext!.project.projectPath, nativeRun.id)}`);
-    const nextCommands = panelWorkerNextCommands(nativeRunContext!, nativeRun.id);
+    console.log(`- run: ${finalNativeRun.id}`);
+    console.log(`- status: ${finalNativeRun.status}`);
+    console.log(`- state: ${panelWorkerRunPath(nativeRunContext!.project.projectPath, finalNativeRun.id)}`);
+    const nextCommands = panelWorkerNextCommands(nativeRunContext!, finalNativeRun.id);
     console.log(`- next status: ${nextCommands.status}`);
     console.log(`- stop: ${nextCommands.stop}`);
     console.log(`- resume: ${nextCommands.resume}`);

@@ -223,6 +223,8 @@ export interface PanelWorkerRecord {
   taskPath: string;
   resultPath: string;
   logPath: string;
+  launcherPath?: string;
+  exitCodePath?: string;
   paneId?: string;
   startedAt?: string;
   updatedAt: string;
@@ -250,6 +252,9 @@ export interface PanelWorkerRun {
   taskDirectory: string;
   resultDirectory: string;
   logDirectory: string;
+  launcherDirectory: string;
+  outputSchemaPath: string;
+  stopFilePath: string;
   aggregateResultPath: string;
   workers: PanelWorkerRecord[];
   diagnostics: string[];
