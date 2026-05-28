@@ -411,7 +411,7 @@ function usage(): string {
     "  longtable panel status --run <panel_run_id> [--cwd <path>] [--json]",
     "  longtable panel stop --run <panel_run_id> [--cwd <path>] [--json]",
     "  longtable panel resume --run <panel_run_id> [--cwd <path>] [--json]",
-    "  longtable panel record [--invocation <id>] --result-file <json> [--surface sequential_fallback|native_subagents] [--cwd <path>] [--json]",
+    "  longtable panel record [--invocation <id>] --result-file <json> [--surface sequential_fallback|native_subagents|native_workers] [--cwd <path>] [--json]",
     "  longtable handoff [--cwd <path>] [--output <file>] [--print] [--json]",
     "  longtable decide [--question <id>] --answer <value-or-text> [--rationale <text>] [--provider codex|claude] [--cwd <path>] [--json]",
     "  longtable explore|review|critique|draft|commit|submit [--prompt <text>] [--role <role[,role]>] [--panel] [--show-conflicts] [--show-deliberation] [--print] [--json] [--stage <stage>] [--setup <path>] [--cwd <path>]",
