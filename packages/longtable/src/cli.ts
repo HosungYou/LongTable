@@ -12,7 +12,10 @@ import { fileURLToPath } from "node:url";
 import { collectHardStopBlockers, type HardStopVerdict } from "@longtable/core";
 import type {
   InteractionMode,
+  InvocationStatus,
+  InvocationSurface,
   PanelVisibility,
+  PanelWorkerRun,
   ProviderKind,
   QuestionAuditResult,
   QuestionOpportunityKind,
@@ -84,6 +87,16 @@ import { buildPersonaGuidance, parseInvocationDirective } from "./persona-router
 import { PERSONA_DEFINITIONS, listRoleDefinitions } from "./personas.js";
 import { buildPanelFallback, renderPanelSummary } from "./panel.js";
 import {
+  createPanelWorkerRun,
+  launchPanelWorkerRun,
+  panelWorkerRunPath,
+  readPanelWorkerRun,
+  refreshPanelWorkerRun,
+  requestPanelWorkerStop,
+  resumePanelWorkerRun,
+  waitForPanelWorkerRun
+} from "./panel-runtime.js";
+import {
   LONGTABLE_MANAGED_HOOK_EVENTS,
   codexHooksEnabled,
   enableCodexHooksFeature,
@@ -104,6 +117,7 @@ import {
   createWorkspaceFollowUpQuestions,
   createWorkspaceQuestion,
   createOrUpdateProjectWorkspace,
+  createWorkspaceHandoff,
   diffResearchSpecifications,
   inspectProjectWorkspace,
   loadWorkspaceState,
@@ -112,11 +126,14 @@ import {
   proposeResearchSpecificationPatch,
   pruneWorkspaceQuestions,
   readResearchSpecificationHistory,
+  recordPanelResultInWorkspace,
   repairWorkspaceStateConsistency,
   renderProjectWorkspaceSummary,
   syncCurrentWorkspaceView,
   type LongTableProjectContext,
   type LongTableWorkspaceInspection,
+  type PanelResultRecordInput,
+  type PanelResultRecordOutput,
   type ProjectDisagreementPreference,
   type StartInterviewSession,
   type StartInterviewSignal,
@@ -394,7 +411,12 @@ function usage(): string {
     "  longtable clarify --prompt <task-context> [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json] [--force]",
     "  longtable question --prompt <decision-context> [--title <text>] [--text <question>] [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json]",
     "  longtable clear-question --question <id> --reason <text> [--cwd <path>] [--json]",
-    "  longtable panel [--prompt <text>] [--role <role[,role]>] [--mode review|critique|draft|commit] [--visibility synthesis_only|show_on_conflict|always_visible] [--print] [--json] [--setup <path>] [--cwd <path>]",
+    "  longtable panel [--prompt <text>] [--role <role[,role]>] [--mode review|critique|draft|commit] [--visibility synthesis_only|show_on_conflict|always_visible] [--provider codex|claude] [--native-workers|--native-subagents] [--wait [ms]] [--print] [--json] [--setup <path>] [--cwd <path>]",
+    "  longtable panel status --run <panel_run_id> [--wait [ms]] [--cwd <path>] [--json]",
+    "  longtable panel stop --run <panel_run_id> [--cwd <path>] [--json]",
+    "  longtable panel resume --run <panel_run_id> [--wait [ms]] [--cwd <path>] [--json]",
+    "  longtable panel record [--invocation <id>] --result-file <json> [--surface sequential_fallback|native_subagents|native_workers] [--cwd <path>] [--json]",
+    "  longtable handoff [--cwd <path>] [--output <file>] [--print] [--json]",
     "  longtable decide [--question <id>] --answer <value-or-text> [--rationale <text>] [--provider codex|claude] [--cwd <path>] [--json]",
     "  longtable explore|review|critique|draft|commit|submit [--prompt <text>] [--role <role[,role]>] [--panel] [--show-conflicts] [--show-deliberation] [--print] [--json] [--stage <stage>] [--setup <path>] [--cwd <path>]",
     "  longtable codex persist-init [--answers-json <json> | --stdin | full setup flags] [--install-skills] [--install-prompts] [--json]",
@@ -433,7 +455,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "decide", "sentinel", "team", "access", "search", "spec"].includes(command);
+    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "handoff", "decide", "sentinel", "access", "search", "spec"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -441,7 +463,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     startIndex = 1;
   } else if (command === "codex" || command === "claude" || command === "mcp") {
     startIndex = 2;
-  } else if ((command === "access" || command === "search" || command === "spec") && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
+  } else if ((command === "access" || command === "search" || command === "spec" || command === "panel") && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
     subcommand = maybeSubcommand;
     startIndex = 2;
   } else if (command === "audit" && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
@@ -3004,6 +3026,153 @@ function parsePanelMode(value?: string): InteractionMode {
   return "review";
 }
 
+function requireRunId(args: Record<string, string | boolean>): string {
+  if (typeof args.run !== "string" || args.run.trim().length === 0) {
+    throw new Error("A panel run id is required. Pass --run <panel_run_id>.");
+  }
+  return args.run.trim();
+}
+
+function commandAvailable(command: string): boolean {
+  try {
+    execSync(`command -v ${command}`, { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function parseWaitMs(value: string | boolean | undefined): number | undefined {
+  if (value === undefined || value === false) {
+    return undefined;
+  }
+  if (value === true) {
+    return 30_000;
+  }
+  const trimmed = value.trim();
+  const multiplier = trimmed.endsWith("s") ? 1000 : 1;
+  const numeric = Number.parseInt(trimmed.endsWith("s") ? trimmed.slice(0, -1) : trimmed, 10);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    throw new Error(`Invalid --wait value: ${value}. Use milliseconds or a value like 30s.`);
+  }
+  return numeric * multiplier;
+}
+
+function panelWorkerNextCommands(context: LongTableProjectContext, runId: string): {
+  status: string;
+  stop: string;
+  resume: string;
+} {
+  const cwdFlag = `--cwd "${context.project.projectPath}"`;
+  return {
+    status: `longtable panel status ${cwdFlag} --run ${runId}`,
+    stop: `longtable panel stop ${cwdFlag} --run ${runId}`,
+    resume: `longtable panel resume ${cwdFlag} --run ${runId}`
+  };
+}
+
+async function recordTerminalNativeWorkerRun(
+  context: LongTableProjectContext,
+  run: PanelWorkerRun
+): Promise<PanelResultRecordOutput | null> {
+  if ((run.status !== "completed" && run.status !== "blocked") || !existsSync(run.aggregateResultPath)) {
+    return null;
+  }
+  const aggregate = JSON.parse(await readFile(run.aggregateResultPath, "utf8")) as PanelResultRecordInput;
+  return recordPanelResultInWorkspace({
+    context,
+    result: {
+      ...aggregate,
+      invocationId: run.invocationId,
+      surface: "native_workers",
+      status: aggregate.status ?? run.status
+    }
+  });
+}
+
+function summarizePanelRecordOutput(result: PanelResultRecordOutput | null): unknown {
+  if (!result) {
+    return null;
+  }
+  return {
+    invocationId: result.invocation.id,
+    status: result.invocation.status,
+    surface: result.invocation.surface,
+    evidenceRecordIds: result.evidenceRecords.map((record) => record.id)
+  };
+}
+
+async function runPanelStatusCommand(args: Record<string, string | boolean>): Promise<void> {
+  const context = await requireWorkspaceContext(args);
+  const runId = requireRunId(args);
+  const waitMs = parseWaitMs(args.wait);
+  const initial = await refreshPanelWorkerRun(await readPanelWorkerRun(context.project.projectPath, runId));
+  const refreshed = waitMs ? await waitForPanelWorkerRun(initial.run, waitMs) : initial.run;
+  const recordedPanelResult = await recordTerminalNativeWorkerRun(context, refreshed);
+  const nextCommands = panelWorkerNextCommands(context, refreshed.id);
+
+  if (args.json === true) {
+    console.log(JSON.stringify({ ...refreshed, nextCommands, recordedPanelResult: summarizePanelRecordOutput(recordedPanelResult) }, null, 2));
+    return;
+  }
+
+  console.log("LongTable panel run status");
+  console.log(`- run: ${refreshed.id}`);
+  console.log(`- status: ${refreshed.status}`);
+  for (const worker of refreshed.workers) {
+    console.log(`- ${worker.label} (${worker.role}): ${worker.status}`);
+  }
+  console.log(`- stop: ${nextCommands.stop}`);
+  console.log(`- resume: ${nextCommands.resume}`);
+  if (recordedPanelResult) {
+    console.log(`- recorded evidence: ${recordedPanelResult.evidenceRecords.length}`);
+  }
+}
+
+async function runPanelStopCommand(args: Record<string, string | boolean>): Promise<void> {
+  const context = await requireWorkspaceContext(args);
+  const runId = requireRunId(args);
+  const stopped = await requestPanelWorkerStop(await readPanelWorkerRun(context.project.projectPath, runId));
+  const nextCommands = panelWorkerNextCommands(context, stopped.id);
+
+  if (args.json === true) {
+    console.log(JSON.stringify({ ...stopped, nextCommands }, null, 2));
+    return;
+  }
+
+  console.log("LongTable panel run stop requested");
+  console.log(`- run: ${stopped.id}`);
+  console.log(`- status: ${stopped.status}`);
+  for (const worker of stopped.workers) {
+    console.log(`- ${worker.label} (${worker.role}): ${worker.status}`);
+  }
+  console.log(`- resume: ${nextCommands.resume}`);
+}
+
+async function runPanelResumeCommand(args: Record<string, string | boolean>): Promise<void> {
+  const context = await requireWorkspaceContext(args);
+  const runId = requireRunId(args);
+  const waitMs = parseWaitMs(args.wait);
+  const { run } = await refreshPanelWorkerRun(await readPanelWorkerRun(context.project.projectPath, runId));
+  const resumed = run.status === "completed" ? run : await launchPanelWorkerRun(await resumePanelWorkerRun(run));
+  const finalRun = waitMs ? await waitForPanelWorkerRun(resumed, waitMs) : resumed;
+  const recordedPanelResult = await recordTerminalNativeWorkerRun(context, finalRun);
+  const nextCommands = panelWorkerNextCommands(context, finalRun.id);
+
+  if (args.json === true) {
+    console.log(JSON.stringify({ ...finalRun, nextCommands, recordedPanelResult: summarizePanelRecordOutput(recordedPanelResult) }, null, 2));
+    return;
+  }
+
+  console.log("LongTable panel run resume requested");
+  console.log(`- run: ${finalRun.id}`);
+  console.log(`- status: ${finalRun.status}`);
+  console.log(`- status command: ${nextCommands.status}`);
+  if (recordedPanelResult) {
+    console.log(`- recorded evidence: ${recordedPanelResult.evidenceRecords.length}`);
+  }
+}
+
 async function loadOptionalSetup(path?: string) {
   try {
     return await loadSetupOutput(path);
@@ -3107,7 +3276,9 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
     await assertWorkspaceNotBlocked(existingContext);
   }
   const projectAware = await buildProjectAwarePrompt(prompt, workingDirectory);
-  const provider = setup?.providerSelection.provider as ProviderKind | undefined;
+  const provider = args.provider === "codex" || args.provider === "claude"
+    ? args.provider
+    : setup?.providerSelection.provider as ProviderKind | undefined;
   const visibility =
     parsePanelVisibility(typeof args.visibility === "string" ? args.visibility : undefined) ??
     parsePanelVisibility(setup?.profileSeed.panelPreference) ??
@@ -3118,7 +3289,9 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
     mode,
     roleFlag: typeof args.role === "string" ? args.role : undefined,
     provider,
-    visibility
+    visibility,
+    nativeSubagents: args["native-subagents"] === true,
+    nativeWorkers: args["native-workers"] === true
   });
   if (projectAware.projectContextFound) {
     const context = await loadProjectContextFromDirectory(workingDirectory);
@@ -3126,6 +3299,32 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
       await appendInvocationRecordToWorkspace(context, fallback.invocationRecord, [fallback.questionRecord]);
     }
   }
+
+  if (args.print === true) {
+    console.log(fallback.prompt);
+    return;
+  }
+
+  const waitMs = parseWaitMs(args.wait);
+  const nativeWorkersRequested = args["native-workers"] === true && fallback.plan.preferredSurface === "native_workers";
+  const nativeRunContext = nativeWorkersRequested
+    ? await loadProjectContextFromDirectory(workingDirectory)
+    : null;
+  const nativeRun = nativeWorkersRequested && nativeRunContext
+    ? await launchPanelWorkerRun(await createPanelWorkerRun({
+        workingDirectory: nativeRunContext.project.projectPath,
+        fallback,
+        initialStatus: "planned",
+        diagnostics: [
+          commandAvailable("tmux") ? "tmux:available" : "tmux:unavailable",
+          commandAvailable("codex") ? "codex:available" : "codex:unavailable"
+        ]
+      }))
+    : null;
+  const finalNativeRun = nativeRun && waitMs ? await waitForPanelWorkerRun(nativeRun, waitMs) : nativeRun;
+  const recordedPanelResult = finalNativeRun && nativeRunContext
+    ? await recordTerminalNativeWorkerRun(nativeRunContext, finalNativeRun)
+    : null;
 
   if (args.json === true) {
     console.log(
@@ -3137,12 +3336,26 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
           invocationRecord: fallback.invocationRecord,
           questionRecord: fallback.questionRecord,
           execution: {
-            status: "planned",
+            status: finalNativeRun?.status ?? "planned",
             stableSurface: "sequential_fallback",
-            nativeParallel: "not_required_for_option_a",
+            preferredSurface: fallback.plan.preferredSurface,
+            nativeParallel: fallback.plan.preferredSurface === "native_workers"
+              ? "longtable_native_workers"
+              : fallback.plan.preferredSurface === "native_subagents"
+              ? "session_dependent"
+              : "not_requested",
             projectContextFound: projectAware.projectContextFound,
-            invocationLogged: projectAware.projectContextFound
+            invocationLogged: projectAware.projectContextFound,
+            nativeRunCreated: Boolean(finalNativeRun),
+            waitMs,
+            degradedReason: nativeWorkersRequested && !finalNativeRun
+              ? "native workers require an existing LongTable workspace; sequential fallback prompt returned"
+              : finalNativeRun?.status === "degraded"
+              ? "native workers require local tmux and codex commands; sequential fallback remains available"
+              : undefined
           },
+          nativeRun: finalNativeRun,
+          recordedPanelResult: summarizePanelRecordOutput(recordedPanelResult),
           fallbackPrompt: fallback.prompt
         },
         null,
@@ -3152,13 +3365,28 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
     return;
   }
 
-  if (args.print === true) {
-    console.log(fallback.prompt);
-    return;
-  }
-
   console.log(renderPanelSummary(fallback.plan));
   console.log("");
+
+  if (finalNativeRun) {
+    console.log("LongTable native panel worker run created");
+    console.log(`- run: ${finalNativeRun.id}`);
+    console.log(`- status: ${finalNativeRun.status}`);
+    console.log(`- state: ${panelWorkerRunPath(nativeRunContext!.project.projectPath, finalNativeRun.id)}`);
+    const nextCommands = panelWorkerNextCommands(nativeRunContext!, finalNativeRun.id);
+    console.log(`- next status: ${nextCommands.status}`);
+    console.log(`- stop: ${nextCommands.stop}`);
+    console.log(`- resume: ${nextCommands.resume}`);
+    if (recordedPanelResult) {
+      console.log(`- recorded evidence: ${recordedPanelResult.evidenceRecords.length}`);
+    }
+    if (finalNativeRun.status === "degraded") {
+      console.log("- degraded: native workers are unavailable; use the sequential fallback prompt below.");
+      console.log("");
+      console.log(fallback.prompt);
+    }
+    return;
+  }
 
   const exitCode = await runCodexThinWrapper({
     prompt: fallback.prompt,
@@ -3168,6 +3396,118 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
     json: false
   });
   exit(exitCode);
+}
+
+function parseInvocationSurface(value: string | boolean | undefined): InvocationSurface | undefined {
+  if (value === undefined || value === true) {
+    return undefined;
+  }
+  const allowed: InvocationSurface[] = [
+    "native_parallel",
+    "native_subagents",
+    "native_workers",
+    "generated_skill",
+    "prompt_alias",
+    "sequential_fallback",
+    "file_backed_panel_debate",
+    "file_backed_debate",
+    "mcp_transport"
+  ];
+  if (allowed.includes(value as InvocationSurface)) {
+    return value as InvocationSurface;
+  }
+  throw new Error(`Invalid panel result surface: ${value}.`);
+}
+
+function parseInvocationStatus(value: string | boolean | undefined): InvocationStatus | undefined {
+  if (value === undefined || value === true) {
+    return undefined;
+  }
+  const allowed: InvocationStatus[] = ["planned", "running", "completed", "blocked", "degraded", "error"];
+  if (allowed.includes(value as InvocationStatus)) {
+    return value as InvocationStatus;
+  }
+  throw new Error(`Invalid panel result status: ${value}.`);
+}
+
+async function readPanelResultRecordInput(args: Record<string, string | boolean>): Promise<PanelResultRecordInput> {
+  const resultFile = typeof args["result-file"] === "string" ? args["result-file"] : undefined;
+  const baseDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+  const fromFile = resultFile
+    ? JSON.parse(await readFile(resolve(baseDirectory, resultFile), "utf8")) as Partial<PanelResultRecordInput>
+    : {};
+  const result: PanelResultRecordInput = {
+    ...fromFile,
+    ...(typeof args.invocation === "string" ? { invocationId: args.invocation } : {}),
+    ...(typeof args.synthesis === "string" ? { synthesis: args.synthesis } : {}),
+    ...(typeof args["conflict-summary"] === "string" ? { conflictSummary: args["conflict-summary"] } : {}),
+    ...(typeof args["decision-prompt"] === "string" ? { decisionPrompt: args["decision-prompt"] } : {}),
+    ...(parseInvocationSurface(args.surface) ? { surface: parseInvocationSurface(args.surface) } : {}),
+    ...(parseInvocationStatus(args.status) ? { status: parseInvocationStatus(args.status) } : {})
+  };
+  if (
+    !result.synthesis &&
+    !result.conflictSummary &&
+    !result.decisionPrompt &&
+    (!result.memberResults || result.memberResults.length === 0)
+  ) {
+    throw new Error("Panel result content is required. Pass --result-file with synthesis, conflictSummary, decisionPrompt, or memberResults.");
+  }
+  return result;
+}
+
+async function runPanelRecordCommand(args: Record<string, string | boolean>): Promise<void> {
+  const context = await requireWorkspaceContext(args);
+  const resultInput = await readPanelResultRecordInput(args);
+  const result = await recordPanelResultInWorkspace({
+    context,
+    result: resultInput
+  });
+
+  if (args.json === true) {
+    console.log(JSON.stringify({
+      invocation: result.invocation,
+      evidenceRecords: result.evidenceRecords,
+      files: {
+        state: context.stateFilePath,
+        current: context.currentFilePath
+      }
+    }, null, 2));
+    return;
+  }
+
+  console.log("LongTable panel result recorded");
+  console.log(`- invocation: ${result.invocation.id}`);
+  console.log(`- status: ${result.invocation.status}`);
+  console.log(`- surface: ${result.invocation.surface}`);
+  console.log(`- evidence records: ${result.evidenceRecords.length}`);
+  console.log(`- unincorporated evidence: longtable spec unincorporated --cwd "${context.project.projectPath}"`);
+  console.log(`- next handoff: longtable handoff --cwd "${context.project.projectPath}"`);
+}
+
+async function runHandoff(args: Record<string, string | boolean>): Promise<void> {
+  const context = await requireWorkspaceContext(args);
+  const result = await createWorkspaceHandoff({
+    context,
+    outputPath: typeof args.output === "string" ? args.output : undefined
+  });
+
+  if (args.json === true) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (args.print === true) {
+    console.log(result.content);
+    return;
+  }
+
+  console.log("LongTable handoff created");
+  console.log(`- file: ${result.path}`);
+  console.log(`- latest invocation: ${result.latestInvocationId ?? "none"}`);
+  console.log(`- unincorporated evidence: ${result.sourceEvidenceIds.length}`);
+  console.log(`- pending decisions: ${result.pendingQuestionIds.length}`);
+  console.log("Use this handoff directly in Codex/Claude, or paste it into OMX `$ralplan` when OMX is installed.");
 }
 
 function parseLimit(value: string | boolean | undefined): number | undefined {
@@ -4463,12 +4803,6 @@ async function runPanelDebateCommand(args: Record<string, string | boolean>): Pr
   console.log(`- checkpoint: ${debate.questionRecord.id}`);
 }
 
-function disabledTeamCommandError(): Error {
-  return new Error(
-    "`longtable team` is disabled. Use `longtable panel --prompt <text>` for visible multi-role review, or `longtable ask --prompt \"lt debate: <text>\"` when debate is explicitly requested."
-  );
-}
-
 async function runDecide(args: Record<string, string | boolean>): Promise<void> {
   const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
   const answer = typeof args.answer === "string" ? args.answer.trim() : "";
@@ -4687,7 +5021,7 @@ async function runCodexSubcommand(
     const installed = await installCodexSkills(roles, customDir, skillSurface);
     console.log(`Installed ${installed.length} LongTable Codex skills in ${resolveCodexSkillsDir(customDir)} (${skillSurface} surface)`);
     console.log("Use them inside Codex with natural-language triggers such as `lt explore: ...` or `lt panel: ...`.");
-    console.log("Use `$longtable` as the general router; compact installs expose only the most common role shortcuts.");
+    console.log("Use `$longtable` as the general router; compact installs expose `$longtable-panel` plus the most common role shortcuts.");
     for (const skill of installed) {
       console.log(`- ${skill.name}`);
     }
@@ -4915,6 +5249,11 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "handoff") {
+    await runHandoff(values);
+    return;
+  }
+
   if (command === "doctor" || command === "status") {
     await runDoctor(values);
     return;
@@ -4986,6 +5325,25 @@ async function main(): Promise<void> {
   }
 
   if (command === "panel") {
+    if (subcommand === "record") {
+      await runPanelRecordCommand(values);
+      return;
+    }
+    if (subcommand === "status") {
+      await runPanelStatusCommand(values);
+      return;
+    }
+    if (subcommand === "stop") {
+      await runPanelStopCommand(values);
+      return;
+    }
+    if (subcommand === "resume") {
+      await runPanelResumeCommand(values);
+      return;
+    }
+    if (subcommand) {
+      throw new Error(`Unknown panel subcommand: ${subcommand}`);
+    }
     await runPanelCommand(values);
     return;
   }
@@ -4993,10 +5351,6 @@ async function main(): Promise<void> {
   if (command === "sentinel") {
     await runSentinel(values);
     return;
-  }
-
-  if (command === "team") {
-    throw disabledTeamCommandError();
   }
 
   if (command === "decide") {

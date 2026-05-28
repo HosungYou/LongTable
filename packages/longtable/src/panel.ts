@@ -9,6 +9,7 @@ import type {
   PanelVisibility,
   QuestionRecord,
   ProviderKind,
+  InvocationSurface,
   RoleKey
 } from "@longtable/core";
 import {
@@ -26,6 +27,8 @@ export interface BuildPanelPlanOptions {
   roles?: CanonicalPersona[];
   provider?: ProviderKind;
   visibility?: PanelVisibility;
+  nativeSubagents?: boolean;
+  nativeWorkers?: boolean;
 }
 
 export interface PanelFallback {
@@ -123,6 +126,12 @@ export function buildPanelPlan(options: BuildPanelPlanOptions): PanelPlan {
   const routedRoles = routePersonas(options.prompt).consultedRoles;
   const roles = resolvePanelRoles(options);
   const createdAt = nowIso();
+  const preferredSurface: InvocationSurface =
+    options.nativeWorkers && options.provider === "codex"
+      ? "native_workers"
+      : options.nativeSubagents && options.provider === "codex"
+      ? "native_subagents"
+      : "sequential_fallback";
 
   return {
     id: createId("panel_plan"),
@@ -131,12 +140,17 @@ export function buildPanelPlan(options: BuildPanelPlanOptions): PanelPlan {
     prompt: options.prompt,
     members: roles.map((role) => memberForRole(role, explicitRoles, routedRoles)),
     visibility: options.visibility ?? "always_visible",
-    preferredSurface: "sequential_fallback",
+    preferredSurface,
     fallbackSurface: "sequential_fallback",
     checkpointSensitivity: highestSensitivity(roles),
     rationale: [
       "Option A uses provider-neutral panel semantics before native provider orchestration.",
-      "Sequential fallback is the stable execution path for both Claude Code and Codex.",
+      preferredSurface === "native_workers"
+        ? "LongTable-native workers may execute role passes through durable worker state; outputs must normalize back to this PanelResult."
+        : preferredSurface === "native_subagents"
+        ? "Codex native subagents may execute the role passes when the current provider session exposes them; outputs must normalize back to this PanelResult."
+        : "Sequential fallback is the stable execution path for both Claude Code and Codex.",
+      "Sequential fallback remains the required degradation path.",
       roles.length === explicitRoles.length && explicitRoles.length > 0
         ? "The panel is constrained by explicitly requested roles."
         : "The panel combines default research-review roles with prompt-triggered roles."
@@ -151,6 +165,7 @@ export function buildInvocationIntent(options: {
   provider?: ProviderKind;
   visibility?: PanelVisibility;
   checkpointSensitivity?: CheckpointSensitivity;
+  requestedSurface?: InvocationSurface;
   rationale?: string[];
 }): InvocationIntent {
   return {
@@ -160,7 +175,7 @@ export function buildInvocationIntent(options: {
     prompt: options.prompt,
     roles: options.roles,
     provider: options.provider,
-    requestedSurface: "sequential_fallback",
+    requestedSurface: options.requestedSurface ?? "sequential_fallback",
     visibility: options.visibility ?? "always_visible",
     checkpointSensitivity: options.checkpointSensitivity ?? "medium",
     rationale: options.rationale ?? ["Panel invocation requested."]
@@ -233,7 +248,7 @@ export function createPlannedPanelResult(
     createdAt,
     updatedAt: createdAt,
     provider,
-    surface: "sequential_fallback",
+    surface: plan.preferredSurface,
     status: "planned",
     interactionDepth: "independent",
     memberResults: plan.members.map((member) => ({
@@ -260,11 +275,15 @@ export function createPlannedInvocationRecord(options: {
     intent: options.intent,
     status: "planned",
     provider: options.provider,
-    surface: "sequential_fallback",
+    surface: options.plan.preferredSurface,
     interactionDepth: "independent",
     panelPlan: options.plan,
     panelResult: options.result,
-    degradationReason: "Sequential fallback is the stable LongTable panel surface."
+    degradationReason: options.plan.preferredSurface === "native_workers"
+      ? "LongTable-native panel workers are optional; sequential_fallback is the required degradation path when local worker execution is unavailable."
+      : options.plan.preferredSurface === "native_subagents"
+      ? "Codex native subagent execution is session-dependent; sequential_fallback is the required LongTable degradation path."
+      : "Sequential fallback is the stable LongTable panel surface."
   };
 }
 
@@ -287,9 +306,20 @@ function languageNote(language: OutputLanguage): string {
 
 export function renderSequentialFallbackPrompt(plan: PanelPlan): string {
   const language = detectOutputLanguage(plan.prompt);
+  const nativeSubagentNote = plan.preferredSurface === "native_subagents"
+    ? [
+        "Preferred execution surface: native_subagents when the current Codex session exposes provider-native subagents.",
+        "Fallback: if native subagents are unavailable, run the same role passes sequentially and disclose the fallback in the technical record."
+      ]
+    : plan.preferredSurface === "native_workers"
+    ? [
+        "Preferred execution surface: LongTable-native panel workers when the local runtime supports them.",
+        "Fallback: if native workers are unavailable or stopped, run the same role passes sequentially and disclose the fallback in the technical record."
+      ]
+    : ["Execution surface: sequential_fallback"];
   return [
     "LongTable mode: Panel",
-    "Execution surface: sequential_fallback",
+    ...nativeSubagentNote,
     "",
     "Run this as a structured panel review. Treat each role as an independent pass, then synthesize.",
     "Do not expose hidden reasoning, private tool traces, or provider chain-of-thought.",
@@ -305,6 +335,7 @@ export function renderSequentialFallbackPrompt(plan: PanelPlan): string {
     "3. Conflict summary",
     "4. Decision prompt for the researcher",
     "5. Technical record: roles consulted, execution surface, fallback/native mode, and source/file references used",
+    "6. Persistence hint: if this is a real panel result, record structured outputs with `longtable panel record --invocation <id> --result-file <json>` before generating `longtable handoff`.",
     "",
     "Research object:",
     plan.prompt
@@ -320,6 +351,7 @@ export function buildPanelFallback(options: BuildPanelPlanOptions): PanelFallbac
     provider: options.provider,
     visibility: plan.visibility,
     checkpointSensitivity: plan.checkpointSensitivity,
+    requestedSurface: plan.preferredSurface,
     rationale: plan.rationale
   });
   const questionRecord = createPlannedPanelQuestionRecord(plan, options.provider);

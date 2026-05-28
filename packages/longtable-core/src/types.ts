@@ -47,6 +47,7 @@ export type InvocationKind = "single_role" | "panel" | "panel_debate" | "team" |
 export type InvocationSurface =
   | "native_parallel"
   | "native_subagents"
+  | "native_workers"
   | "generated_skill"
   | "prompt_alias"
   | "sequential_fallback"
@@ -193,6 +194,72 @@ export interface PanelResult {
   interactionDepth?: InteractionDepth;
   linkedQuestionRecordIds: string[];
   linkedDecisionRecordIds: string[];
+}
+
+export type PanelWorkerStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "blocked"
+  | "failed"
+  | "stop_requested"
+  | "stopped";
+
+export type PanelWorkerRunStatus =
+  | "planned"
+  | "running"
+  | "completed"
+  | "blocked"
+  | "failed"
+  | "degraded"
+  | "stop_requested"
+  | "stopped"
+  | "resumable";
+
+export interface PanelWorkerRecord {
+  id: string;
+  role: RoleKey;
+  label: string;
+  required: boolean;
+  status: PanelWorkerStatus;
+  taskPath: string;
+  resultPath: string;
+  logPath: string;
+  launcherPath?: string;
+  exitCodePath?: string;
+  paneId?: string;
+  startedAt?: string;
+  updatedAt: string;
+  completedAt?: string;
+  error?: string;
+  diagnostics: string[];
+}
+
+export interface PanelWorkerRun {
+  schemaVersion: 1;
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  invocationId: string;
+  planId: string;
+  provider?: ProviderKind;
+  prompt: string;
+  mode: InteractionMode;
+  visibility: PanelVisibility;
+  requestedSurface: "native_workers";
+  fallbackSurface: "sequential_fallback";
+  status: PanelWorkerRunStatus;
+  workingDirectory: string;
+  runDirectory: string;
+  taskDirectory: string;
+  resultDirectory: string;
+  logDirectory: string;
+  launcherDirectory: string;
+  outputSchemaPath: string;
+  stopFilePath: string;
+  aggregateResultPath: string;
+  workers: PanelWorkerRecord[];
+  diagnostics: string[];
 }
 
 export type TeamDebateRoundKind =

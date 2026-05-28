@@ -74,6 +74,14 @@ Structured multi-role review:
 - creates a `PanelPlan`
 - creates a provider-neutral `InvocationIntent`
 - uses `sequential_fallback` as the stable execution surface
+- may launch LongTable-native role workers for Codex with `--native-workers`
+  when the local runtime supports the worker backend; add `--wait <ms>` when
+  the caller wants LongTable to wait briefly for completed worker result files
+- may prefer `native_subagents` for Codex only when the current provider
+  session exposes them; this remains a compatibility adapter, not the durable
+  LongTable worker contract
+- native workers and native subagents must both normalize final role outputs
+  back to `PanelResult`
 - exposes planned `PanelResult` through `--json`
 - exposes the provider runtime prompt through `--print`
 - appends an `InvocationRecord` when run inside a LongTable workspace
@@ -85,13 +93,51 @@ Examples:
 ```bash
 longtable panel --prompt "review this methods section" --json
 longtable panel --prompt "review this measurement plan" --role editor,measurement_auditor --json
+longtable panel --provider codex --native-workers --wait 30000 --prompt "review this methods section" --json
+longtable panel --provider codex --native-subagents --prompt "legacy native subagent request" --json
 longtable panel --visibility always_visible --prompt "keep unresolved disagreement visible" --json
 ```
 
+When a native worker run reaches a terminal `completed` or `blocked` state
+through `longtable panel --native-workers --wait`, `longtable panel status
+--wait`, or `longtable panel resume --wait`, LongTable records the normalized
+`PanelResult` into workspace evidence without collapsing blocked role outputs
+into completion. When a provider or external worker returns a result file
+outside that lifecycle, record the structured result before asking LongTable for
+a handoff or Research Specification patch:
+
+```bash
+longtable panel record --invocation <invocation_record_id> --result-file panel-result.json
+```
+
+Native worker result files should contain final role summaries, claims,
+objections, open questions, and evidence references. They must not contain
+hidden reasoning, raw tool traces, or tmux logs.
+
 Team-style requests route through panel. Explicit debate-language requests route
-to panel debate records under `.longtable/panel/`; LongTable team execution is
-disabled for new work. Historical `.longtable/team/` records remain readable
+to panel debate records under `.longtable/panel/`. `longtable team` is not a
+public command surface. Historical `.longtable/team/` records remain readable
 only as older workspace state.
+
+### `longtable handoff`
+
+Continuation work packet:
+
+- reads `CURRENT.md`, `.longtable/state.json`, Research Specification state,
+  panel records, pending decisions, and unincorporated evidence
+- writes a Markdown handoff under `.longtable/handoffs/` by default
+- carries the latest panel/native-worker result forward as normalized
+  `PanelResult` evidence, including evidence refs when roles reported them
+- gives a provider-neutral path for users without OMX
+- includes an optional OMX path that treats `$ralplan` and `$ralph` as external
+  execution loops, not as LongTable core behavior
+
+Examples:
+
+```bash
+longtable handoff --cwd "<project-path>"
+longtable handoff --cwd "<project-path>" --print
+```
 
 ## Question Transport
 
@@ -100,8 +146,7 @@ LongTable state is canonical. Provider UI is transport.
 If the prompt contains an explicit collaboration directive such as `lt panel:`
 or `lt debate:`, `ask` delegates to the panel surface. If the request is less
 explicit but asks for multiple perspectives, LongTable uses panel as the
-lightest adequate surface so disagreement stays visible without invoking
-disabled team execution.
+lightest adequate surface so disagreement stays visible without a team command.
 
 Supported question surfaces:
 
@@ -125,6 +170,8 @@ longtable decide --question <id> --answer <value>
 longtable spec read --cwd "<project-path>"
 longtable search --query "<topic>"
 longtable panel --prompt "<collaboration context>"
+longtable panel record --invocation <id> --result-file panel-result.json
+longtable handoff --cwd "<project-path>"
 longtable codex install-skills
 longtable claude install-skills
 longtable mcp install --provider all
@@ -134,6 +181,6 @@ longtable mcp install --provider all
 
 - Do not make provider-specific UI the product contract.
 - Do not make tmux required for research-start or checkpoint behavior.
-- Do not expose `longtable team` as a new collaboration surface.
+- Do not expose `longtable team` as a collaboration command surface.
 - Do not split start and interview into duplicated engines.
 - Do not treat First Research Shape as the substantive endpoint.
