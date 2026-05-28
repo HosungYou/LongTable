@@ -1589,7 +1589,8 @@ function evidenceRecordsForInvocation(invocation: InvocationRecord, timestamp: s
           member.summary ? `Summary: ${member.summary}` : "",
           member.claims?.length ? `Claims: ${member.claims.join("; ")}` : "",
           member.objections?.length ? `Objections: ${member.objections.join("; ")}` : "",
-          member.openQuestions?.length ? `Open questions: ${member.openQuestions.join("; ")}` : ""
+          member.openQuestions?.length ? `Open questions: ${member.openQuestions.join("; ")}` : "",
+          member.evidenceRefs?.length ? `Evidence refs: ${member.evidenceRefs.join("; ")}` : ""
         ].filter(Boolean).join("\n"),
         linkedInvocationRecordIds: [invocation.id],
         linkedQuestionRecordIds: invocation.panelResult.linkedQuestionRecordIds,
@@ -1745,6 +1746,8 @@ export async function recordPanelResultInWorkspace(options: {
     },
     degradationReason: surface === "native_subagents"
       ? "Provider-native subagent execution was recorded as session-dependent; sequential_fallback remains the required fallback."
+      : surface === "native_workers"
+      ? "LongTable-native worker outputs were recorded as structured panel evidence; runtime state remains under .longtable/panel-runs and hidden reasoning/raw tmux logs stay out of handoff."
       : targetInvocation.degradationReason
   };
   const evidenceRecords = evidenceRecordsForInvocation(updatedInvocation, timestamp);

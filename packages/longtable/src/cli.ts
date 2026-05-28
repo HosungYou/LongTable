@@ -15,6 +15,7 @@ import type {
   InvocationStatus,
   InvocationSurface,
   PanelVisibility,
+  PanelWorkerRun,
   ProviderKind,
   QuestionAuditResult,
   QuestionOpportunityKind,
@@ -132,6 +133,7 @@ import {
   type LongTableProjectContext,
   type LongTableWorkspaceInspection,
   type PanelResultRecordInput,
+  type PanelResultRecordOutput,
   type ProjectDisagreementPreference,
   type StartInterviewSession,
   type StartInterviewSignal,
@@ -3069,16 +3071,48 @@ function panelWorkerNextCommands(context: LongTableProjectContext, runId: string
   };
 }
 
+async function recordCompletedNativeWorkerRun(
+  context: LongTableProjectContext,
+  run: PanelWorkerRun
+): Promise<PanelResultRecordOutput | null> {
+  if (run.status !== "completed" || !existsSync(run.aggregateResultPath)) {
+    return null;
+  }
+  const aggregate = JSON.parse(await readFile(run.aggregateResultPath, "utf8")) as PanelResultRecordInput;
+  return recordPanelResultInWorkspace({
+    context,
+    result: {
+      ...aggregate,
+      invocationId: run.invocationId,
+      surface: "native_workers",
+      status: "completed"
+    }
+  });
+}
+
+function summarizePanelRecordOutput(result: PanelResultRecordOutput | null): unknown {
+  if (!result) {
+    return null;
+  }
+  return {
+    invocationId: result.invocation.id,
+    status: result.invocation.status,
+    surface: result.invocation.surface,
+    evidenceRecordIds: result.evidenceRecords.map((record) => record.id)
+  };
+}
+
 async function runPanelStatusCommand(args: Record<string, string | boolean>): Promise<void> {
   const context = await requireWorkspaceContext(args);
   const runId = requireRunId(args);
   const waitMs = parseWaitMs(args.wait);
   const initial = await refreshPanelWorkerRun(await readPanelWorkerRun(context.project.projectPath, runId));
   const refreshed = waitMs ? await waitForPanelWorkerRun(initial.run, waitMs) : initial.run;
+  const recordedPanelResult = await recordCompletedNativeWorkerRun(context, refreshed);
   const nextCommands = panelWorkerNextCommands(context, refreshed.id);
 
   if (args.json === true) {
-    console.log(JSON.stringify({ ...refreshed, nextCommands }, null, 2));
+    console.log(JSON.stringify({ ...refreshed, nextCommands, recordedPanelResult: summarizePanelRecordOutput(recordedPanelResult) }, null, 2));
     return;
   }
 
@@ -3090,6 +3124,9 @@ async function runPanelStatusCommand(args: Record<string, string | boolean>): Pr
   }
   console.log(`- stop: ${nextCommands.stop}`);
   console.log(`- resume: ${nextCommands.resume}`);
+  if (recordedPanelResult) {
+    console.log(`- recorded evidence: ${recordedPanelResult.evidenceRecords.length}`);
+  }
 }
 
 async function runPanelStopCommand(args: Record<string, string | boolean>): Promise<void> {
@@ -3115,10 +3152,11 @@ async function runPanelResumeCommand(args: Record<string, string | boolean>): Pr
   const { run } = await refreshPanelWorkerRun(await readPanelWorkerRun(context.project.projectPath, runId));
   const resumed = run.status === "completed" ? run : await launchPanelWorkerRun(await resumePanelWorkerRun(run));
   const finalRun = waitMs ? await waitForPanelWorkerRun(resumed, waitMs) : resumed;
+  const recordedPanelResult = await recordCompletedNativeWorkerRun(context, finalRun);
   const nextCommands = panelWorkerNextCommands(context, finalRun.id);
 
   if (args.json === true) {
-    console.log(JSON.stringify({ ...finalRun, nextCommands }, null, 2));
+    console.log(JSON.stringify({ ...finalRun, nextCommands, recordedPanelResult: summarizePanelRecordOutput(recordedPanelResult) }, null, 2));
     return;
   }
 
@@ -3126,6 +3164,9 @@ async function runPanelResumeCommand(args: Record<string, string | boolean>): Pr
   console.log(`- run: ${finalRun.id}`);
   console.log(`- status: ${finalRun.status}`);
   console.log(`- status command: ${nextCommands.status}`);
+  if (recordedPanelResult) {
+    console.log(`- recorded evidence: ${recordedPanelResult.evidenceRecords.length}`);
+  }
 }
 
 async function loadOptionalSetup(path?: string) {
@@ -3277,6 +3318,9 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
       }))
     : null;
   const finalNativeRun = nativeRun && waitMs ? await waitForPanelWorkerRun(nativeRun, waitMs) : nativeRun;
+  const recordedPanelResult = finalNativeRun && nativeRunContext
+    ? await recordCompletedNativeWorkerRun(nativeRunContext, finalNativeRun)
+    : null;
 
   if (args.json === true) {
     console.log(
@@ -3307,6 +3351,7 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
               : undefined
           },
           nativeRun: finalNativeRun,
+          recordedPanelResult: summarizePanelRecordOutput(recordedPanelResult),
           fallbackPrompt: fallback.prompt
         },
         null,
@@ -3328,6 +3373,9 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
     console.log(`- next status: ${nextCommands.status}`);
     console.log(`- stop: ${nextCommands.stop}`);
     console.log(`- resume: ${nextCommands.resume}`);
+    if (recordedPanelResult) {
+      console.log(`- recorded evidence: ${recordedPanelResult.evidenceRecords.length}`);
+    }
     return;
   }
 

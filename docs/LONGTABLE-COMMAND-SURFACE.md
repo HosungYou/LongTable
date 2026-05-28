@@ -75,7 +75,8 @@ Structured multi-role review:
 - creates a provider-neutral `InvocationIntent`
 - uses `sequential_fallback` as the stable execution surface
 - may launch LongTable-native role workers for Codex with `--native-workers`
-  when the local runtime supports the worker backend
+  when the local runtime supports the worker backend; add `--wait <ms>` when
+  the caller wants LongTable to wait briefly for completed worker result files
 - may prefer `native_subagents` for Codex only when the current provider
   session exposes them; this remains a compatibility adapter, not the durable
   LongTable worker contract
@@ -92,12 +93,15 @@ Examples:
 ```bash
 longtable panel --prompt "review this methods section" --json
 longtable panel --prompt "review this measurement plan" --role editor,measurement_auditor --json
-longtable panel --provider codex --native-workers --prompt "review this methods section" --json
+longtable panel --provider codex --native-workers --wait 30000 --prompt "review this methods section" --json
 longtable panel --provider codex --native-subagents --prompt "legacy native subagent request" --json
 longtable panel --visibility always_visible --prompt "keep unresolved disagreement visible" --json
 ```
 
-When the provider or native worker run has returned real role outputs, record
+When a native worker run completes through `longtable panel --native-workers
+--wait`, `longtable panel status --wait`, or `longtable panel resume --wait`,
+LongTable records the normalized `PanelResult` into workspace evidence. When a
+provider or external worker returns a result file outside that lifecycle, record
 the structured result before asking LongTable for a handoff or Research
 Specification patch:
 

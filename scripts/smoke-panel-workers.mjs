@@ -161,6 +161,7 @@ assertEqual(panel.plan.fallbackSurface, "sequential_fallback", "native worker fa
 assertEqual(panel.execution.nativeParallel, "longtable_native_workers", "native worker execution marker");
 assert(panel.nativeRun?.id, "native worker run id is present");
 assertEqual(panel.nativeRun.status, "completed", "native worker run completes during bounded wait");
+assert(panel.recordedPanelResult?.evidenceRecordIds?.length > 0, "completed native worker run records workspace evidence");
 assert(panel.nativeRun.workers.length > 0, "native worker tasks are present");
 const runFile = join(projectPath, ".longtable", "panel-runs", panel.nativeRun.id, "run.json");
 assert(existsSync(runFile), "native worker run file exists");
@@ -182,6 +183,10 @@ const status = JSON.parse(runCli([
 assertEqual(status.id, panel.nativeRun.id, "panel status returns same run id");
 assertEqual(status.requestedSurface, "native_workers", "panel status preserves native surface");
 assertEqual(status.status, "completed", "panel status refreshes completed native worker run");
+const handoff = JSON.parse(runCli(["handoff", "--cwd", projectPath, "--json"]));
+const handoffText = readFileSync(handoff.path, "utf8");
+assertIncludes(handoffText, "Native worker note", "handoff includes native worker guidance");
+assertIncludes(handoffText, "fake-codex-worker", "handoff preserves native worker evidence refs");
 runCli(["decide", "--cwd", projectPath, "--question", panel.questionRecord.id, "--answer", "defer", "--json"]);
 
 const stoppablePanel = JSON.parse(runCli([

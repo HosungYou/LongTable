@@ -41,14 +41,18 @@ longtable panel \
 
 The stable panel surface is `sequential_fallback`. Codex can also request
 LongTable-native role workers with `--native-workers` when the local runtime
-supports them; provider-native subagents through `--native-subagents` remain a
-compatibility adapter. Both native paths must normalize final role outputs back
-to the same panel record.
+supports them; use `--wait <ms>` when a bounded call should wait for completed
+role result files. Provider-native subagents through `--native-subagents`
+remain a compatibility adapter. Both native paths must normalize final role
+outputs back to the same panel record.
 
-When a provider or native worker run returns real role outputs, record them
-before generating a continuation packet. Result files should include final
-summaries, claims, objections, open questions, and evidence refs only; do not
-paste hidden reasoning, raw tool traces, or tmux logs into LongTable state:
+Completed native worker runs are recorded into workspace evidence by
+`longtable panel --native-workers --wait`, `longtable panel status --wait`, or
+`longtable panel resume --wait`. When a provider or external worker returns real
+role outputs outside that lifecycle, record them before generating a
+continuation packet. Result files should include final summaries, claims,
+objections, open questions, and evidence refs only; do not paste hidden
+reasoning, raw tool traces, or tmux logs into LongTable state:
 
 ```bash
 longtable panel record \
