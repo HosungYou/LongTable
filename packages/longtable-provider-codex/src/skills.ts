@@ -88,7 +88,7 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): CodexSkillS
         "- `$longtable-start` runs the provider-native LongTable start interview. It replaces the old CLI start questionnaire as the primary research-start surface.",
         "- `$longtable-interview` is post-start. If `.longtable/state.json` or `CURRENT.md` lacks a usable Research Specification, route to `$longtable-start` before offering option-first follow-up choices.",
         "- Natural references to methods, measurement, theory, reviewer, editor, ethics, venue, or voice should foreground the matching LongTable role.",
-        "- The compact visible shortcut set is methods, measure, theory, reviewer, and voice. Other roles remain available through this router when the request calls for them.",
+        "- The compact visible shortcut set is panel, methods, measure, theory, reviewer, and voice. Other roles remain available through this router when the request calls for them.",
         "- When research responsibility is about to shift, surface a Researcher Checkpoint before closure.",
         "- When changing LongTable product language, README positioning, or checkpoint policy, surface a Meta-Decision Checkpoint first.",
         "- Stop before acting when the request would change the research question/scope, theory frame, measurement/coding standard, method design, or analysis strategy.",
@@ -303,9 +303,7 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): CodexSkillS
         "",
         "If MCP tools are unavailable, continue in Codex with explicit options and state that durable LongTable state could not be written."
       ]
-    }
-  ];
-  const fullOnly = [
+    },
     {
       name: "longtable-panel",
       description:
@@ -335,11 +333,19 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): CodexSkillS
         "",
         "- Do not collapse disagreement too early.",
         "- Use a Researcher Checkpoint before treating a high-stakes research decision as settled.",
+        "- `longtable panel --provider codex --native-workers` may launch durable LongTable-native role workers when the CLI/runtime supports it. `--native-subagents` remains a compatibility adapter for provider-native subagents.",
+        "- If Codex native subagents are available, they may be used as a provider-native execution adapter; if not, run the same roles sequentially and disclose the fallback.",
+        "- Sequential fallback is always the stable degradation path; native workers and native subagents must normalize final role outputs back into `PanelResult`.",
+        "- Do not use OMX `$team` or worker vocabulary as the LongTable product contract. LongTable panel records are the source of truth.",
         "- If the `mcp__longtable_state__.elicit_question` tool is available, prefer it for the panel checkpoint before synthesizing or revising.",
         "- Use `longtable question --print --provider codex --prompt \"...\"` only as the numbered fallback when MCP elicitation is unavailable or not accepted.",
-        "- Use `longtable panel --print --prompt \"...\"` only as an optional canonical prompt aid, not as the user's primary interface."
+        "- Use `longtable panel --print --prompt \"...\"` only as an optional canonical prompt aid, not as the user's primary interface.",
+        "- After a real panel or native worker result is produced, persist structured role outputs with `longtable panel record --invocation <id> --result-file <json>` before generating `longtable handoff`.",
+        "- A result file should contain final role summaries, claims, objections, open questions, and evidence refs only; do not persist hidden reasoning, raw tool traces, or tmux logs."
       ]
-    },
+    }
+  ];
+  const fullOnly = [
     {
       name: "longtable-explore",
       description:

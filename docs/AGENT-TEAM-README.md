@@ -2,7 +2,7 @@
 
 LongTable panel review is the primary collaborative surface. It makes role disagreement inspectable before the researcher commits to a claim, design, measurement plan, draft, or submission move.
 
-LongTable team execution is disabled. Do not use `longtable team` or `longtable team --debate` for new work; route team-style requests through the panel surface and explicit debate-language requests through panel debate.
+`longtable team` is not a public command surface. Route team-style requests through the panel surface and explicit debate-language requests through panel debate.
 
 ## Natural-Language First
 
@@ -39,7 +39,26 @@ longtable panel \
   --json
 ```
 
-The stable panel surface is `sequential_fallback`; native provider subagents are optional and must normalize back to the same panel record.
+The stable panel surface is `sequential_fallback`. Codex can also request
+LongTable-native role workers with `--native-workers` when the local runtime
+supports them; provider-native subagents through `--native-subagents` remain a
+compatibility adapter. Both native paths must normalize final role outputs back
+to the same panel record.
+
+When a provider or native worker run returns real role outputs, record them
+before generating a continuation packet. Result files should include final
+summaries, claims, objections, open questions, and evidence refs only; do not
+paste hidden reasoning, raw tool traces, or tmux logs into LongTable state:
+
+```bash
+longtable panel record \
+  --invocation <invocation_record_id> \
+  --result-file panel-result.json
+
+longtable handoff --cwd "<project-path>"
+```
+
+`longtable handoff` is the bridge from discussion to work. It creates a Markdown packet from the current Research Specification, panel records, unincorporated evidence, and pending checkpoints. Users without OMX can follow the provider-neutral section directly in Codex or Claude Code. Users with OMX can paste the same packet into `$ralplan` and then use `$ralph` as an external execution loop; LongTable remains the research-state source of truth.
 
 ## Reading The Output
 
@@ -51,4 +70,4 @@ Check these fields first:
 - `plan.members`: the consulted LongTable roles
 - `questionRecord`: the pending Researcher Checkpoint
 
-Direct team execution remains disabled; compatibility wording must not become the visible command surface again.
+Direct team execution remains removed from the public command surface; compatibility wording must not become visible workflow guidance again.

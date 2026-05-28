@@ -13,7 +13,10 @@ import type {
   DecisionRecord,
   EvidenceRecord,
   InvocationRecord,
+  InvocationStatus,
+  InvocationSurface,
   LongTableQuestionObligation,
+  PanelMemberResult,
   ProviderKind,
   QuestionOption,
   QuestionAnswer,
@@ -340,6 +343,33 @@ export interface LongTableWorkspaceInspection {
     issue: string;
     suggestion?: string;
   }>;
+}
+
+export interface PanelResultRecordInput {
+  invocationId?: string;
+  status?: InvocationStatus;
+  surface?: InvocationSurface;
+  synthesis?: string;
+  conflictSummary?: string;
+  decisionPrompt?: string;
+  memberResults?: Array<Partial<PanelMemberResult> & { role: string }>;
+}
+
+export interface PanelResultRecordOutput {
+  invocation: InvocationRecord;
+  evidenceRecords: EvidenceRecord[];
+  state: LongTableWorkspaceState;
+}
+
+export interface LongTableHandoffOutput {
+  id: string;
+  createdAt: string;
+  path: string;
+  content: string;
+  sourceEvidenceIds: string[];
+  pendingQuestionIds: string[];
+  proposedPatchIds: string[];
+  latestInvocationId?: string;
 }
 
 const CURRENT_FILE_NAME = "CURRENT.md";
@@ -1619,6 +1649,314 @@ export async function appendInvocationRecordToWorkspace(
   await writeFile(context.stateFilePath, JSON.stringify(withEvidence, null, 2), "utf8");
   await syncCurrentWorkspaceView(context);
   return withEvidence as LongTableWorkspaceState;
+}
+
+function latestPanelInvocation(state: ResearchState): InvocationRecord | undefined {
+  return (state.invocationLog ?? [])
+    .slice()
+    .reverse()
+    .find((record) => record.intent.kind === "panel" && record.panelResult);
+}
+
+function mergePanelMemberResults(
+  existing: PanelMemberResult[],
+  incoming: Array<Partial<PanelMemberResult> & { role: string }> = []
+): PanelMemberResult[] {
+  const incomingByRole = new Map(incoming.map((member) => [member.role, member]));
+  const merged = existing.map((member) => {
+    const update = incomingByRole.get(member.role);
+    if (!update) {
+      return member;
+    }
+    return {
+      ...member,
+      ...update,
+      label: update.label ?? member.label,
+      status: update.status ?? "completed"
+    };
+  });
+  const existingRoles = new Set(existing.map((member) => member.role));
+  for (const update of incoming) {
+    if (existingRoles.has(update.role)) {
+      continue;
+    }
+    merged.push({
+      role: update.role,
+      label: update.label ?? update.role,
+      status: update.status ?? "completed",
+      ...(update.summary ? { summary: update.summary } : {}),
+      ...(update.claims ? { claims: update.claims } : {}),
+      ...(update.objections ? { objections: update.objections } : {}),
+      ...(update.openQuestions ? { openQuestions: update.openQuestions } : {}),
+      ...(update.evidenceRefs ? { evidenceRefs: update.evidenceRefs } : {}),
+      ...(update.error ? { error: update.error } : {})
+    });
+  }
+  return merged;
+}
+
+function removeEvidenceForInvocation(state: ResearchState, invocationId: string): EvidenceRecord[] {
+  return (state.evidenceRecords ?? []).filter((record) => {
+    const linked = record.linkedInvocationRecordIds ?? [];
+    if (!linked.includes(invocationId)) {
+      return true;
+    }
+    return !(record.sourceKind === "panel" || record.sourceId?.startsWith(`${invocationId}:`));
+  });
+}
+
+export async function recordPanelResultInWorkspace(options: {
+  context: LongTableProjectContext;
+  result: PanelResultRecordInput;
+}): Promise<PanelResultRecordOutput> {
+  const state = await loadResearchState(options.context.stateFilePath);
+  const targetInvocation = options.result.invocationId
+    ? (state.invocationLog ?? []).find((record) => record.id === options.result.invocationId)
+    : latestPanelInvocation(state);
+  if (!targetInvocation) {
+    throw new Error(options.result.invocationId
+      ? `No panel invocation found for ${options.result.invocationId}.`
+      : "No panel invocation found to record.");
+  }
+  if (!targetInvocation.panelResult) {
+    throw new Error(`Invocation ${targetInvocation.id} does not have a panel result.`);
+  }
+
+  const timestamp = nowIso();
+  const status = options.result.status ?? "completed";
+  const surface = options.result.surface ?? targetInvocation.panelResult.surface;
+  const updatedInvocation: InvocationRecord = {
+    ...targetInvocation,
+    updatedAt: timestamp,
+    status,
+    surface,
+    panelResult: {
+      ...targetInvocation.panelResult,
+      updatedAt: timestamp,
+      status,
+      surface,
+      memberResults: mergePanelMemberResults(
+        targetInvocation.panelResult.memberResults,
+        options.result.memberResults
+      ),
+      ...(normalizeOptionalString(options.result.synthesis) ? { synthesis: normalizeOptionalString(options.result.synthesis) } : {}),
+      ...(normalizeOptionalString(options.result.conflictSummary) ? { conflictSummary: normalizeOptionalString(options.result.conflictSummary) } : {}),
+      ...(normalizeOptionalString(options.result.decisionPrompt) ? { decisionPrompt: normalizeOptionalString(options.result.decisionPrompt) } : {})
+    },
+    degradationReason: surface === "native_subagents"
+      ? "Provider-native subagent execution was recorded as session-dependent; sequential_fallback remains the required fallback."
+      : targetInvocation.degradationReason
+  };
+  const evidenceRecords = evidenceRecordsForInvocation(updatedInvocation, timestamp);
+  const updatedState: LongTableWorkspaceState = {
+    ...state,
+    invocationLog: (state.invocationLog ?? []).map((record) =>
+      record.id === updatedInvocation.id ? updatedInvocation : record
+    ),
+    evidenceRecords: [...removeEvidenceForInvocation(state, updatedInvocation.id), ...evidenceRecords]
+  };
+
+  await writeFile(options.context.stateFilePath, JSON.stringify(updatedState, null, 2), "utf8");
+  await syncCurrentWorkspaceView(options.context);
+  return {
+    invocation: updatedInvocation,
+    evidenceRecords,
+    state: updatedState
+  };
+}
+
+function renderBulletList(values: string[], empty: string): string[] {
+  return values.length > 0 ? values.map((value) => `- ${value}`) : [`- ${empty}`];
+}
+
+function formatInvocationLine(record: InvocationRecord): string {
+  const roles = record.intent.roles.length > 0 ? record.intent.roles.join(", ") : "auto";
+  return `${record.intent.kind}/${record.intent.mode} via ${record.surface} (${record.status}); roles: ${roles}`;
+}
+
+function renderLatestPanelForHandoff(invocation: InvocationRecord | undefined): string[] {
+  if (!invocation?.panelResult) {
+    return [
+      "## Latest Panel Or Discussion",
+      "- No panel invocation is recorded yet.",
+      "- Start with `lt panel: <what needs review>` or `longtable panel --prompt \"...\" --json`."
+    ];
+  }
+  const result = invocation.panelResult;
+  const workerResultGuidance = result.surface === "native_workers"
+    ? [
+        "- Native worker note: role-worker outputs have been normalized into this `PanelResult`; use `longtable panel status --run <run_id>` for live worker status when a native worker run id is available.",
+        "- Native worker handoff rule: preserve final summaries, claims, objections, open questions, and evidence references; do not paste hidden reasoning, raw tool traces, or tmux logs into the research handoff."
+      ]
+    : [];
+  return [
+    "## Latest Panel Or Discussion",
+    `- Invocation: ${invocation.id}`,
+    `- Record: ${formatInvocationLine(invocation)}`,
+    `- Result status: ${result.status}`,
+    `- Execution surface: ${result.surface}`,
+    ...workerResultGuidance,
+    ...(invocation.degradationReason ? [`- Fallback note: ${invocation.degradationReason}`] : []),
+    ...(result.synthesis ? [`- Synthesis: ${result.synthesis}`] : []),
+    ...(result.conflictSummary ? [`- Conflict summary: ${result.conflictSummary}`] : []),
+    ...(result.decisionPrompt ? [`- Decision prompt: ${result.decisionPrompt}`] : []),
+    "",
+    "### Role Outputs",
+    ...result.memberResults.map((member) => {
+      const details = [
+        member.summary,
+        ...(member.claims ?? []).map((claim) => `claim: ${claim}`),
+        ...(member.objections ?? []).map((objection) => `objection: ${objection}`),
+        ...(member.openQuestions ?? []).map((question) => `open question: ${question}`),
+        ...(member.evidenceRefs ?? []).map((ref) => `evidence: ${ref}`),
+        ...(member.error ? [`error: ${member.error}`] : [])
+      ].filter(Boolean);
+      return `- ${member.label} (${member.role}): ${details.length > 0 ? compactLine(details.join("; "), 220) : member.status}`;
+    }),
+    ...(result.memberResults.some((member) => (member.evidenceRefs ?? []).length > 0)
+      ? [
+          "",
+          "### Role Evidence References",
+          ...result.memberResults.flatMap((member) =>
+            (member.evidenceRefs ?? []).map((ref) => `- ${member.label} (${member.role}): ${ref}`)
+          )
+        ]
+      : []),
+    ...(result.status === "planned"
+      ? [
+          "",
+          "### Missing Persistence Step",
+          "- This panel is only planned. After the provider returns role outputs, record them with:",
+          `  \`longtable panel record --invocation ${invocation.id} --result-file panel-result.json\``
+        ]
+      : [])
+  ];
+}
+
+function renderWorkflowGuidance(context: LongTableProjectContext, latestInvocation: InvocationRecord | undefined): string[] {
+  const cwdFlag = `--cwd "${context.project.projectPath.replaceAll("\"", "\\\"")}"`;
+  const recordCommand = latestInvocation?.panelResult
+    ? `longtable panel record ${cwdFlag} --invocation ${latestInvocation.id} --result-file panel-result.json`
+    : `longtable panel ${cwdFlag} --prompt "<panel question>" --json`;
+  return [
+    "## Continuation Workflow",
+    "",
+    "### Provider-Neutral Path",
+    "Use this when OMX is not installed or when the researcher wants a plain CLI/native-agent workflow.",
+    "",
+    "1. Open the project in Codex or Claude Code.",
+    "2. Use `$longtable-start` if no usable Research Specification exists; otherwise use `$longtable-interview` or `lt panel: ...` for the next bounded decision.",
+    "3. When a panel or native worker run produces real role outputs, persist the structured result:",
+    `   \`${recordCommand}\``,
+    "   Native worker outputs should be final role summaries only: summary, claims, objections, open questions, and evidence refs.",
+    "4. Inspect unincorporated evidence:",
+    `   \`longtable spec unincorporated ${cwdFlag}\``,
+    "5. Propose a Research Specification patch before applying a changed research direction:",
+    `   \`longtable spec propose ${cwdFlag} --spec-file updated-spec.json --rationale \"Panel/discussion handoff\"\``,
+    "6. Apply only after the researcher confirms the decision:",
+    `   \`longtable spec apply ${cwdFlag} --patch-id <spec_patch_id>\``,
+    "",
+    "### Optional OMX Path",
+    "Use this only when OMX is installed. The handoff packet can be pasted into `$ralplan` for a plan/test-spec pass, then `$ralph` can execute the approved work until verification. LongTable should remain the research-state source of truth; OMX is only the execution loop.",
+    "",
+    "Suggested OMX prompt:",
+    "```text",
+    "$ralplan: Use the LongTable handoff below as the research-state contract. Produce a PRD/test-spec style execution plan, preserve unresolved panel disagreements, and do not change the Research Specification without a LongTable checkpoint.",
+    "```",
+    "",
+    "Then, after the plan is accepted:",
+    "```text",
+    "$ralph: Execute the approved LongTable handoff plan. Verify artifacts, then record any panel evidence or spec patch through LongTable commands.",
+    "```"
+  ];
+}
+
+export async function createWorkspaceHandoff(options: {
+  context: LongTableProjectContext;
+  outputPath?: string;
+}): Promise<LongTableHandoffOutput> {
+  const state = await loadResearchState(options.context.stateFilePath);
+  const createdAt = nowIso();
+  const id = createId("handoff");
+  const locale = normalizeLocale(options.context.session.locale ?? options.context.project.locale);
+  const openQuestions = options.context.session.openQuestions && options.context.session.openQuestions.length > 0
+    ? options.context.session.openQuestions
+    : buildOpenQuestions(options.context.session);
+  const nextAction = options.context.session.nextAction ?? buildNextAction(options.context.session);
+  const latestInvocation = latestPanelInvocation(state);
+  const pendingQuestions = (state.questionLog ?? []).filter((record) => record.status === "pending");
+  const unincorporatedEvidence = (state.evidenceRecords ?? []).filter((record) => !record.incorporatedByRevisionId);
+  const proposedPatches = (state.specPatches ?? []).filter((patch) => patch.status === "proposed");
+  const outputPath = options.outputPath
+    ? resolve(options.outputPath)
+    : join(
+        options.context.metaDir,
+        "handoffs",
+        `${id}-${slugify(options.context.session.researchSpecification?.title ?? options.context.project.projectName) || "longtable"}.md`
+      );
+
+  const content = [
+    "# LongTable Handoff",
+    "",
+    `Generated: ${createdAt}`,
+    `Project: ${options.context.project.projectName}`,
+    `Project path: ${options.context.project.projectPath}`,
+    "",
+    "## Current Objective",
+    `- Goal: ${options.context.session.currentGoal}`,
+    ...(options.context.session.currentBlocker ? [`- Blocker: ${options.context.session.currentBlocker}`] : []),
+    ...(options.context.session.protectedDecision ? [`- Protected decision: ${options.context.session.protectedDecision}`] : []),
+    `- Next action: ${nextAction}`,
+    "",
+    "## Research Specification Status",
+    ...(options.context.session.researchSpecification
+      ? renderResearchSpecificationSummary(options.context.session.researchSpecification, locale)
+      : [
+          "- No Research Specification is available yet.",
+          "- Start or resume `$longtable-start` before treating the project direction as settled."
+        ]),
+    "",
+    ...renderLatestPanelForHandoff(latestInvocation),
+    "",
+    "## Pending Researcher Decisions",
+    ...renderBulletList(
+      pendingQuestions.map((record) => `${record.id}: ${record.prompt.question} (${formatQuestionOptionValues(record).join("/")})`),
+      "No pending researcher decision questions."
+    ),
+    "",
+    "## Unincorporated Evidence",
+    ...renderBulletList(
+      unincorporatedEvidence.slice(-10).reverse().map((record) => `${record.id} [${record.sourceKind}]: ${compactLine(record.summary, 180)}`),
+      "No unincorporated evidence records."
+    ),
+    "",
+    "## Proposed Specification Patches",
+    ...renderBulletList(
+      proposedPatches.map((patch) => `${patch.id}: ${patch.title} (${patch.changes.length} changes)`),
+      "No proposed Research Specification patches."
+    ),
+    "",
+    "## Open Questions",
+    ...renderBulletList(openQuestions, "No open questions recorded."),
+    "",
+    ...renderWorkflowGuidance(options.context, latestInvocation),
+    "",
+    "## Stop Condition",
+    "- Stop when the next research decision is either confirmed by the researcher, preserved as an explicit open tension, or represented as a proposed Research Specification patch waiting for confirmation."
+  ].join("\n");
+
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, `${content}\n`, "utf8");
+  return {
+    id,
+    createdAt,
+    path: outputPath,
+    content,
+    sourceEvidenceIds: unincorporatedEvidence.map((record) => record.id),
+    pendingQuestionIds: pendingQuestions.map((record) => record.id),
+    proposedPatchIds: proposedPatches.map((patch) => patch.id),
+    ...(latestInvocation ? { latestInvocationId: latestInvocation.id } : {})
+  };
 }
 
 function createId(prefix: string): string {

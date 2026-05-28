@@ -85,7 +85,7 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "## Rules",
         "",
         "- Treat `.longtable/` state as the project source of truth when present.",
-        "- The compact visible shortcut set is methods, measure, theory, reviewer, and voice. Other roles remain available through this router when the request calls for them.",
+        "- The compact visible shortcut set is panel, methods, measure, theory, reviewer, and voice. Other roles remain available through this router when the request calls for them.",
         "- Prefer natural language over asking the researcher to run shell role commands.",
         "- For systematic review, meta-analysis, PDF collection, full-text extraction, institutionally licensed sources, or TDM work, ensure `longtable access setup` readiness exists or surface an ACCESS CHECKPOINT before continuing.",
         "- Access setup records capability status only. The researcher handles VPN/proxy/library/SSO login directly; LongTable must not store passwords, API keys, tokens, PDFs, or full text in setup state.",
@@ -283,11 +283,17 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "- Use multiple research perspectives when the request touches methods, theory, measurement, venue fit, ethics, or authorship.",
         "- Do not collapse disagreement too early.",
         "- Use a Researcher Checkpoint before treating panel synthesis as settled.",
+        "- LongTable-native workers are a CLI/runtime option under `longtable panel --provider codex --native-workers`; in Claude Code, treat them as recorded panel evidence rather than as a Claude product contract.",
+        "- If Claude Code exposes a native multi-agent/subagent surface in the current session, it may be used as an adapter; if not, run the same panel roles sequentially and disclose the fallback.",
+        "- Sequential fallback is always the stable degradation path; any native worker or native subagent output must normalize final role outputs back into `PanelResult`.",
+        "- Do not use OMX `$team` or worker vocabulary as the LongTable product contract. LongTable panel records are the source of truth.",
         "- Prefer MCP/native structured elicitation for the panel checkpoint when available.",
         "- Use `longtable question --print --provider claude --prompt \"...\"` only as the numbered fallback when native elicitation is unavailable or not accepted.",
         "- Do not expose hidden reasoning or tool logs.",
         "- If `.longtable/` exists, align the panel with `CURRENT.md` and project state.",
-        "- If `longtable panel --print --prompt \"...\"` is available, it may be used to obtain the canonical fallback prompt."
+        "- If `longtable panel --print --prompt \"...\"` is available, it may be used to obtain the canonical fallback prompt.",
+        "- After a real panel or native worker result is produced, persist structured role outputs with `longtable panel record --invocation <id> --result-file <json>` before generating `longtable handoff`.",
+        "- A result file should contain final role summaries, claims, objections, open questions, and evidence refs only; do not persist hidden reasoning, raw tool traces, or tmux logs."
       ]
     },
     {
@@ -327,7 +333,12 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
   ];
   return surface === "full"
     ? specs
-    : specs.filter((spec) => spec.name === "longtable" || spec.name === "longtable-start" || spec.name === "longtable-interview");
+    : specs.filter((spec) =>
+        spec.name === "longtable" ||
+        spec.name === "longtable-start" ||
+        spec.name === "longtable-interview" ||
+        spec.name === "longtable-panel"
+      );
 }
 
 function mustAskQuestionsForRole(role: RoleDefinition): string[] {

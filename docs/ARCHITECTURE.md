@@ -114,6 +114,13 @@ The researcher should be able to inspect the panel result technically through st
 
 This is not a promise to expose raw hidden reasoning. LongTable inspectability means auditable structured outputs and decision records.
 
+Continuation after a panel should use a handoff packet, not a second agent-runtime
+contract. `longtable handoff` compiles the Research Specification, current
+workspace state, panel evidence, pending checkpoints, and proposed spec patches
+into a Markdown work packet. Provider-native agents can execute from that packet;
+OMX users may pass it to `$ralplan`/`$ralph`, but those loops remain external to
+LongTable core.
+
 ## Question Layer
 
 The question layer is not a chat habit. It is a state transition.

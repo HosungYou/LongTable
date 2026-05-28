@@ -155,8 +155,11 @@ if (!installOutput.includes("longtable-interview")) {
 if (!installOutput.includes("longtable-methods") || !installOutput.includes("longtable-measure")) {
   throw new Error("Compact Codex skill install should include short role shortcuts.");
 }
-if (installOutput.includes("longtable-methods-critic") || installOutput.includes("longtable-panel")) {
-  throw new Error("Compact Codex skill install should not expose full role or panel shortcuts by default.");
+if (!installOutput.includes("longtable-panel")) {
+  throw new Error("Compact Codex skill install should include the primary panel shortcut.");
+}
+if (installOutput.includes("longtable-methods-critic")) {
+  throw new Error("Compact Codex skill install should not expose full role shortcuts by default.");
 }
 const startSkill = readFileSync(join(skillsDir, "longtable-start", "SKILL.md"), "utf8");
 const interviewSkill = readFileSync(join(skillsDir, "longtable-interview", "SKILL.md"), "utf8");

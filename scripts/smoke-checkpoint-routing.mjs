@@ -383,12 +383,12 @@ const disabledTeamError = assertThrowsSync(
     encoding: "utf8",
     stdio: "pipe"
   }),
-  "`longtable team` is disabled",
-  "direct longtable team is disabled"
+  "Unknown command: team",
+  "direct longtable team command is removed"
 );
 assertEqual(disabledTeamError.status, 1, "direct longtable team exit code");
 assertEqual(disabledTeamError.stdout, "", "direct longtable team stdout");
-assertEqual(existsSync(join(disabledTeamTmp, ".longtable", "team")), false, "disabled longtable team creates no team artifacts");
+assertEqual(existsSync(join(disabledTeamTmp, ".longtable", "team")), false, "removed longtable team creates no team artifacts");
 
 const disabledTeamDebateTmp = mkdtempSync(join(tmpdir(), "longtable-disabled-team-debate-"));
 const disabledTeamDebateError = assertThrowsSync(
@@ -405,12 +405,12 @@ const disabledTeamDebateError = assertThrowsSync(
     encoding: "utf8",
     stdio: "pipe"
   }),
-  "`longtable team` is disabled",
-  "direct longtable team debate is disabled"
+  "Unknown command: team",
+  "direct longtable team debate command is removed"
 );
 assertEqual(disabledTeamDebateError.status, 1, "direct longtable team debate exit code");
 assertEqual(disabledTeamDebateError.stdout, "", "direct longtable team debate stdout");
-assertEqual(existsSync(join(disabledTeamDebateTmp, ".longtable", "team")), false, "disabled longtable team debate creates no team artifacts");
+assertEqual(existsSync(join(disabledTeamDebateTmp, ".longtable", "team")), false, "removed longtable team debate creates no team artifacts");
 
 const naturalTeamTmp = mkdtempSync(join(tmpdir(), "longtable-natural-team-"));
 const naturalTeam = JSON.parse(execFileSync("node", [

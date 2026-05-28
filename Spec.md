@@ -26,6 +26,12 @@ Active supporting docs are:
 - `docs/IN-CODEX-SETUP.md`
 - `docs/MIGRATION-MAP.md`
 
+Active OMX planning artifacts:
+
+- `.omx/plans/prd-longtable-native-panel-workers.md`
+- `.omx/plans/test-spec-longtable-native-panel-workers.md`
+- `.omx/plans/ralplan-consensus-handoff-longtable-native-panel-workers.json`
+
 Historical exploration and release notes may be moved under `docs/archive/`.
 
 ## Top-Level Decisions
