@@ -377,7 +377,7 @@ function statusFromWorkers(workers: PanelWorkerRecord[]): PanelWorkerRunStatus {
     return "running";
   }
   if (workers.some((worker) => worker.status === "failed")) {
-    return "resumable";
+    return "failed";
   }
   if (workers.some((worker) => worker.status === "blocked")) {
     return "blocked";
@@ -524,67 +524,80 @@ export async function launchPanelWorkerRun(run: PanelWorkerRun): Promise<PanelWo
     return run;
   }
 
-  const tmuxAvailable = commandAvailable("tmux");
-  const codexAvailable = commandAvailable("codex");
-  if (!tmuxAvailable || !codexAvailable) {
-    const unavailable = [
-      tmuxAvailable ? null : "tmux:unavailable",
-      codexAvailable ? null : "codex:unavailable"
-    ].filter((entry): entry is string => Boolean(entry));
-    const nextRun: PanelWorkerRun = {
-      ...run,
-      status: "degraded",
-      updatedAt: nowIso(),
-      diagnostics: [...run.diagnostics, ...unavailable, "Native worker launch degraded; use sequential_fallback or resume when local runtime is available."],
-      workers: run.workers.map((worker) => worker.status === "completed"
-        ? worker
-        : {
-            ...worker,
-            status: "pending",
-            updatedAt: nowIso(),
-            diagnostics: appendDiagnostic(worker.diagnostics, "Launch skipped because tmux or codex is unavailable.")
-          })
-    };
-    await writePanelWorkerRun(nextRun);
-    return nextRun;
+  const preflightFailures = preflightNativeWorkerBridge(run);
+  if (preflightFailures.length > 0) {
+    return markBridgePreflightFailed(run, preflightFailures);
   }
 
   const launchedAt = nowIso();
-  const workers = await Promise.all(run.workers.map(async (worker) => {
+  const workers: PanelWorkerRecord[] = [];
+  for (const worker of run.workers) {
     if (worker.status !== "pending" && worker.status !== "stopped" && worker.status !== "failed") {
-      return worker;
+      workers.push(worker);
+      continue;
     }
-    const launchable = {
-      ...worker,
-      launcherPath: worker.launcherPath ?? join(run.launcherDirectory, `${worker.id}.sh`),
-      exitCodePath: worker.exitCodePath ?? join(run.resultDirectory, `${worker.id}.exit.json`)
-    } satisfies PanelWorkerRecord;
-    await writeWorkerLauncher(run, launchable);
     try {
+      const provisioned = await provisionWorkerWorktree(run, {
+        ...worker,
+        launcherPath: worker.launcherPath ?? join(run.launcherDirectory, `${worker.id}.sh`),
+        exitCodePath: worker.exitCodePath ?? join(run.resultDirectory, `${worker.id}.exit.json`),
+        executionState: "provisioning"
+      });
+      const launchable = {
+        ...provisioned,
+        executionState: "launching"
+      } satisfies PanelWorkerRecord;
+      await writeWorkerLauncher(run, launchable);
       const paneId = launchWorkerPane(run, launchable);
-      return {
+      const launchedWorker = {
         ...launchable,
         status: "running",
         paneId: paneId || launchable.paneId,
+        tmux: {
+          paneId: paneId || launchable.paneId,
+          paneTarget: process.env.TMUX_PANE,
+          splitCommand: "split-window",
+          retainPane: true,
+          launchedAt
+        },
+        executionState: "running",
         startedAt: launchedAt,
         updatedAt: launchedAt,
-        diagnostics: appendDiagnostic(launchable.diagnostics, "Launched with tmux/codex read-only native worker command; launcher persists the structured final output file.")
+        diagnostics: appendDiagnostic(launchable.diagnostics, "Launched in a retained current-window tmux split pane with Codex workspace-write scoped to the worker worktree.")
       } satisfies PanelWorkerRecord;
+      await appendLifecycleEvent(run, {
+        workerId: worker.id,
+        type: "worker_launched",
+        message: `Worker launched in tmux split pane ${paneId}.`,
+        path: launchable.worktreePath
+      });
+      workers.push(launchedWorker);
     } catch (error) {
-      return {
-        ...launchable,
+      const failedWorker = {
+        ...worker,
         status: "failed",
+        executionState: worker.worktreePath && existsSync(worker.worktreePath) ? "launch_failed" : "provision_failed",
+        failureReason: error instanceof Error ? error.message : String(error),
         updatedAt: nowIso(),
         error: error instanceof Error ? error.message : String(error),
-        diagnostics: appendDiagnostic(launchable.diagnostics, "tmux launch failed before worker result was created.")
+        diagnostics: appendDiagnostic(worker.diagnostics, "Native worker bridge provisioning or tmux launch failed before worker result was created.")
       } satisfies PanelWorkerRecord;
+      await appendLifecycleEvent(run, {
+        workerId: worker.id,
+        type: "worker_failed",
+        message: failedWorker.error ?? "worker launch failed",
+        path: worker.worktreePath
+      });
+      workers.push(failedWorker);
     }
-  }));
+  }
 
   const nextRun: PanelWorkerRun = {
     ...run,
     workers,
     status: statusFromWorkers(workers),
+    bridgeStatus: statusFromWorkers(workers) === "running" ? "running" : statusFromWorkers(workers),
+    bridgeFailureReason: workers.find((worker) => worker.status === "failed")?.error,
     updatedAt: nowIso()
   };
   await writePanelWorkerRun(nextRun);
