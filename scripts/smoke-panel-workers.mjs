@@ -21,7 +21,7 @@ const { execSync } = require("child_process");
 const log = process.env.LONGTABLE_FAKE_TMUX_LOG;
 const args = process.argv.slice(2);
 if (log) appendFileSync(log, JSON.stringify(args) + "\\n");
-if (args[0] === "new-window" || args[0] === "new-session") {
+if (args[0] === "split-window" || args[0] === "new-window" || args[0] === "new-session") {
   const command = args[args.length - 1];
   if (process.env.LONGTABLE_FAKE_TMUX_NO_RUN !== "1") {
     execSync(command, { stdio: "ignore", env: process.env });
@@ -72,6 +72,8 @@ chmodSync(join(fakeBin, "codex"), 0o755);
 const fakeEnv = {
   ...process.env,
   PATH: `${fakeBin}:${process.env.PATH}`,
+  TMUX: process.env.TMUX ?? "/tmp/fake-longtable-tmux,1,0",
+  TMUX_PANE: process.env.TMUX_PANE ?? "%fake-leader",
   LONGTABLE_FAKE_TMUX_LOG: fakeTmuxLog,
   LONGTABLE_FAKE_CODEX_LOG: fakeCodexLog
 };
@@ -155,6 +157,12 @@ runCli([
   "--json"
 ]);
 
+execFileSync("git", ["init"], { cwd: projectPath, stdio: "ignore" });
+execFileSync("git", ["config", "user.name", "LongTable Smoke"], { cwd: projectPath, stdio: "ignore" });
+execFileSync("git", ["config", "user.email", "longtable-smoke@example.invalid"], { cwd: projectPath, stdio: "ignore" });
+execFileSync("git", ["add", "-A"], { cwd: projectPath, stdio: "ignore" });
+execFileSync("git", ["commit", "-m", "initial longtable smoke project"], { cwd: projectPath, stdio: "ignore" });
+
 const claudeNativeWorkersPanel = JSON.parse(runCli([
   "panel",
   "--cwd", projectPath,
@@ -183,8 +191,18 @@ assertEqual(panel.plan.fallbackSurface, "sequential_fallback", "native worker fa
 assertEqual(panel.execution.nativeParallel, "longtable_native_workers", "native worker execution marker");
 assert(panel.nativeRun?.id, "native worker run id is present");
 assertEqual(panel.nativeRun.status, "completed", "native worker run completes during bounded wait");
+assertEqual(panel.nativeRun.bridgeStatus, "completed", "native worker bridge status completes during bounded wait");
 assert(panel.recordedPanelResult?.evidenceRecordIds?.length > 0, "completed native worker run records workspace evidence");
 assert(panel.nativeRun.workers.length > 0, "native worker tasks are present");
+const firstWorker = panel.nativeRun.workers[0];
+assert(firstWorker.worktreePath && existsSync(firstWorker.worktreePath), "native worker has a writable worktree");
+assert(firstWorker.mailboxPath && existsSync(firstWorker.mailboxPath), "native worker has a mailbox file");
+assert(firstWorker.taskStatePath && existsSync(firstWorker.taskStatePath), "native worker has a task lifecycle file");
+assertEqual(firstWorker.cleanupStatus, "retained", "completed native worker panes/worktrees are retained until shutdown");
+assertEqual(firstWorker.executionState, "result_ready", "completed native worker records result-ready execution state");
+assertEqual(firstWorker.tmux?.splitCommand, "split-window", "native worker records split-window launch");
+assertEqual(firstWorker.tmux?.retainPane, true, "native worker records retained pane lifecycle");
+assertIncludes(readFileSync(join(firstWorker.worktreePath, ".longtable-worker", `${firstWorker.id}.json`), "utf8"), panel.nativeRun.id, "native worker worktree receives lifecycle marker");
 const runFile = join(projectPath, ".longtable", "panel-runs", panel.nativeRun.id, "run.json");
 assert(existsSync(runFile), "native worker run file exists");
 assert(existsSync(panel.nativeRun.aggregateResultPath), "native worker aggregate panel result exists");
@@ -199,11 +217,13 @@ for (const key of Object.keys(outputSchema.properties)) {
 const firstTask = panel.nativeRun.workers[0].taskPath;
 assertIncludes(readFileSync(firstTask, "utf8"), "Do not expose or persist hidden reasoning", "task forbids hidden reasoning persistence");
 assertIncludes(readFileSync(firstTask, "utf8"), '"error":""', "task includes strict-schema error field");
-assertIncludes(readFileSync(fakeTmuxLog, "utf8"), "new-window", "tmux launch was requested");
+const tmuxLog = readFileSync(fakeTmuxLog, "utf8");
+assertIncludes(tmuxLog, "split-window", "tmux split-window launch was requested");
+assertNotIncludes(tmuxLog, "new-window", "tmux new-window launch is not used");
 const codexLog = readFileSync(fakeCodexLog, "utf8");
 assertIncludes(codexLog, "exec", "codex exec was requested");
-assertIncludes(codexLog, "read-only", "codex exec uses read-only sandbox");
-assert(!codexLog.includes("workspace-write"), "codex exec does not grant workspace-write to review workers");
+assertIncludes(codexLog, "workspace-write", "codex exec grants workspace-write to worker worktrees");
+assertNotIncludes(codexLog, "read-only", "codex exec no longer uses read-only sandbox");
 assert(!codexLog.includes('"-o"'), "codex exec does not write result files from inside the worker sandbox");
 assertIncludes(codexLog, "--output-schema", "codex exec receives output schema");
 
