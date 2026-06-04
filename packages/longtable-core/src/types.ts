@@ -196,6 +196,64 @@ export interface PanelResult {
   linkedDecisionRecordIds: string[];
 }
 
+export type PanelWorkerExecutionState =
+  | "not_started"
+  | "preflight_failed"
+  | "provisioning"
+  | "provisioned"
+  | "launching"
+  | "running"
+  | "result_ready"
+  | "stopping"
+  | "stopped"
+  | "shutdown"
+  | "cleanup_failed";
+
+export type PanelWorkerBridgeStatus =
+  | "not_requested"
+  | "preflight_failed"
+  | "provisioning"
+  | "launching"
+  | "running"
+  | "completed"
+  | "blocked"
+  | "failed"
+  | "degraded"
+  | "stop_requested"
+  | "stopped"
+  | "shutdown";
+
+export type PanelWorkerCleanupStatus = "not_started" | "retained" | "removed" | "failed";
+
+export interface PanelWorkerTmuxMetadata {
+  paneId?: string;
+  paneTarget?: string;
+  splitCommand?: "split-window";
+  retainPane: boolean;
+  launchedAt?: string;
+  stoppedAt?: string;
+  shutdownAt?: string;
+}
+
+export interface PanelWorkerLifecycleEvent {
+  id: string;
+  workerId?: string;
+  type:
+    | "run_created"
+    | "preflight_failed"
+    | "worktree_provisioned"
+    | "worker_launched"
+    | "worker_result"
+    | "worker_failed"
+    | "stop_requested"
+    | "resume_requested"
+    | "shutdown_requested"
+    | "cleanup_failed";
+  createdAt: string;
+  message: string;
+  path?: string;
+}
+
 export type PanelWorkerStatus =
   | "pending"
   | "running"
@@ -228,6 +286,16 @@ export interface PanelWorkerRecord {
   launcherPath?: string;
   exitCodePath?: string;
   paneId?: string;
+  tmux?: PanelWorkerTmuxMetadata;
+  worktreePath?: string;
+  worktreeBranch?: string;
+  worktreeCommit?: string;
+  mailboxPath?: string;
+  taskStatePath?: string;
+  cleanupStatus?: PanelWorkerCleanupStatus;
+  executionState?: PanelWorkerExecutionState;
+  failureReason?: string;
+  shutdownRequestedAt?: string;
   startedAt?: string;
   updatedAt: string;
   completedAt?: string;
@@ -248,6 +316,9 @@ export interface PanelWorkerRun {
   visibility: PanelVisibility;
   requestedSurface: "native_workers";
   fallbackSurface: "sequential_fallback";
+  bridgeStatus?: PanelWorkerBridgeStatus;
+  bridgeFailureReason?: string;
+  sequentialFallbackAvailable?: boolean;
   status: PanelWorkerRunStatus;
   workingDirectory: string;
   runDirectory: string;
@@ -255,6 +326,9 @@ export interface PanelWorkerRun {
   resultDirectory: string;
   logDirectory: string;
   launcherDirectory: string;
+  worktreeDirectory?: string;
+  mailboxDirectory?: string;
+  eventLogPath?: string;
   outputSchemaPath: string;
   stopFilePath: string;
   aggregateResultPath: string;
