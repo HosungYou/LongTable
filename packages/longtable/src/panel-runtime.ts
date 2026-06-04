@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { appendFile, chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type {
   PanelMemberResult,
@@ -41,6 +41,37 @@ function panelRunsDirectory(workingDirectory: string): string {
   return join(workingDirectory, ".longtable", "panel-runs");
 }
 
+function safeName(value: string): string {
+  return value.replace(/[^A-Za-z0-9._/-]/g, "-").replace(/\/+/g, "/").slice(0, 180);
+}
+
+function workerSafeName(value: string): string {
+  return value.replace(/[^A-Za-z0-9._-]/g, "-").slice(0, 80);
+}
+
+function gitOutput(workingDirectory: string, args: string[]): string {
+  return execFileSync("git", args, { cwd: workingDirectory, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+}
+
+function currentGitCommit(workingDirectory: string): string | undefined {
+  try {
+    return gitOutput(workingDirectory, ["rev-parse", "HEAD"]);
+  } catch {
+    return undefined;
+  }
+}
+
+async function appendLifecycleEvent(
+  run: PanelWorkerRun,
+  event: { workerId?: string; type: NonNullable<PanelWorkerRun["workers"][number]["executionState"]> | "run_created" | "preflight_failed" | "worktree_provisioned" | "worker_launched" | "worker_result" | "worker_failed" | "stop_requested" | "resume_requested" | "shutdown_requested" | "cleanup_failed"; message: string; path?: string }
+): Promise<void> {
+  if (!run.eventLogPath) {
+    return;
+  }
+  await mkdir(dirname(run.eventLogPath), { recursive: true });
+  await appendFile(run.eventLogPath, `${JSON.stringify({ id: createId("event"), createdAt: nowIso(), ...event })}\n`, "utf8");
+}
+
 export function panelWorkerRunDirectory(workingDirectory: string, runId: string): string {
   return join(panelRunsDirectory(workingDirectory), runId);
 }
@@ -65,7 +96,7 @@ function workerTaskPrompt(fallback: PanelFallback, worker: PanelWorkerRecord): s
     `Panel plan: ${fallback.plan.id}`,
     "",
     "Instructions:",
-    "- Work read-only unless the researcher explicitly asked for drafting.",
+    "- Work inside the assigned writable worker worktree; do not mutate the leader checkout directly.",
     "- Do not expose or persist hidden reasoning, private tool traces, or chain-of-thought.",
     "- Persist only the structured final role output to the result path below.",
     "- Return JSON matching this shape:",
@@ -73,6 +104,9 @@ function workerTaskPrompt(fallback: PanelFallback, worker: PanelWorkerRecord): s
     "",
     `Result path: ${worker.resultPath}`,
     `Log path: ${worker.logPath}`,
+    worker.worktreePath ? `Writable worker worktree: ${worker.worktreePath}` : "",
+    worker.mailboxPath ? `Worker mailbox: ${worker.mailboxPath}` : "",
+    worker.taskStatePath ? `Worker task lifecycle state: ${worker.taskStatePath}` : "",
     "",
     "Research object:",
     fallback.plan.prompt
@@ -100,18 +134,22 @@ function launcherScript(run: PanelWorkerRun, worker: PanelWorkerRecord): string 
   const role = shellQuote(worker.role);
   const label = shellQuote(worker.label);
   const stdoutPath = `${worker.resultPath}.stdout`;
+  const worktreePath = worker.worktreePath ?? run.workingDirectory;
+  const commitPath = `${worker.resultPath}.commit`;
   return [
     "#!/usr/bin/env bash",
     "set +e",
     `printf 'started_at=%s\\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > ${shellQuote(worker.logPath)}`,
+    `mkdir -p ${shellQuote(join(worktreePath, ".longtable-worker"))}`,
+    `printf '{"workerId":%s,"runId":%s,"startedAt":"%s"}\\n' ${shellQuote(JSON.stringify(worker.id))} ${shellQuote(JSON.stringify(run.id))} "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > ${shellQuote(join(worktreePath, ".longtable-worker", `${worker.id}.json`))}`,
     `if [ -f ${shellQuote(run.stopFilePath)} ]; then`,
     `  printf 'stop_requested_before_launch\\n' >> ${shellQuote(worker.logPath)}`,
     "  exit 0",
     "fi",
     [
       "codex exec",
-      "-s read-only",
-      `-C ${shellQuote(run.workingDirectory)}`,
+      "-s workspace-write",
+      `-C ${shellQuote(worktreePath)}`,
       "--skip-git-repo-check",
       `--output-schema ${shellQuote(run.outputSchemaPath)}`,
       "-",
@@ -130,6 +168,12 @@ function launcherScript(run: PanelWorkerRun, worker: PanelWorkerRecord): string 
     `if [ "$code" -ne 0 ] && [ ! -s ${shellQuote(worker.resultPath)} ]; then`,
     `  node -e 'const fs=require("fs"); const [path,role,label,code]=process.argv.slice(1); fs.writeFileSync(path, JSON.stringify({role,label,status:"error",summary:"",claims:[],objections:[],openQuestions:[],evidenceRefs:[],error:\`codex exec exited ${"${code}"}\`}, null, 2)+"\\n");' ${shellQuote(worker.resultPath)} ${role} ${label} "$code"`,
     "fi",
+    `if git -C ${shellQuote(worktreePath)} status --porcelain >/tmp/longtable-worker-status.$$ 2>/dev/null && [ -s /tmp/longtable-worker-status.$$ ]; then`,
+    `  git -C ${shellQuote(worktreePath)} add -A >/dev/null 2>&1`,
+    `  git -C ${shellQuote(worktreePath)} -c user.name='LongTable Panel Worker' -c user.email='longtable-panel-worker@example.invalid' commit -m ${shellQuote(`longtable panel worker ${worker.id}`)} >/dev/null 2>&1`,
+    "fi",
+    `rm -f /tmp/longtable-worker-status.$$`,
+    `git -C ${shellQuote(worktreePath)} rev-parse HEAD > ${shellQuote(commitPath)} 2>/dev/null`,
     "exit $code",
     ""
   ].join("\n");
@@ -152,10 +196,14 @@ export async function createPanelWorkerRun(options: {
   const resultDirectory = join(runDirectory, "results");
   const logDirectory = join(runDirectory, "logs");
   const launcherDirectory = join(runDirectory, "launchers");
+  const worktreeDirectory = join(runDirectory, "worktrees");
+  const mailboxDirectory = join(runDirectory, "mailbox");
   await mkdir(taskDirectory, { recursive: true });
   await mkdir(resultDirectory, { recursive: true });
   await mkdir(logDirectory, { recursive: true });
   await mkdir(launcherDirectory, { recursive: true });
+  await mkdir(worktreeDirectory, { recursive: true });
+  await mkdir(mailboxDirectory, { recursive: true });
 
   const runStatus = options.initialStatus ?? "planned";
   const workers: PanelWorkerRecord[] = options.fallback.plan.members.map((member, index) => {
@@ -171,6 +219,12 @@ export async function createPanelWorkerRun(options: {
       logPath: join(logDirectory, `${workerId}.log`),
       launcherPath: join(launcherDirectory, `${workerId}.sh`),
       exitCodePath: join(resultDirectory, `${workerId}.exit.json`),
+      worktreePath: join(worktreeDirectory, workerSafeName(workerId)),
+      worktreeBranch: safeName(`longtable/panel/${runId}/${workerId}`),
+      mailboxPath: join(mailboxDirectory, `${workerId}.jsonl`),
+      taskStatePath: join(taskDirectory, `${workerId}.state.json`),
+      cleanupStatus: "not_started",
+      executionState: "not_started",
       updatedAt: createdAt,
       diagnostics: []
     };
@@ -196,9 +250,14 @@ export async function createPanelWorkerRun(options: {
     resultDirectory,
     logDirectory,
     launcherDirectory,
+    worktreeDirectory,
+    mailboxDirectory,
+    eventLogPath: join(runDirectory, "events.jsonl"),
     outputSchemaPath: join(runDirectory, "panel-worker-output.schema.json"),
     stopFilePath: join(runDirectory, "stop-requested"),
     aggregateResultPath: join(runDirectory, "panel-result.json"),
+    bridgeStatus: runStatus === "planned" ? "not_requested" : "running",
+    sequentialFallbackAvailable: true,
     workers,
     diagnostics: options.diagnostics ?? []
   };
@@ -209,7 +268,19 @@ export async function createPanelWorkerRun(options: {
     note: "Durable worker state stores task/status/result metadata, not hidden reasoning or raw tool traces."
   });
   await writeJsonAtomic(run.outputSchemaPath, PANEL_WORKER_OUTPUT_SCHEMA);
+  await appendLifecycleEvent(run, { type: "run_created", message: "LongTable native worker bridge run created." });
   await Promise.all(workers.map((worker) => writeFile(worker.taskPath, workerTaskPrompt(options.fallback, worker), "utf8")));
+  await Promise.all(workers.map((worker) => worker.taskStatePath
+    ? writeJsonAtomic(worker.taskStatePath, {
+        workerId: worker.id,
+        status: worker.status,
+        executionState: worker.executionState,
+        resultPath: worker.resultPath,
+        mailboxPath: worker.mailboxPath,
+        worktreePath: worker.worktreePath,
+        updatedAt: worker.updatedAt
+      })
+    : Promise.resolve()));
   await writePanelWorkerRun(run);
   return run;
 }
@@ -221,15 +292,28 @@ export async function readPanelWorkerRun(workingDirectory: string, runId: string
 function normalizePanelWorkerRun(run: PanelWorkerRun): PanelWorkerRun {
   const launcherDirectory = run.launcherDirectory ?? join(run.runDirectory, "launchers");
   const resultDirectory = run.resultDirectory ?? join(run.runDirectory, "results");
+  const worktreeDirectory = run.worktreeDirectory ?? join(run.runDirectory, "worktrees");
+  const mailboxDirectory = run.mailboxDirectory ?? join(run.runDirectory, "mailbox");
   return {
     ...run,
     launcherDirectory,
+    worktreeDirectory,
+    mailboxDirectory,
+    eventLogPath: run.eventLogPath ?? join(run.runDirectory, "events.jsonl"),
+    bridgeStatus: run.bridgeStatus ?? (run.status === "planned" ? "not_requested" : run.status),
+    sequentialFallbackAvailable: run.sequentialFallbackAvailable ?? true,
     outputSchemaPath: run.outputSchemaPath ?? join(run.runDirectory, "panel-worker-output.schema.json"),
     stopFilePath: run.stopFilePath ?? join(run.runDirectory, "stop-requested"),
     workers: run.workers.map((worker) => ({
       ...worker,
       launcherPath: worker.launcherPath ?? join(launcherDirectory, `${worker.id}.sh`),
       exitCodePath: worker.exitCodePath ?? join(resultDirectory, `${worker.id}.exit.json`),
+      worktreePath: worker.worktreePath ?? join(worktreeDirectory, workerSafeName(worker.id)),
+      worktreeBranch: worker.worktreeBranch ?? safeName(`longtable/panel/${run.id}/${worker.id}`),
+      mailboxPath: worker.mailboxPath ?? join(mailboxDirectory, `${worker.id}.jsonl`),
+      taskStatePath: worker.taskStatePath ?? join(run.taskDirectory, `${worker.id}.state.json`),
+      cleanupStatus: worker.cleanupStatus ?? "not_started",
+      executionState: worker.executionState ?? "not_started",
       diagnostics: worker.diagnostics ?? []
     }))
   };
@@ -240,6 +324,21 @@ export async function writePanelWorkerRun(run: PanelWorkerRun): Promise<void> {
     ...run,
     updatedAt: nowIso()
   });
+  await Promise.all(run.workers.map((worker) => worker.taskStatePath
+    ? writeJsonAtomic(worker.taskStatePath, {
+        workerId: worker.id,
+        status: worker.status,
+        executionState: worker.executionState,
+        paneId: worker.paneId,
+        worktreePath: worker.worktreePath,
+        worktreeBranch: worker.worktreeBranch,
+        worktreeCommit: worker.worktreeCommit,
+        cleanupStatus: worker.cleanupStatus,
+        failureReason: worker.failureReason,
+        error: worker.error,
+        updatedAt: worker.updatedAt
+      })
+    : Promise.resolve()));
 }
 
 function parseWorkerResult(worker: PanelWorkerRecord): PanelMemberResult | null {
