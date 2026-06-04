@@ -404,43 +404,111 @@ function tmuxPaneAlive(paneId: string): boolean {
 }
 
 function terminalStatus(status: PanelWorkerRunStatus): boolean {
-  return status === "completed" || status === "blocked" || status === "stopped" || status === "degraded";
+  return status === "completed" || status === "blocked" || status === "stopped" || status === "degraded" || status === "failed";
+}
+
+function preflightNativeWorkerBridge(run: PanelWorkerRun): string[] {
+  const failures = [
+    commandAvailable("tmux") ? null : "tmux:unavailable",
+    commandAvailable("codex") ? null : "codex:unavailable",
+    commandAvailable("git") ? null : "git:unavailable"
+  ].filter((entry): entry is string => Boolean(entry));
+  if (!process.env.TMUX && !process.env.TMUX_PANE) {
+    failures.push("tmux:attached-pane-unavailable");
+  }
+  try {
+    execFileSync("tmux", ["display-message", "-p", "#{pane_id}"], { stdio: "ignore" });
+  } catch {
+    failures.push("tmux:current-pane-unavailable");
+  }
+  try {
+    gitOutput(run.workingDirectory, ["rev-parse", "--is-inside-work-tree"]);
+  } catch {
+    failures.push("git:working-directory-unavailable");
+  }
+  return failures;
+}
+
+async function markBridgePreflightFailed(run: PanelWorkerRun, failures: string[]): Promise<PanelWorkerRun> {
+  const updatedAt = nowIso();
+  const reason = failures.join(", ");
+  const nextRun: PanelWorkerRun = {
+    ...run,
+    status: "failed",
+    bridgeStatus: "preflight_failed",
+    bridgeFailureReason: reason,
+    updatedAt,
+    diagnostics: [...run.diagnostics, ...failures, "Native worker bridge preflight failed; sequential fallback was not executed implicitly."],
+    workers: run.workers.map((worker) => ({
+      ...worker,
+      status: worker.status === "completed" ? worker.status : "failed",
+      executionState: "preflight_failed",
+      failureReason: reason,
+      error: reason,
+      updatedAt,
+      diagnostics: appendDiagnostic(worker.diagnostics, "Native worker bridge preflight failed before launch.")
+    }))
+  };
+  await appendLifecycleEvent(nextRun, { type: "preflight_failed", message: reason });
+  await writePanelWorkerRun(nextRun);
+  return nextRun;
+}
+
+async function provisionWorkerWorktree(run: PanelWorkerRun, worker: PanelWorkerRecord): Promise<PanelWorkerRecord> {
+  if (!worker.worktreePath || !worker.worktreeBranch) {
+    throw new Error(`missing worktree metadata for ${worker.id}`);
+  }
+  await mkdir(dirname(worker.worktreePath), { recursive: true });
+  if (!existsSync(worker.worktreePath)) {
+    try {
+      gitOutput(run.workingDirectory, ["worktree", "add", worker.worktreePath, "-b", worker.worktreeBranch, "HEAD"]);
+    } catch (firstError) {
+      try {
+        gitOutput(run.workingDirectory, ["worktree", "add", worker.worktreePath, worker.worktreeBranch]);
+      } catch {
+        throw firstError;
+      }
+    }
+  }
+  const commit = currentGitCommit(worker.worktreePath);
+  await writeFile(worker.mailboxPath ?? join(run.mailboxDirectory ?? run.runDirectory, `${worker.id}.jsonl`), "", { flag: "a" });
+  await appendLifecycleEvent(run, {
+    workerId: worker.id,
+    type: "worktree_provisioned",
+    message: `Worker worktree provisioned at ${worker.worktreePath}.`,
+    path: worker.worktreePath
+  });
+  return {
+    ...worker,
+    worktreeCommit: commit,
+    cleanupStatus: "retained",
+    executionState: "provisioned",
+    diagnostics: appendDiagnostic(worker.diagnostics, "Writable git worktree provisioned for LongTable native worker.")
+  };
 }
 
 function launchWorkerPane(run: PanelWorkerRun, worker: PanelWorkerRecord): string {
-  const command = `bash ${shellQuote(worker.launcherPath!)}`;
-  try {
-    return execFileSync(
-      "tmux",
-      [
-        "new-window",
-        "-d",
-        "-P",
-        "-F",
-        "#{pane_id}",
-        "-n",
-        `lt-${worker.id.slice(0, 12)}`,
-        command
-      ],
-      { encoding: "utf8" }
-    ).trim();
-  } catch {
-    const sessionName = `longtable-${run.id}-${worker.id}`.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 80);
-    return execFileSync(
-      "tmux",
-      [
-        "new-session",
-        "-d",
-        "-P",
-        "-F",
-        "#{pane_id}",
-        "-s",
-        sessionName,
-        command
-      ],
-      { encoding: "utf8" }
-    ).trim();
+  const command = `cd ${shellQuote(worker.worktreePath ?? run.workingDirectory)} && bash ${shellQuote(worker.launcherPath!)}`;
+  const args = [
+    "split-window",
+    "-d",
+    "-P",
+    "-F",
+    "#{pane_id}"
+  ];
+  if (process.env.TMUX_PANE) {
+    args.push("-t", process.env.TMUX_PANE);
   }
+  args.push(command);
+  const paneId = execFileSync("tmux", args, { encoding: "utf8" }).trim();
+  if (paneId) {
+    try {
+      execFileSync("tmux", ["set-option", "-p", "-t", paneId, "remain-on-exit", "on"], { stdio: "ignore" });
+    } catch {
+      // Pane retention is best-effort on older tmux versions; the pane id is still recorded.
+    }
+  }
+  return paneId;
 }
 
 async function writeWorkerLauncher(run: PanelWorkerRun, worker: PanelWorkerRecord): Promise<void> {
