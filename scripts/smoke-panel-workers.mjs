@@ -61,7 +61,9 @@ console.log(JSON.stringify({
   objections: [],
   openQuestions: blocked ? ["Required evidence is missing."] : [],
   evidenceRefs: ["fake-codex-worker"],
-  error: blocked ? "blocked-role-output" : ""
+  error: blocked ? "blocked-role-output" : "",
+  hiddenReasoning: "hidden-native-worker-chain-should-not-persist",
+  rawToolLog: "raw-native-worker-tool-log-should-not-persist"
 }, null, 2));
 process.exit(0);
 `);
@@ -92,6 +94,12 @@ function assertEqual(actual, expected, label) {
 function assertIncludes(text, expected, label) {
   if (!text.includes(expected)) {
     throw new Error(`${label}: expected text to include ${expected}`);
+  }
+}
+
+function assertNotIncludes(text, unexpected, label) {
+  if (text.includes(unexpected)) {
+    throw new Error(`${label}: expected text not to include ${unexpected}`);
   }
 }
 
@@ -180,6 +188,10 @@ assert(panel.nativeRun.workers.length > 0, "native worker tasks are present");
 const runFile = join(projectPath, ".longtable", "panel-runs", panel.nativeRun.id, "run.json");
 assert(existsSync(runFile), "native worker run file exists");
 assert(existsSync(panel.nativeRun.aggregateResultPath), "native worker aggregate panel result exists");
+const aggregateResultText = readFileSync(panel.nativeRun.aggregateResultPath, "utf8");
+assertIncludes(aggregateResultText, "fake-codex-worker", "native worker aggregate preserves evidence refs");
+assertNotIncludes(aggregateResultText, "hidden-native-worker-chain-should-not-persist", "native worker aggregate strips hidden reasoning");
+assertNotIncludes(aggregateResultText, "raw-native-worker-tool-log-should-not-persist", "native worker aggregate strips raw tool logs");
 const outputSchema = JSON.parse(readFileSync(panel.nativeRun.outputSchemaPath, "utf8"));
 for (const key of Object.keys(outputSchema.properties)) {
   assert(outputSchema.required.includes(key), `strict output schema requires ${key}`);
@@ -222,6 +234,16 @@ const blockedPanel = JSON.parse(runCli([
 assertEqual(blockedPanel.nativeRun.status, "blocked", "blocked worker output keeps native run blocked");
 assertEqual(blockedPanel.recordedPanelResult.status, "blocked", "blocked worker output records blocked panel status");
 assert(blockedPanel.nativeRun.workers.every((worker) => worker.status === "blocked"), "blocked worker outputs are not collapsed to completed");
+const blockedAggregateText = readFileSync(blockedPanel.nativeRun.aggregateResultPath, "utf8");
+assertIncludes(blockedAggregateText, "Required evidence is missing.", "blocked aggregate preserves worker open question");
+assertNotIncludes(blockedAggregateText, "hidden-native-worker-chain-should-not-persist", "blocked aggregate strips hidden reasoning");
+assertNotIncludes(blockedAggregateText, "raw-native-worker-tool-log-should-not-persist", "blocked aggregate strips raw tool logs");
+const blockedHandoff = JSON.parse(runCli(["handoff", "--cwd", projectPath, "--json"]));
+const blockedHandoffText = readFileSync(blockedHandoff.path, "utf8");
+assertIncludes(blockedHandoffText, "Native worker note", "blocked handoff includes native worker guidance");
+assertIncludes(blockedHandoffText, "blocked", "blocked handoff preserves blocked panel status");
+assertIncludes(blockedHandoffText, "Required evidence is missing.", "blocked handoff preserves blocked worker question");
+assertIncludes(blockedHandoffText, "fake-codex-worker", "blocked handoff preserves native worker evidence refs");
 runCli(["decide", "--cwd", projectPath, "--question", blockedPanel.questionRecord.id, "--answer", "defer", "--json"]);
 
 const stoppablePanel = JSON.parse(runCli([

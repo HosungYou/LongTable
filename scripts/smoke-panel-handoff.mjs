@@ -262,5 +262,11 @@ assertIncludes(handoffText, "$ralph", "handoff ralph guidance");
 assertIncludes(handoffText, "longtable panel record", "handoff panel record guidance");
 assertIncludes(handoffText, "Unincorporated Evidence", "handoff evidence section");
 assertIncludes(handoffText, "Native worker note", "handoff native worker section");
+const finalState = JSON.parse(readFileSync(join(projectPath, ".longtable", "state.json"), "utf8"));
+const recordedPanel = finalState.invocations.find((invocation) => invocation.id === bothFlagsPanel.invocationRecord.id)?.panelResult;
+if (!recordedPanel) {
+  throw new Error("recorded panel result should remain linked to its invocation.");
+}
+assertIncludes(recordedPanel.linkedQuestionRecordIds, bothFlagsPanel.questionRecord.id, "recorded panel links originating question");
 
 console.log("panel handoff smoke passed");

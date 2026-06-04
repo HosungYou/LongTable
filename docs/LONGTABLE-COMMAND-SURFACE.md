@@ -128,6 +128,8 @@ Continuation work packet:
 - writes a Markdown handoff under `.longtable/handoffs/` by default
 - carries the latest panel/native-worker result forward as normalized
   `PanelResult` evidence, including evidence refs when roles reported them
+- preserves panel/question/decision linkage fields so continuation work can see
+  which checkpoint and decision made the panel result actionable
 - gives a provider-neutral path for users without OMX
 - includes an optional OMX path that treats `$ralplan` and `$ralph` as external
   execution loops, not as LongTable core behavior
