@@ -395,6 +395,16 @@ function bridgeStatusFromRunStatus(status: PanelWorkerRunStatus): NonNullable<Pa
   return status === "planned" || status === "resumable" ? "not_requested" : status;
 }
 
+function bridgeStatusFromWorkers(
+  status: PanelWorkerRunStatus,
+  workers: PanelWorkerRecord[]
+): NonNullable<PanelWorkerRun["bridgeStatus"]> {
+  if (status === "failed" && workers.every((worker) => worker.executionState === "preflight_failed")) {
+    return "preflight_failed";
+  }
+  return bridgeStatusFromRunStatus(status);
+}
+
 function tmuxPaneAlive(paneId: string): boolean {
   if (!commandAvailable("tmux")) {
     return false;
@@ -600,7 +610,7 @@ export async function launchPanelWorkerRun(run: PanelWorkerRun): Promise<PanelWo
     ...run,
     workers,
     status: statusFromWorkers(workers),
-    bridgeStatus: bridgeStatusFromRunStatus(statusFromWorkers(workers)),
+    bridgeStatus: bridgeStatusFromWorkers(statusFromWorkers(workers), workers),
     bridgeFailureReason: workers.find((worker) => worker.status === "failed")?.error,
     updatedAt: nowIso()
   };
@@ -674,7 +684,7 @@ export async function refreshPanelWorkerRun(run: PanelWorkerRun): Promise<{
     ...run,
     workers,
     status: statusFromWorkers(workers),
-    bridgeStatus: bridgeStatusFromRunStatus(statusFromWorkers(workers)),
+    bridgeStatus: bridgeStatusFromWorkers(statusFromWorkers(workers), workers),
     bridgeFailureReason: workers.find((worker) => worker.status === "failed")?.error,
     updatedAt
   };

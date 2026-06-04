@@ -3,17 +3,28 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const repoRoot = resolve(new URL("..", import.meta.url).pathname);
 const cli = join(repoRoot, "packages", "longtable", "dist", "cli.js");
+const { buildPanelFallback } = await import(pathToFileURL(join(repoRoot, "packages", "longtable", "dist", "panel.js")).href);
+const {
+  createPanelWorkerRun,
+  launchPanelWorkerRun,
+  shutdownPanelWorkerRun,
+  waitForPanelWorkerRun
+} = await import(pathToFileURL(join(repoRoot, "packages", "longtable", "dist", "panel-runtime.js")).href);
+const realGit = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
 const tmp = mkdtempSync(join(tmpdir(), "longtable-panel-workers-"));
 const projectPath = join(tmp, "project");
 const setupPath = join(tmp, "setup.json");
 const runtimePath = join(tmp, "runtime.toml");
 const fakeBin = join(tmp, "fake-bin");
+const fakeGitBin = join(tmp, "fake-git-bin");
 const fakeTmuxLog = join(tmp, "fake-tmux.log");
 const fakeCodexLog = join(tmp, "fake-codex.log");
 mkdirSync(fakeBin, { recursive: true });
+mkdirSync(fakeGitBin, { recursive: true });
 
 writeFileSync(join(fakeBin, "tmux"), `#!/usr/bin/env node
 const { appendFileSync } = require("fs");
@@ -39,6 +50,24 @@ if (args[0] === "kill-pane") {
 process.exit(0);
 `);
 chmodSync(join(fakeBin, "tmux"), 0o755);
+
+writeFileSync(join(fakeGitBin, "git"), `#!/usr/bin/env node
+const { spawnSync } = require("child_process");
+const realGit = ${JSON.stringify(realGit)};
+const args = process.argv.slice(2);
+if (
+  process.env.LONGTABLE_FAIL_GIT_BRANCH &&
+  args[0] === "worktree" &&
+  args[1] === "add" &&
+  args.includes(process.env.LONGTABLE_FAIL_GIT_BRANCH)
+) {
+  console.error("simulated worktree branch failure");
+  process.exit(128);
+}
+const result = spawnSync(realGit, args, { stdio: "inherit", env: process.env });
+process.exit(result.status ?? 1);
+`);
+chmodSync(join(fakeGitBin, "git"), 0o755);
 
 writeFileSync(join(fakeBin, "codex"), `#!/usr/bin/env node
 const { appendFileSync, readFileSync } = require("fs");
@@ -85,6 +114,36 @@ function runCli(args, options = {}) {
     env: fakeEnv,
     ...options
   });
+}
+
+function initGitProject(path) {
+  execFileSync("git", ["init"], { cwd: path, stdio: "ignore" });
+  execFileSync("git", ["config", "user.name", "LongTable Smoke"], { cwd: path, stdio: "ignore" });
+  execFileSync("git", ["config", "user.email", "longtable-smoke@example.invalid"], { cwd: path, stdio: "ignore" });
+  execFileSync("git", ["add", "-A"], { cwd: path, stdio: "ignore" });
+  execFileSync("git", ["commit", "-m", "initial longtable smoke project"], { cwd: path, stdio: "ignore" });
+}
+
+async function withFakeRuntimeEnv(callback) {
+  const saved = new Map();
+  for (const key of ["PATH", "TMUX", "TMUX_PANE", "LONGTABLE_FAIL_GIT_BRANCH"]) {
+    saved.set(key, process.env[key]);
+  }
+  process.env.PATH = fakeEnv.PATH;
+  process.env.TMUX = fakeEnv.TMUX;
+  process.env.TMUX_PANE = fakeEnv.TMUX_PANE;
+  delete process.env.LONGTABLE_FAIL_GIT_BRANCH;
+  try {
+    return await callback();
+  } finally {
+    for (const [key, value] of saved.entries()) {
+      if (typeof value === "string") {
+        process.env[key] = value;
+      } else {
+        delete process.env[key];
+      }
+    }
+  }
 }
 
 function assertEqual(actual, expected, label) {
@@ -157,11 +216,39 @@ runCli([
   "--json"
 ]);
 
-execFileSync("git", ["init"], { cwd: projectPath, stdio: "ignore" });
-execFileSync("git", ["config", "user.name", "LongTable Smoke"], { cwd: projectPath, stdio: "ignore" });
-execFileSync("git", ["config", "user.email", "longtable-smoke@example.invalid"], { cwd: projectPath, stdio: "ignore" });
-execFileSync("git", ["add", "-A"], { cwd: projectPath, stdio: "ignore" });
-execFileSync("git", ["commit", "-m", "initial longtable smoke project"], { cwd: projectPath, stdio: "ignore" });
+initGitProject(projectPath);
+
+const nonGitProjectPath = join(tmp, "non-git-project");
+runCli([
+  "start",
+  "--setup", setupPath,
+  "--path", nonGitProjectPath,
+  "--name", "Panel Workers Non Git Smoke",
+  "--goal", "Verify native panel worker fail-fast behavior.",
+  "--blocker", "Need explicit bridge failure without quiet fallback.",
+  "--research-object", "study_design",
+  "--gap-risk", "suspected_tacit_assumptions",
+  "--protected-decision", "method",
+  "--perspectives", "auto",
+  "--disagreement", "always_visible",
+  "--no-interview",
+  "--json"
+]);
+const failFastPanel = JSON.parse(runCli([
+  "panel",
+  "--cwd", nonGitProjectPath,
+  "--provider", "codex",
+  "--native-workers",
+  "--wait", "2000",
+  "--prompt", "Fail fast when the native worker bridge cannot provision git worktrees.",
+  "--json"
+]));
+assertEqual(failFastPanel.nativeRun.status, "failed", "native worker bridge fails fast without a git workspace");
+assertEqual(failFastPanel.nativeRun.bridgeStatus, "preflight_failed", "preflight failure is explicit in bridge status");
+assertIncludes(failFastPanel.nativeRun.bridgeFailureReason, "git:working-directory-unavailable", "preflight failure explains git workspace requirement");
+assertEqual(failFastPanel.execution.sequentialFallbackExecuted, false, "failed native worker bridge does not quietly execute sequential fallback");
+assertEqual(failFastPanel.recordedPanelResult, null, "failed native worker bridge records no completed panel result");
+assert(failFastPanel.nativeRun.workers.every((worker) => worker.executionState === "preflight_failed"), "preflight failure is reflected on every worker");
 
 const claudeNativeWorkersPanel = JSON.parse(runCli([
   "panel",
@@ -300,6 +387,56 @@ const resumed = JSON.parse(runCli([
 ]));
 assertEqual(resumed.status, "completed", "panel resume relaunches pending workers and waits for completion");
 assert(resumed.workers.every((worker) => worker.status === "completed"), "panel resume completes all relaunched workers");
+
+await withFakeRuntimeEnv(async () => {
+  const collisionFallback = buildPanelFallback({
+    prompt: "Verify a pre-existing worker branch does not block worktree provisioning.",
+    provider: "codex",
+    roleFlag: "reviewer",
+    visibility: "always_visible",
+    nativeWorkers: true
+  });
+  const collisionRun = await createPanelWorkerRun({
+    workingDirectory: projectPath,
+    fallback: collisionFallback,
+    initialStatus: "planned"
+  });
+  for (const worker of collisionRun.workers) {
+    execFileSync("git", ["branch", worker.worktreeBranch, "HEAD"], { cwd: projectPath, stdio: "ignore" });
+  }
+  const launched = await launchPanelWorkerRun(collisionRun);
+  const completed = await waitForPanelWorkerRun(launched, 2000);
+  assertEqual(completed.status, "completed", "pre-existing worker branch collision is recovered by attaching the worktree to the branch");
+  assert(completed.workers.every((worker) => worker.status === "completed"), "branch collision recovery completes all workers");
+  assert(completed.workers.every((worker) => worker.worktreeCommit), "branch collision recovery records worker commits");
+  await shutdownPanelWorkerRun(completed);
+});
+
+await withFakeRuntimeEnv(async () => {
+  const partialFallback = buildPanelFallback({
+    prompt: "Verify partial worktree provisioning failure stays explicit.",
+    provider: "codex",
+    roleFlag: "reviewer,methods_critic",
+    visibility: "always_visible",
+    nativeWorkers: true
+  });
+  const partialRun = await createPanelWorkerRun({
+    workingDirectory: projectPath,
+    fallback: partialFallback,
+    initialStatus: "planned"
+  });
+  process.env.PATH = `${fakeGitBin}:${fakeEnv.PATH}`;
+  process.env.LONGTABLE_FAIL_GIT_BRANCH = partialRun.workers[1].worktreeBranch;
+  const launched = await launchPanelWorkerRun(partialRun);
+  const failed = await waitForPanelWorkerRun(launched, 2000);
+  assertEqual(failed.status, "failed", "partial worktree provisioning failure leaves the run failed");
+  assertEqual(failed.bridgeStatus, "failed", "partial provisioning failure is explicit in bridge status");
+  assertEqual(failed.workers[0].status, "completed", "partial provisioning preserves completed worker output");
+  assertEqual(failed.workers[1].status, "failed", "partial provisioning marks the failing worker failed");
+  assertEqual(failed.workers[1].executionState, "provision_failed", "partial provisioning records provision failure state");
+  assert(failed.bridgeFailureReason, "partial provisioning failure records bridge failure reason");
+  await shutdownPanelWorkerRun(failed);
+});
 
 const teamTmp = mkdtempSync(join(tmpdir(), "longtable-no-public-team-"));
 const teamError = assertThrowsSync(

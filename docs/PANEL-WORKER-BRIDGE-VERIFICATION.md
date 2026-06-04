@@ -26,6 +26,10 @@ npm run pack:check
 
 - `smoke-panel-workers` must pass and includes assertions that:
   - help output does not advertise `longtable team`;
+  - native worker bridge preflight failures fail fast without quietly executing sequential fallback;
+  - pre-existing worker branch collisions recover by attaching the worker worktree to the existing branch;
+  - partial worktree provisioning failures preserve completed worker output while marking the bridge failed;
+  - Codex workers launch in current-window `tmux split-window` panes with `workspace-write` scoped to worker worktrees;
   - native worker tasks forbid hidden reasoning persistence;
   - handoff includes native worker guidance and worker evidence references;
   - `longtable team` exits with `Unknown command: team`, writes no stdout, and creates no `.longtable/team` artifact.
