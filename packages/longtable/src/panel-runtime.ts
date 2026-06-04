@@ -91,6 +91,38 @@ function workerRuntimeDirectory(worker: PanelWorkerRecord): string {
   return join(worker.worktreePath ?? dirname(worker.resultPath), ".longtable-worker");
 }
 
+function workerRuntimePaths(worktreePath: string): {
+  taskPath: string;
+  resultPath: string;
+  logPath: string;
+  launcherPath: string;
+  exitCodePath: string;
+  mailboxPath: string;
+  taskStatePath: string;
+} {
+  const workerDirectory = join(worktreePath, ".longtable-worker");
+  return {
+    taskPath: join(workerDirectory, "task.md"),
+    resultPath: join(workerDirectory, "result.json"),
+    logPath: join(workerDirectory, "worker.log"),
+    launcherPath: join(workerDirectory, "launch.sh"),
+    exitCodePath: join(workerDirectory, "result.exit.json"),
+    mailboxPath: join(workerDirectory, "mailbox.jsonl"),
+    taskStatePath: join(workerDirectory, "state.json")
+  };
+}
+
+function shouldNormalizeWorkerRuntimePaths(run: PanelWorkerRun, worker: PanelWorkerRecord): boolean {
+  if (worker.status === "completed" || worker.status === "blocked" || worker.status === "running") {
+    return false;
+  }
+  return run.status === "planned" ||
+    run.status === "failed" ||
+    run.status === "stopped" ||
+    run.status === "stop_requested" ||
+    run.status === "resumable";
+}
+
 function workerTaskPrompt(run: PanelWorkerRun, worker: PanelWorkerRecord): string {
   return [
     "LongTable native panel worker",
@@ -209,22 +241,22 @@ export async function createPanelWorkerRun(options: {
   const workers: PanelWorkerRecord[] = options.fallback.plan.members.map((member, index) => {
     const workerId = `worker-${index + 1}-${member.role}`;
     const worktreePath = join(worktreeDirectory, workerSafeName(workerId));
-    const workerDirectory = join(worktreePath, ".longtable-worker");
+    const paths = workerRuntimePaths(worktreePath);
     return {
       id: workerId,
       role: member.role,
       label: member.label,
       required: member.required,
       status: plannedWorkerStatus(runStatus),
-      taskPath: join(workerDirectory, "task.md"),
-      resultPath: join(workerDirectory, "result.json"),
-      logPath: join(workerDirectory, "worker.log"),
-      launcherPath: join(workerDirectory, "launch.sh"),
-      exitCodePath: join(workerDirectory, "result.exit.json"),
+      taskPath: paths.taskPath,
+      resultPath: paths.resultPath,
+      logPath: paths.logPath,
+      launcherPath: paths.launcherPath,
+      exitCodePath: paths.exitCodePath,
       worktreePath,
       worktreeBranch: safeName(`longtable/panel/${runId}/${workerId}`),
-      mailboxPath: join(workerDirectory, "mailbox.jsonl"),
-      taskStatePath: join(workerDirectory, "state.json"),
+      mailboxPath: paths.mailboxPath,
+      taskStatePath: paths.taskStatePath,
       cleanupStatus: "not_started",
       executionState: "not_started",
       updatedAt: createdAt,
@@ -294,18 +326,26 @@ function normalizePanelWorkerRun(run: PanelWorkerRun): PanelWorkerRun {
     sequentialFallbackAvailable: run.sequentialFallbackAvailable ?? true,
     outputSchemaPath: run.outputSchemaPath ?? join(run.runDirectory, "panel-worker-output.schema.json"),
     stopFilePath: run.stopFilePath ?? join(run.runDirectory, "stop-requested"),
-    workers: run.workers.map((worker) => ({
-      ...worker,
-      launcherPath: worker.launcherPath ?? join(launcherDirectory, `${worker.id}.sh`),
-      exitCodePath: worker.exitCodePath ?? join(resultDirectory, `${worker.id}.exit.json`),
-      worktreePath: worker.worktreePath ?? join(worktreeDirectory, workerSafeName(worker.id)),
-      worktreeBranch: worker.worktreeBranch ?? safeName(`longtable/panel/${run.id}/${worker.id}`),
-      mailboxPath: worker.mailboxPath ?? join(mailboxDirectory, `${worker.id}.jsonl`),
-      taskStatePath: worker.taskStatePath ?? join(run.taskDirectory, `${worker.id}.state.json`),
-      cleanupStatus: worker.cleanupStatus ?? "not_started",
-      executionState: worker.executionState ?? "not_started",
-      diagnostics: worker.diagnostics ?? []
-    }))
+    workers: run.workers.map((worker) => {
+      const worktreePath = worker.worktreePath ?? join(worktreeDirectory, workerSafeName(worker.id));
+      const runtimePaths = workerRuntimePaths(worktreePath);
+      const normalizePaths = shouldNormalizeWorkerRuntimePaths(run, worker);
+      return {
+        ...worker,
+        taskPath: normalizePaths ? runtimePaths.taskPath : worker.taskPath,
+        resultPath: normalizePaths ? runtimePaths.resultPath : worker.resultPath,
+        logPath: normalizePaths ? runtimePaths.logPath : worker.logPath,
+        launcherPath: normalizePaths ? runtimePaths.launcherPath : worker.launcherPath ?? join(launcherDirectory, `${worker.id}.sh`),
+        exitCodePath: normalizePaths ? runtimePaths.exitCodePath : worker.exitCodePath ?? join(resultDirectory, `${worker.id}.exit.json`),
+        worktreePath,
+        worktreeBranch: worker.worktreeBranch ?? safeName(`longtable/panel/${run.id}/${worker.id}`),
+        mailboxPath: normalizePaths ? runtimePaths.mailboxPath : worker.mailboxPath ?? join(mailboxDirectory, `${worker.id}.jsonl`),
+        taskStatePath: normalizePaths ? runtimePaths.taskStatePath : worker.taskStatePath ?? join(run.taskDirectory, `${worker.id}.state.json`),
+        cleanupStatus: worker.cleanupStatus ?? "not_started",
+        executionState: worker.executionState ?? "not_started",
+        diagnostics: worker.diagnostics ?? []
+      };
+    })
   };
 }
 
@@ -322,6 +362,7 @@ export async function writePanelWorkerRun(run: PanelWorkerRun): Promise<void> {
         status: worker.status,
         executionState: worker.executionState,
         paneId: worker.paneId,
+        runtime: worker.runtime,
         worktreePath: worker.worktreePath,
         worktreeBranch: worker.worktreeBranch,
         worktreeCommit: worker.worktreeCommit,
@@ -621,7 +662,8 @@ export async function launchPanelWorkerRun(run: PanelWorkerRun): Promise<PanelWo
         ...launchable,
         status: "running",
         paneId: paneId || launchable.paneId,
-        tmux: {
+        runtime: {
+          transport: "tmux",
           paneId: paneId || launchable.paneId,
           paneTarget: process.env.TMUX_PANE,
           splitCommand: "split-window",
@@ -790,11 +832,11 @@ export async function requestPanelWorkerStop(run: PanelWorkerRun): Promise<Panel
         ...worker,
         status: stopped ? "stopped" : "stop_requested",
         executionState: stopped ? "stopped" : "stopping",
-        tmux: worker.tmux
-          ? { ...worker.tmux, stoppedAt: updatedAt }
+        runtime: worker.runtime
+          ? { ...worker.runtime, stoppedAt: updatedAt }
           : worker.paneId
-          ? { paneId: worker.paneId, retainPane: true, stoppedAt: updatedAt }
-          : worker.tmux,
+          ? { transport: "tmux", paneId: worker.paneId, retainPane: true, stoppedAt: updatedAt }
+          : worker.runtime,
         updatedAt,
         diagnostics: appendDiagnostic(worker.diagnostics, "Stop requested through LongTable panel runtime.")
       } satisfies PanelWorkerRecord;
@@ -872,11 +914,11 @@ export async function shutdownPanelWorkerRun(run: PanelWorkerRun): Promise<Panel
       cleanupStatus,
       error: cleanupError ?? worker.error,
       failureReason: cleanupError ?? worker.failureReason,
-      tmux: worker.tmux
-        ? { ...worker.tmux, shutdownAt: updatedAt }
+      runtime: worker.runtime
+        ? { ...worker.runtime, shutdownAt: updatedAt }
         : worker.paneId
-        ? { paneId: worker.paneId, retainPane: true, shutdownAt: updatedAt }
-        : worker.tmux,
+        ? { transport: "tmux", paneId: worker.paneId, retainPane: true, shutdownAt: updatedAt }
+        : worker.runtime,
       updatedAt,
       diagnostics: appendDiagnostic(worker.diagnostics, "Shutdown requested through LongTable panel runtime.")
     });

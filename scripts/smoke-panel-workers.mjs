@@ -11,8 +11,10 @@ const { buildPanelFallback } = await import(pathToFileURL(join(repoRoot, "packag
 const {
   createPanelWorkerRun,
   launchPanelWorkerRun,
+  readPanelWorkerRun,
   shutdownPanelWorkerRun,
-  waitForPanelWorkerRun
+  waitForPanelWorkerRun,
+  writePanelWorkerRun
 } = await import(pathToFileURL(join(repoRoot, "packages", "longtable", "dist", "panel-runtime.js")).href);
 const realGit = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
 const tmp = mkdtempSync(join(tmpdir(), "longtable-panel-workers-"));
@@ -316,8 +318,9 @@ assert(firstWorker.mailboxPath && existsSync(firstWorker.mailboxPath), "native w
 assert(firstWorker.taskStatePath && existsSync(firstWorker.taskStatePath), "native worker has a task lifecycle file");
 assertEqual(firstWorker.cleanupStatus, "retained", "completed native worker panes/worktrees are retained until shutdown");
 assertEqual(firstWorker.executionState, "result_ready", "completed native worker records result-ready execution state");
-assertEqual(firstWorker.tmux?.splitCommand, "split-window", "native worker records split-window launch");
-assertEqual(firstWorker.tmux?.retainPane, true, "native worker records retained pane lifecycle");
+assertEqual(firstWorker.runtime?.transport, "tmux", "native worker records tmux runtime transport");
+assertEqual(firstWorker.runtime?.splitCommand, "split-window", "native worker records split-window launch");
+assertEqual(firstWorker.runtime?.retainPane, true, "native worker records retained pane lifecycle");
 assertIncludes(firstWorker.taskPath, firstWorker.worktreePath, "native worker task path is inside the worker worktree");
 assertIncludes(firstWorker.resultPath, firstWorker.worktreePath, "native worker result path is inside the worker worktree");
 assertIncludes(firstWorker.logPath, firstWorker.worktreePath, "native worker log path is inside the worker worktree");
@@ -458,6 +461,39 @@ for (const worktreePath of resumedWorktrees) {
 }
 
 await withFakeRuntimeEnv(async () => {
+  const legacyFallback = buildPanelFallback({
+    prompt: "Verify legacy resumable runs normalize worker artifact paths into worktrees.",
+    provider: "codex",
+    roleFlag: "reviewer",
+    visibility: "always_visible",
+    nativeWorkers: true
+  });
+  const legacyRun = await createPanelWorkerRun({
+    workingDirectory: projectPath,
+    fallback: legacyFallback,
+    initialStatus: "planned"
+  });
+  const legacyWorker = legacyRun.workers[0];
+  await writePanelWorkerRun({
+    ...legacyRun,
+    status: "stopped",
+    workers: [{
+      ...legacyWorker,
+      status: "stopped",
+      taskPath: join(legacyRun.taskDirectory, `${legacyWorker.id}.md`),
+      resultPath: join(legacyRun.resultDirectory, `${legacyWorker.id}.json`),
+      logPath: join(legacyRun.logDirectory, `${legacyWorker.id}.log`),
+      launcherPath: join(legacyRun.launcherDirectory, `${legacyWorker.id}.sh`),
+      exitCodePath: join(legacyRun.resultDirectory, `${legacyWorker.id}.exit.json`),
+      mailboxPath: join(legacyRun.mailboxDirectory, `${legacyWorker.id}.jsonl`),
+      taskStatePath: join(legacyRun.taskDirectory, `${legacyWorker.id}.state.json`)
+    }]
+  });
+  const normalizedLegacyRun = await readPanelWorkerRun(projectPath, legacyRun.id);
+  const normalizedLegacyWorker = normalizedLegacyRun.workers[0];
+  assertIncludes(normalizedLegacyWorker.taskPath, normalizedLegacyWorker.worktreePath, "legacy stopped run task path normalizes into worker worktree");
+  assertIncludes(normalizedLegacyWorker.resultPath, normalizedLegacyWorker.worktreePath, "legacy stopped run result path normalizes into worker worktree");
+
   const collisionFallback = buildPanelFallback({
     prompt: "Verify a pre-existing worker branch does not block worktree provisioning.",
     provider: "codex",

@@ -227,15 +227,7 @@ export type PanelWorkerBridgeStatus =
 
 export type PanelWorkerCleanupStatus = "not_started" | "retained" | "removed" | "failed";
 
-export interface PanelWorkerTmuxMetadata {
-  paneId?: string;
-  paneTarget?: string;
-  splitCommand?: "split-window";
-  retainPane: boolean;
-  launchedAt?: string;
-  stoppedAt?: string;
-  shutdownAt?: string;
-}
+export type PanelWorkerRuntimeMetadata = Record<string, string | boolean | undefined>;
 
 export interface PanelWorkerLifecycleEvent {
   id: string;
@@ -288,7 +280,7 @@ export interface PanelWorkerRecord {
   launcherPath?: string;
   exitCodePath?: string;
   paneId?: string;
-  tmux?: PanelWorkerTmuxMetadata;
+  runtime?: PanelWorkerRuntimeMetadata;
   worktreePath?: string;
   worktreeBranch?: string;
   worktreeCommit?: string;
