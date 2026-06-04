@@ -639,12 +639,21 @@ export async function refreshPanelWorkerRun(run: PanelWorkerRun): Promise<{
       memberResults.push(result);
       const nextStatus: PanelWorkerStatus =
         result.status === "error" ? "failed" : result.status === "blocked" ? "blocked" : "completed";
+      const commitPath = `${worker.resultPath}.commit`;
+      const worktreeCommit = existsSync(commitPath)
+        ? readFileSyncUtf8(commitPath).trim()
+        : worker.worktreePath
+        ? currentGitCommit(worker.worktreePath)
+        : worker.worktreeCommit;
       return {
         ...worker,
         status: nextStatus,
+        executionState: nextStatus === "completed" || nextStatus === "blocked" ? "result_ready" : "launch_failed",
         completedAt: nextStatus === "failed" ? worker.completedAt : updatedAt,
+        worktreeCommit,
         updatedAt,
-        error: result.error
+        error: result.error,
+        failureReason: nextStatus === "failed" ? result.error : worker.failureReason
       } satisfies PanelWorkerRecord;
     } catch (error) {
       return {
@@ -661,6 +670,8 @@ export async function refreshPanelWorkerRun(run: PanelWorkerRun): Promise<{
     ...run,
     workers,
     status: statusFromWorkers(workers),
+    bridgeStatus: statusFromWorkers(workers),
+    bridgeFailureReason: workers.find((worker) => worker.status === "failed")?.error,
     updatedAt
   };
   if (nextRun.status === "completed" || nextRun.status === "blocked") {
@@ -692,6 +703,7 @@ export async function requestPanelWorkerStop(run: PanelWorkerRun): Promise<Panel
   const nextRun: PanelWorkerRun = {
     ...run,
     status: "stop_requested",
+    bridgeStatus: "stop_requested",
     updatedAt,
     workers: run.workers.map((worker) => {
       if (worker.status === "completed") {
@@ -709,11 +721,18 @@ export async function requestPanelWorkerStop(run: PanelWorkerRun): Promise<Panel
       return {
         ...worker,
         status: stopped ? "stopped" : "stop_requested",
+        executionState: stopped ? "stopped" : "stopping",
+        tmux: worker.tmux
+          ? { ...worker.tmux, stoppedAt: updatedAt }
+          : worker.paneId
+          ? { paneId: worker.paneId, retainPane: true, stoppedAt: updatedAt }
+          : worker.tmux,
         updatedAt,
         diagnostics: appendDiagnostic(worker.diagnostics, "Stop requested through LongTable panel runtime.")
       } satisfies PanelWorkerRecord;
     })
   };
+  await appendLifecycleEvent(nextRun, { type: "stop_requested", message: "Stop requested through LongTable panel runtime." });
   await writePanelWorkerRun(nextRun);
   return nextRun;
 }
@@ -724,6 +743,8 @@ export async function resumePanelWorkerRun(run: PanelWorkerRun): Promise<PanelWo
   const nextRun: PanelWorkerRun = {
     ...run,
     status: "planned",
+    bridgeStatus: "not_requested",
+    bridgeFailureReason: undefined,
     updatedAt,
     workers: run.workers.map((worker) => worker.status === "completed"
       ? worker
@@ -732,10 +753,72 @@ export async function resumePanelWorkerRun(run: PanelWorkerRun): Promise<PanelWo
           status: "pending",
           paneId: undefined,
           error: undefined,
+          failureReason: undefined,
+          executionState: "not_started",
           updatedAt,
           diagnostics: appendDiagnostic(worker.diagnostics, "Resume requested; worker is ready to be relaunched.")
         })
   };
+  await appendLifecycleEvent(nextRun, { type: "resume_requested", message: "Resume requested; incomplete workers are ready to relaunch." });
+  await writePanelWorkerRun(nextRun);
+  return nextRun;
+}
+
+export async function shutdownPanelWorkerRun(run: PanelWorkerRun): Promise<PanelWorkerRun> {
+  const updatedAt = nowIso();
+  await writeFile(run.stopFilePath, `${updatedAt}\n`, "utf8");
+  const workers: PanelWorkerRecord[] = [];
+  for (const worker of run.workers) {
+    let cleanupStatus = worker.cleanupStatus ?? "not_started";
+    let cleanupError: string | undefined;
+    if (worker.paneId && commandAvailable("tmux")) {
+      try {
+        execFileSync("tmux", ["kill-pane", "-t", worker.paneId], { stdio: "ignore" });
+      } catch {
+        // A missing pane is already shut down for LongTable lifecycle purposes.
+      }
+    }
+    if (worker.worktreePath && existsSync(worker.worktreePath) && commandAvailable("git")) {
+      try {
+        gitOutput(run.workingDirectory, ["worktree", "remove", "--force", worker.worktreePath]);
+        cleanupStatus = "removed";
+      } catch (error) {
+        cleanupStatus = "failed";
+        cleanupError = error instanceof Error ? error.message : String(error);
+        await appendLifecycleEvent(run, {
+          workerId: worker.id,
+          type: "cleanup_failed",
+          message: cleanupError,
+          path: worker.worktreePath
+        });
+      }
+    }
+    workers.push({
+      ...worker,
+      status: worker.status === "completed" ? "completed" : "stopped",
+      executionState: cleanupStatus === "failed" ? "cleanup_failed" : "shutdown",
+      shutdownRequestedAt: updatedAt,
+      cleanupStatus,
+      error: cleanupError ?? worker.error,
+      failureReason: cleanupError ?? worker.failureReason,
+      tmux: worker.tmux
+        ? { ...worker.tmux, shutdownAt: updatedAt }
+        : worker.paneId
+        ? { paneId: worker.paneId, retainPane: true, shutdownAt: updatedAt }
+        : worker.tmux,
+      updatedAt,
+      diagnostics: appendDiagnostic(worker.diagnostics, "Shutdown requested through LongTable panel runtime.")
+    });
+  }
+  const nextRun: PanelWorkerRun = {
+    ...run,
+    status: workers.some((worker) => worker.cleanupStatus === "failed") ? "failed" : "stopped",
+    bridgeStatus: workers.some((worker) => worker.cleanupStatus === "failed") ? "failed" : "shutdown",
+    bridgeFailureReason: workers.find((worker) => worker.cleanupStatus === "failed")?.error,
+    workers,
+    updatedAt
+  };
+  await appendLifecycleEvent(nextRun, { type: "shutdown_requested", message: "Shutdown requested; panes killed and worker worktrees removed when possible." });
   await writePanelWorkerRun(nextRun);
   return nextRun;
 }
