@@ -300,7 +300,7 @@ function normalizePanelWorkerRun(run: PanelWorkerRun): PanelWorkerRun {
     worktreeDirectory,
     mailboxDirectory,
     eventLogPath: run.eventLogPath ?? join(run.runDirectory, "events.jsonl"),
-    bridgeStatus: run.bridgeStatus ?? (run.status === "planned" ? "not_requested" : run.status),
+    bridgeStatus: run.bridgeStatus ?? bridgeStatusFromRunStatus(run.status),
     sequentialFallbackAvailable: run.sequentialFallbackAvailable ?? true,
     outputSchemaPath: run.outputSchemaPath ?? join(run.runDirectory, "panel-worker-output.schema.json"),
     stopFilePath: run.stopFilePath ?? join(run.runDirectory, "stop-requested"),
@@ -389,6 +389,10 @@ function statusFromWorkers(workers: PanelWorkerRecord[]): PanelWorkerRunStatus {
     return "stopped";
   }
   return "running";
+}
+
+function bridgeStatusFromRunStatus(status: PanelWorkerRunStatus): NonNullable<PanelWorkerRun["bridgeStatus"]> {
+  return status === "planned" || status === "resumable" ? "not_requested" : status;
 }
 
 function tmuxPaneAlive(paneId: string): boolean {
@@ -596,7 +600,7 @@ export async function launchPanelWorkerRun(run: PanelWorkerRun): Promise<PanelWo
     ...run,
     workers,
     status: statusFromWorkers(workers),
-    bridgeStatus: statusFromWorkers(workers) === "running" ? "running" : statusFromWorkers(workers),
+    bridgeStatus: bridgeStatusFromRunStatus(statusFromWorkers(workers)),
     bridgeFailureReason: workers.find((worker) => worker.status === "failed")?.error,
     updatedAt: nowIso()
   };
@@ -670,7 +674,7 @@ export async function refreshPanelWorkerRun(run: PanelWorkerRun): Promise<{
     ...run,
     workers,
     status: statusFromWorkers(workers),
-    bridgeStatus: statusFromWorkers(workers),
+    bridgeStatus: bridgeStatusFromRunStatus(statusFromWorkers(workers)),
     bridgeFailureReason: workers.find((worker) => worker.status === "failed")?.error,
     updatedAt
   };
