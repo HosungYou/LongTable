@@ -94,6 +94,7 @@ import {
   refreshPanelWorkerRun,
   requestPanelWorkerStop,
   resumePanelWorkerRun,
+  shutdownPanelWorkerRun,
   waitForPanelWorkerRun
 } from "./panel-runtime.js";
 import {
@@ -3106,15 +3107,16 @@ function summarizePanelRecordOutput(result: PanelResultRecordOutput | null): unk
 }
 
 function summarizePanelWorkerExecution(run: PanelWorkerRun): unknown {
-  const bridgeFailureReason = run.status === "degraded"
+  const bridgeStatus = run.bridgeStatus ?? run.status;
+  const bridgeFailureReason = run.bridgeFailureReason ?? (bridgeStatus === "degraded"
     ? "native worker bridge unavailable before execution"
-    : run.status === "failed" || run.status === "blocked"
+    : bridgeStatus === "failed" || bridgeStatus === "blocked"
     ? "native worker bridge did not complete all role passes"
-    : undefined;
+    : undefined);
   return {
     requestedSurface: run.requestedSurface,
     fallbackSurface: run.fallbackSurface,
-    bridgeStatus: run.status,
+    bridgeStatus,
     bridgeFailureReason,
     sequentialFallbackExecuted: false,
     paneIds: run.workers.map((worker) => worker.paneId).filter((paneId): paneId is string => typeof paneId === "string" && paneId.length > 0),
@@ -3188,7 +3190,7 @@ async function runPanelStopCommand(args: Record<string, string | boolean>): Prom
 async function runPanelShutdownCommand(args: Record<string, string | boolean>): Promise<void> {
   const context = await requireWorkspaceContext(args);
   const runId = requireRunId(args);
-  const shutdown = await requestPanelWorkerStop(await readPanelWorkerRun(context.project.projectPath, runId));
+  const shutdown = await shutdownPanelWorkerRun(await readPanelWorkerRun(context.project.projectPath, runId));
   const nextCommands = panelWorkerNextCommands(context, shutdown.id);
 
   if (args.json === true) {
@@ -3214,7 +3216,7 @@ async function runPanelResumeCommand(args: Record<string, string | boolean>): Pr
   const context = await requireWorkspaceContext(args);
   const runId = requireRunId(args);
   const waitMs = parseWaitMs(args.wait);
-  const { run } = await refreshPanelWorkerRun(await readPanelWorkerRun(context.project.projectPath, runId));
+  const run = await readPanelWorkerRun(context.project.projectPath, runId);
   const resumed = run.status === "completed" ? run : await launchPanelWorkerRun(await resumePanelWorkerRun(run));
   const finalRun = waitMs ? await waitForPanelWorkerRun(resumed, waitMs) : resumed;
   const recordedPanelResult = await recordTerminalNativeWorkerRun(context, finalRun);
@@ -3414,11 +3416,12 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
               : finalNativeRun?.status === "degraded"
               ? "native worker bridge unavailable; sequential fallback remains available but was not executed by this native-workers request"
               : undefined,
-            bridgeFailureReason: finalNativeRun?.status === "degraded"
+            bridgeStatus: finalNativeRun?.bridgeStatus ?? finalNativeRun?.status,
+            bridgeFailureReason: finalNativeRun?.bridgeFailureReason ?? (finalNativeRun?.status === "degraded"
               ? "native worker bridge unavailable before execution"
               : finalNativeRun?.status === "failed" || finalNativeRun?.status === "blocked"
               ? "native worker bridge did not complete all role passes"
-              : undefined,
+              : undefined),
             sequentialFallbackExecuted: !nativeWorkersRequested
           },
           nativeRun: finalNativeRun,
@@ -3454,6 +3457,15 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
       console.log(fallback.prompt);
     }
     return;
+  }
+
+  if (nativeWorkersRequested) {
+    console.log("LongTable native panel worker run was not created");
+    console.log("- status: failed");
+    console.log("- reason: native workers require an existing LongTable workspace; sequential fallback was not executed by this native-workers request.");
+    console.log("");
+    console.log(fallback.prompt);
+    exit(1);
   }
 
   const exitCode = await runCodexThinWrapper({

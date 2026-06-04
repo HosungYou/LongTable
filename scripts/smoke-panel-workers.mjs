@@ -70,15 +70,20 @@ process.exit(result.status ?? 1);
 chmodSync(join(fakeGitBin, "git"), 0o755);
 
 writeFileSync(join(fakeBin, "codex"), `#!/usr/bin/env node
-const { appendFileSync, readFileSync } = require("fs");
+const { appendFileSync, existsSync, readFileSync } = require("fs");
+const { join } = require("path");
 const log = process.env.LONGTABLE_FAKE_CODEX_LOG;
 const args = process.argv.slice(2);
 if (log) appendFileSync(log, JSON.stringify(args) + "\\n");
+const cwdIndex = args.indexOf("-C");
+const workdir = cwdIndex >= 0 ? args[cwdIndex + 1] : process.cwd();
 const task = readFileSync(0, "utf8");
 const roleMatch = task.match(/Role: (.+) \\(([^)]+)\\)/);
 const label = roleMatch?.[1] ?? "Reviewer";
 const role = roleMatch?.[2] ?? "reviewer";
 const blocked = task.includes("blocked-role-output");
+const dirtyPath = join(workdir, "dirty-visible.txt");
+const dirtyClaim = existsSync(dirtyPath) ? "dirty-visible:" + readFileSync(dirtyPath, "utf8").trim() : "";
 console.log(JSON.stringify({
   role,
   label,
@@ -86,7 +91,7 @@ console.log(JSON.stringify({
   summary: blocked
     ? "Fake Codex worker reported a blocked role review."
     : "Fake Codex worker completed a structured role review.",
-  claims: blocked ? [] : ["Native worker output was normalized into PanelResult shape."],
+  claims: blocked ? [] : ["Native worker output was normalized into PanelResult shape.", dirtyClaim].filter(Boolean),
   objections: [],
   openQuestions: blocked ? ["Required evidence is missing."] : [],
   evidenceRefs: ["fake-codex-worker"],
@@ -174,7 +179,11 @@ function assertThrowsSync(fn, expectedMessage, label) {
   try {
     fn();
   } catch (error) {
-    const message = error.stderr?.toString() || error.message || String(error);
+    const message = [
+      error.stdout?.toString(),
+      error.stderr?.toString(),
+      error.message || String(error)
+    ].filter(Boolean).join("\n");
     assertIncludes(message, expectedMessage, label);
     return error;
   }
@@ -216,7 +225,9 @@ runCli([
   "--json"
 ]);
 
+writeFileSync(join(projectPath, "dirty-visible.txt"), "committed-baseline\n");
 initGitProject(projectPath);
+writeFileSync(join(projectPath, "dirty-visible.txt"), "leader-dirty-change\n");
 
 const nonGitProjectPath = join(tmp, "non-git-project");
 runCli([
@@ -245,10 +256,28 @@ const failFastPanel = JSON.parse(runCli([
 ]));
 assertEqual(failFastPanel.nativeRun.status, "failed", "native worker bridge fails fast without a git workspace");
 assertEqual(failFastPanel.nativeRun.bridgeStatus, "preflight_failed", "preflight failure is explicit in bridge status");
+assertEqual(failFastPanel.execution.bridgeStatus, "preflight_failed", "preflight failure is explicit in execution summary");
 assertIncludes(failFastPanel.nativeRun.bridgeFailureReason, "git:working-directory-unavailable", "preflight failure explains git workspace requirement");
 assertEqual(failFastPanel.execution.sequentialFallbackExecuted, false, "failed native worker bridge does not quietly execute sequential fallback");
 assertEqual(failFastPanel.recordedPanelResult, null, "failed native worker bridge records no completed panel result");
 assert(failFastPanel.nativeRun.workers.every((worker) => worker.executionState === "preflight_failed"), "preflight failure is reflected on every worker");
+
+const outsideWorkspacePath = join(tmp, "outside-longtable-workspace");
+mkdirSync(outsideWorkspacePath, { recursive: true });
+const codexLogBeforeOutsideWorkspace = existsSync(fakeCodexLog) ? readFileSync(fakeCodexLog, "utf8") : "";
+assertThrowsSync(
+  () => runCli([
+    "panel",
+    "--cwd", outsideWorkspacePath,
+    "--provider", "codex",
+    "--native-workers",
+    "--prompt", "Native workers outside a LongTable workspace must fail without fallback."
+  ]),
+  "native workers require an existing LongTable workspace",
+  "non-json native worker request outside a workspace does not fall through to sequential fallback"
+);
+const codexLogAfterOutsideWorkspace = existsSync(fakeCodexLog) ? readFileSync(fakeCodexLog, "utf8") : "";
+assertEqual(codexLogAfterOutsideWorkspace, codexLogBeforeOutsideWorkspace, "non-json missing-workspace native worker request does not invoke codex fallback");
 
 const claudeNativeWorkersPanel = JSON.parse(runCli([
   "panel",
@@ -289,14 +318,24 @@ assertEqual(firstWorker.cleanupStatus, "retained", "completed native worker pane
 assertEqual(firstWorker.executionState, "result_ready", "completed native worker records result-ready execution state");
 assertEqual(firstWorker.tmux?.splitCommand, "split-window", "native worker records split-window launch");
 assertEqual(firstWorker.tmux?.retainPane, true, "native worker records retained pane lifecycle");
+assertIncludes(firstWorker.taskPath, firstWorker.worktreePath, "native worker task path is inside the worker worktree");
+assertIncludes(firstWorker.resultPath, firstWorker.worktreePath, "native worker result path is inside the worker worktree");
+assertIncludes(firstWorker.logPath, firstWorker.worktreePath, "native worker log path is inside the worker worktree");
+assertIncludes(firstWorker.launcherPath, firstWorker.worktreePath, "native worker launcher path is inside the worker worktree");
+assertIncludes(firstWorker.mailboxPath, firstWorker.worktreePath, "native worker mailbox path is inside the worker worktree");
+assertIncludes(firstWorker.taskStatePath, firstWorker.worktreePath, "native worker task state path is inside the worker worktree");
 assertIncludes(readFileSync(join(firstWorker.worktreePath, ".longtable-worker", `${firstWorker.id}.json`), "utf8"), panel.nativeRun.id, "native worker worktree receives lifecycle marker");
 const runFile = join(projectPath, ".longtable", "panel-runs", panel.nativeRun.id, "run.json");
 assert(existsSync(runFile), "native worker run file exists");
 assert(existsSync(panel.nativeRun.aggregateResultPath), "native worker aggregate panel result exists");
 const aggregateResultText = readFileSync(panel.nativeRun.aggregateResultPath, "utf8");
 assertIncludes(aggregateResultText, "fake-codex-worker", "native worker aggregate preserves evidence refs");
+assertIncludes(aggregateResultText, "dirty-visible:leader-dirty-change", "native worker sees tracked leader workspace changes in its worktree");
 assertNotIncludes(aggregateResultText, "hidden-native-worker-chain-should-not-persist", "native worker aggregate strips hidden reasoning");
 assertNotIncludes(aggregateResultText, "raw-native-worker-tool-log-should-not-persist", "native worker aggregate strips raw tool logs");
+const rawWorkerResultText = readFileSync(firstWorker.resultPath, "utf8");
+assertNotIncludes(rawWorkerResultText, "hidden-native-worker-chain-should-not-persist", "raw worker result strips hidden reasoning");
+assertNotIncludes(rawWorkerResultText, "raw-native-worker-tool-log-should-not-persist", "raw worker result strips raw tool logs");
 const outputSchema = JSON.parse(readFileSync(panel.nativeRun.outputSchemaPath, "utf8"));
 for (const key of Object.keys(outputSchema.properties)) {
   assert(outputSchema.required.includes(key), `strict output schema requires ${key}`);
@@ -323,6 +362,7 @@ const status = JSON.parse(runCli([
 assertEqual(status.id, panel.nativeRun.id, "panel status returns same run id");
 assertEqual(status.requestedSurface, "native_workers", "panel status preserves native surface");
 assertEqual(status.status, "completed", "panel status refreshes completed native worker run");
+assertEqual(status.execution.bridgeStatus, "completed", "panel status execution summary preserves completed bridge status");
 const handoff = JSON.parse(runCli(["handoff", "--cwd", projectPath, "--json"]));
 const handoffText = readFileSync(handoff.path, "utf8");
 assertIncludes(handoffText, "Native worker note", "handoff includes native worker guidance");
@@ -377,6 +417,19 @@ const stopped = JSON.parse(runCli([
 ]));
 assert(stopped.status === "stop_requested" || stopped.status === "stopped", "panel stop records stop-requested or stopped run");
 assert(stopped.workers.every((worker) => worker.status === "stopped" || worker.status === "stop_requested" || worker.status === "completed"), "panel stop marks incomplete workers stopped or stop-requested");
+for (const worker of stopped.workers) {
+  writeFileSync(worker.resultPath, JSON.stringify({
+    role: worker.role,
+    label: worker.label,
+    status: "completed",
+    summary: "stale-before-resume",
+    claims: ["stale-before-resume"],
+    objections: [],
+    openQuestions: [],
+    evidenceRefs: [],
+    error: ""
+  }, null, 2));
+}
 
 const resumed = JSON.parse(runCli([
   "panel", "resume",
@@ -387,6 +440,22 @@ const resumed = JSON.parse(runCli([
 ]));
 assertEqual(resumed.status, "completed", "panel resume relaunches pending workers and waits for completion");
 assert(resumed.workers.every((worker) => worker.status === "completed"), "panel resume completes all relaunched workers");
+const resumedAggregateText = readFileSync(resumed.aggregateResultPath, "utf8");
+assertNotIncludes(resumedAggregateText, "stale-before-resume", "panel resume ignores stale worker results from prior attempts");
+const resumedWorktrees = resumed.workers.map((worker) => worker.worktreePath).filter(Boolean);
+const shutdown = JSON.parse(runCli([
+  "panel", "shutdown",
+  "--cwd", projectPath,
+  "--run", stoppablePanel.nativeRun.id,
+  "--json"
+]));
+assertEqual(shutdown.status, "stopped", "panel shutdown transitions the run to stopped after cleanup");
+assertEqual(shutdown.bridgeStatus, "shutdown", "panel shutdown records bridge shutdown status");
+assertEqual(shutdown.execution.bridgeStatus, "shutdown", "panel shutdown execution summary preserves shutdown bridge status");
+assert(shutdown.workers.every((worker) => worker.cleanupStatus === "removed"), "panel shutdown removes worker worktrees");
+for (const worktreePath of resumedWorktrees) {
+  assertEqual(existsSync(worktreePath), false, "panel shutdown removes the writable worker worktree from disk");
+}
 
 await withFakeRuntimeEnv(async () => {
   const collisionFallback = buildPanelFallback({

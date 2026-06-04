@@ -87,13 +87,17 @@ async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
   await rename(tempPath, path);
 }
 
-function workerTaskPrompt(fallback: PanelFallback, worker: PanelWorkerRecord): string {
+function workerRuntimeDirectory(worker: PanelWorkerRecord): string {
+  return join(worker.worktreePath ?? dirname(worker.resultPath), ".longtable-worker");
+}
+
+function workerTaskPrompt(run: PanelWorkerRun, worker: PanelWorkerRecord): string {
   return [
     "LongTable native panel worker",
     "",
     `Role: ${worker.label} (${worker.role})`,
-    `Invocation: ${fallback.invocationRecord.id}`,
-    `Panel plan: ${fallback.plan.id}`,
+    `Invocation: ${run.invocationId}`,
+    `Panel plan: ${run.planId}`,
     "",
     "Instructions:",
     "- Work inside the assigned writable worker worktree; do not mutate the leader checkout directly.",
@@ -109,7 +113,7 @@ function workerTaskPrompt(fallback: PanelFallback, worker: PanelWorkerRecord): s
     worker.taskStatePath ? `Worker task lifecycle state: ${worker.taskStatePath}` : "",
     "",
     "Research object:",
-    fallback.plan.prompt
+    run.prompt
   ].join("\n");
 }
 
@@ -158,7 +162,7 @@ function launcherScript(run: PanelWorkerRun, worker: PanelWorkerRecord): string 
     ].join(" "),
     "code=$?",
     `if [ -s ${shellQuote(stdoutPath)} ]; then`,
-    `  node -e 'const fs=require("fs"); const [stdoutPath,resultPath]=process.argv.slice(1); const parsed=JSON.parse(fs.readFileSync(stdoutPath,"utf8").trim()); fs.writeFileSync(resultPath, JSON.stringify(parsed, null, 2)+"\\n");' ${shellQuote(stdoutPath)} ${shellQuote(worker.resultPath)}`,
+    `  node -e 'const fs=require("fs"); const [stdoutPath,resultPath]=process.argv.slice(1); const parsed=JSON.parse(fs.readFileSync(stdoutPath,"utf8").trim()); const strings=(value)=>Array.isArray(value)?value.filter((entry)=>typeof entry==="string"):[]; const status=["completed","blocked","error"].includes(parsed.status)?parsed.status:"error"; const sanitized={role:typeof parsed.role==="string"?parsed.role:"",label:typeof parsed.label==="string"?parsed.label:"",status,summary:typeof parsed.summary==="string"?parsed.summary:"",claims:strings(parsed.claims),objections:strings(parsed.objections),openQuestions:strings(parsed.openQuestions),evidenceRefs:strings(parsed.evidenceRefs),error:typeof parsed.error==="string"?parsed.error:""}; fs.writeFileSync(resultPath, JSON.stringify(sanitized, null, 2)+"\\n");' ${shellQuote(stdoutPath)} ${shellQuote(worker.resultPath)}`,
     "  parse_code=$?",
     `  rm -f ${shellQuote(stdoutPath)}`,
     `  if [ "$parse_code" -ne 0 ]; then code=1; fi`,
@@ -198,31 +202,29 @@ export async function createPanelWorkerRun(options: {
   const launcherDirectory = join(runDirectory, "launchers");
   const worktreeDirectory = join(runDirectory, "worktrees");
   const mailboxDirectory = join(runDirectory, "mailbox");
-  await mkdir(taskDirectory, { recursive: true });
-  await mkdir(resultDirectory, { recursive: true });
-  await mkdir(logDirectory, { recursive: true });
-  await mkdir(launcherDirectory, { recursive: true });
+  await mkdir(runDirectory, { recursive: true });
   await mkdir(worktreeDirectory, { recursive: true });
-  await mkdir(mailboxDirectory, { recursive: true });
 
   const runStatus = options.initialStatus ?? "planned";
   const workers: PanelWorkerRecord[] = options.fallback.plan.members.map((member, index) => {
     const workerId = `worker-${index + 1}-${member.role}`;
+    const worktreePath = join(worktreeDirectory, workerSafeName(workerId));
+    const workerDirectory = join(worktreePath, ".longtable-worker");
     return {
       id: workerId,
       role: member.role,
       label: member.label,
       required: member.required,
       status: plannedWorkerStatus(runStatus),
-      taskPath: join(taskDirectory, `${workerId}.md`),
-      resultPath: join(resultDirectory, `${workerId}.json`),
-      logPath: join(logDirectory, `${workerId}.log`),
-      launcherPath: join(launcherDirectory, `${workerId}.sh`),
-      exitCodePath: join(resultDirectory, `${workerId}.exit.json`),
-      worktreePath: join(worktreeDirectory, workerSafeName(workerId)),
+      taskPath: join(workerDirectory, "task.md"),
+      resultPath: join(workerDirectory, "result.json"),
+      logPath: join(workerDirectory, "worker.log"),
+      launcherPath: join(workerDirectory, "launch.sh"),
+      exitCodePath: join(workerDirectory, "result.exit.json"),
+      worktreePath,
       worktreeBranch: safeName(`longtable/panel/${runId}/${workerId}`),
-      mailboxPath: join(mailboxDirectory, `${workerId}.jsonl`),
-      taskStatePath: join(taskDirectory, `${workerId}.state.json`),
+      mailboxPath: join(workerDirectory, "mailbox.jsonl"),
+      taskStatePath: join(workerDirectory, "state.json"),
       cleanupStatus: "not_started",
       executionState: "not_started",
       updatedAt: createdAt,
@@ -269,18 +271,6 @@ export async function createPanelWorkerRun(options: {
   });
   await writeJsonAtomic(run.outputSchemaPath, PANEL_WORKER_OUTPUT_SCHEMA);
   await appendLifecycleEvent(run, { type: "run_created", message: "LongTable native worker bridge run created." });
-  await Promise.all(workers.map((worker) => writeFile(worker.taskPath, workerTaskPrompt(options.fallback, worker), "utf8")));
-  await Promise.all(workers.map((worker) => worker.taskStatePath
-    ? writeJsonAtomic(worker.taskStatePath, {
-        workerId: worker.id,
-        status: worker.status,
-        executionState: worker.executionState,
-        resultPath: worker.resultPath,
-        mailboxPath: worker.mailboxPath,
-        worktreePath: worker.worktreePath,
-        updatedAt: worker.updatedAt
-      })
-    : Promise.resolve()));
   await writePanelWorkerRun(run);
   return run;
 }
@@ -325,6 +315,8 @@ export async function writePanelWorkerRun(run: PanelWorkerRun): Promise<void> {
     updatedAt: nowIso()
   });
   await Promise.all(run.workers.map((worker) => worker.taskStatePath
+    && existsSync(dirname(worker.taskStatePath))
+    && (!worker.worktreePath || existsSync(worker.worktreePath))
     ? writeJsonAtomic(worker.taskStatePath, {
         workerId: worker.id,
         status: worker.status,
@@ -443,6 +435,44 @@ function preflightNativeWorkerBridge(run: PanelWorkerRun): string[] {
   return failures;
 }
 
+function applyLeaderTrackedChanges(run: PanelWorkerRun, worker: PanelWorkerRecord): string | undefined {
+  if (!worker.worktreePath) {
+    return undefined;
+  }
+  const patch = execFileSync("git", ["diff", "--binary", "HEAD"], {
+    cwd: run.workingDirectory,
+    encoding: "buffer",
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  if (patch.length === 0) {
+    return undefined;
+  }
+  try {
+    execFileSync("git", ["apply", "--check", "--whitespace=nowarn", "-"], {
+      cwd: worker.worktreePath,
+      input: patch,
+      stdio: ["pipe", "ignore", "pipe"]
+    });
+    execFileSync("git", ["apply", "--whitespace=nowarn", "-"], {
+      cwd: worker.worktreePath,
+      input: patch,
+      stdio: ["pipe", "ignore", "pipe"]
+    });
+    return "Leader tracked workspace changes were applied to the worker worktree before launch.";
+  } catch (error) {
+    try {
+      execFileSync("git", ["apply", "--reverse", "--check", "--whitespace=nowarn", "-"], {
+        cwd: worker.worktreePath,
+        input: patch,
+        stdio: ["pipe", "ignore", "pipe"]
+      });
+      return "Leader tracked workspace changes were already present in the worker worktree before launch.";
+    } catch {
+      throw error;
+    }
+  }
+}
+
 async function markBridgePreflightFailed(run: PanelWorkerRun, failures: string[]): Promise<PanelWorkerRun> {
   const updatedAt = nowIso();
   const reason = failures.join(", ");
@@ -485,7 +515,9 @@ async function provisionWorkerWorktree(run: PanelWorkerRun, worker: PanelWorkerR
     }
   }
   const commit = currentGitCommit(worker.worktreePath);
-  await writeFile(worker.mailboxPath ?? join(run.mailboxDirectory ?? run.runDirectory, `${worker.id}.jsonl`), "", { flag: "a" });
+  const snapshotDiagnostic = applyLeaderTrackedChanges(run, worker);
+  await mkdir(workerRuntimeDirectory(worker), { recursive: true });
+  await writeFile(worker.mailboxPath ?? join(workerRuntimeDirectory(worker), "mailbox.jsonl"), "", { flag: "a" });
   await appendLifecycleEvent(run, {
     workerId: worker.id,
     type: "worktree_provisioned",
@@ -497,8 +529,29 @@ async function provisionWorkerWorktree(run: PanelWorkerRun, worker: PanelWorkerR
     worktreeCommit: commit,
     cleanupStatus: "retained",
     executionState: "provisioned",
-    diagnostics: appendDiagnostic(worker.diagnostics, "Writable git worktree provisioned for LongTable native worker.")
+    diagnostics: snapshotDiagnostic
+      ? appendDiagnostic(
+          appendDiagnostic(worker.diagnostics, "Writable git worktree provisioned for LongTable native worker."),
+          snapshotDiagnostic
+        )
+      : appendDiagnostic(worker.diagnostics, "Writable git worktree provisioned for LongTable native worker.")
   };
+}
+
+async function writeWorkerTask(run: PanelWorkerRun, worker: PanelWorkerRecord): Promise<void> {
+  await mkdir(workerRuntimeDirectory(worker), { recursive: true });
+  await writeFile(worker.taskPath, workerTaskPrompt(run, worker), "utf8");
+}
+
+async function clearWorkerAttemptArtifacts(worker: PanelWorkerRecord): Promise<void> {
+  const paths = [
+    worker.resultPath,
+    `${worker.resultPath}.stdout`,
+    `${worker.resultPath}.commit`,
+    worker.exitCodePath,
+    worker.logPath
+  ].filter((path): path is string => typeof path === "string" && path.length > 0);
+  await Promise.all(paths.map((path) => rm(path, { force: true })));
 }
 
 function launchWorkerPane(run: PanelWorkerRun, worker: PanelWorkerRecord): string {
@@ -561,6 +614,7 @@ export async function launchPanelWorkerRun(run: PanelWorkerRun): Promise<PanelWo
         ...provisioned,
         executionState: "launching"
       } satisfies PanelWorkerRecord;
+      await writeWorkerTask(run, launchable);
       await writeWorkerLauncher(run, launchable);
       const paneId = launchWorkerPane(run, launchable);
       const launchedWorker = {
@@ -754,6 +808,9 @@ export async function requestPanelWorkerStop(run: PanelWorkerRun): Promise<Panel
 export async function resumePanelWorkerRun(run: PanelWorkerRun): Promise<PanelWorkerRun> {
   const updatedAt = nowIso();
   await rm(run.stopFilePath, { force: true });
+  await Promise.all(run.workers
+    .filter((worker) => worker.status !== "completed")
+    .map((worker) => clearWorkerAttemptArtifacts(worker)));
   const nextRun: PanelWorkerRun = {
     ...run,
     status: "planned",
