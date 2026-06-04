@@ -146,11 +146,11 @@ export function buildPanelPlan(options: BuildPanelPlanOptions): PanelPlan {
     rationale: [
       "Option A uses provider-neutral panel semantics before native provider orchestration.",
       preferredSurface === "native_workers"
-        ? "LongTable-native workers may execute role passes through durable worker state; outputs must normalize back to this PanelResult."
+        ? "LongTable-native workers may execute role passes through durable worker state; outputs must normalize back to this PanelResult, and bridge failure must be reported separately from any later sequential fallback."
         : preferredSurface === "native_subagents"
         ? "Codex native subagents may execute the role passes when the current provider session exposes them; outputs must normalize back to this PanelResult."
         : "Sequential fallback is the stable execution path for both Claude Code and Codex.",
-      "Sequential fallback remains the required degradation path.",
+      "Sequential fallback remains the ordinary degradation path, but it is not treated as executed merely because a native-worker bridge request failed.",
       roles.length === explicitRoles.length && explicitRoles.length > 0
         ? "The panel is constrained by explicitly requested roles."
         : "The panel combines default research-review roles with prompt-triggered roles."
@@ -280,7 +280,7 @@ export function createPlannedInvocationRecord(options: {
     panelPlan: options.plan,
     panelResult: options.result,
     degradationReason: options.plan.preferredSurface === "native_workers"
-      ? "LongTable-native panel workers are optional; sequential_fallback is the required degradation path when local worker execution is unavailable."
+      ? "LongTable-native panel workers are optional; bridge failure is reported explicitly, and sequential_fallback remains available only when it is deliberately executed."
       : options.plan.preferredSurface === "native_subagents"
       ? "Codex native subagent execution is session-dependent; sequential_fallback is the required LongTable degradation path."
       : "Sequential fallback is the stable LongTable panel surface."
@@ -314,7 +314,7 @@ export function renderSequentialFallbackPrompt(plan: PanelPlan): string {
     : plan.preferredSurface === "native_workers"
     ? [
         "Preferred execution surface: LongTable-native panel workers when the local runtime supports them.",
-        "Fallback: if native workers are unavailable or stopped, run the same role passes sequentially and disclose the fallback in the technical record."
+        "Fallback: if native workers are unavailable or stopped, report the bridge failure explicitly; run sequential fallback only as a deliberate fallback execution and disclose it in the technical record."
       ]
     : ["Execution surface: sequential_fallback"];
   return [

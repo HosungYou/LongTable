@@ -414,6 +414,7 @@ function usage(): string {
     "  longtable panel [--prompt <text>] [--role <role[,role]>] [--mode review|critique|draft|commit] [--visibility synthesis_only|show_on_conflict|always_visible] [--provider codex|claude] [--native-workers|--native-subagents] [--wait [ms]] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable panel status --run <panel_run_id> [--wait [ms]] [--cwd <path>] [--json]",
     "  longtable panel stop --run <panel_run_id> [--cwd <path>] [--json]",
+    "  longtable panel shutdown --run <panel_run_id> [--cwd <path>] [--json]",
     "  longtable panel resume --run <panel_run_id> [--wait [ms]] [--cwd <path>] [--json]",
     "  longtable panel record [--invocation <id>] --result-file <json> [--surface sequential_fallback|native_subagents|native_workers] [--cwd <path>] [--json]",
     "  longtable handoff [--cwd <path>] [--output <file>] [--print] [--json]",
@@ -3061,12 +3062,14 @@ function parseWaitMs(value: string | boolean | undefined): number | undefined {
 function panelWorkerNextCommands(context: LongTableProjectContext, runId: string): {
   status: string;
   stop: string;
+  shutdown: string;
   resume: string;
 } {
   const cwdFlag = `--cwd "${context.project.projectPath}"`;
   return {
     status: `longtable panel status ${cwdFlag} --run ${runId}`,
     stop: `longtable panel stop ${cwdFlag} --run ${runId}`,
+    shutdown: `longtable panel shutdown ${cwdFlag} --run ${runId}`,
     resume: `longtable panel resume ${cwdFlag} --run ${runId}`
   };
 }
@@ -3102,6 +3105,32 @@ function summarizePanelRecordOutput(result: PanelResultRecordOutput | null): unk
   };
 }
 
+function summarizePanelWorkerExecution(run: PanelWorkerRun): unknown {
+  const bridgeFailureReason = run.status === "degraded"
+    ? "native worker bridge unavailable before execution"
+    : run.status === "failed" || run.status === "blocked"
+    ? "native worker bridge did not complete all role passes"
+    : undefined;
+  return {
+    requestedSurface: run.requestedSurface,
+    fallbackSurface: run.fallbackSurface,
+    bridgeStatus: run.status,
+    bridgeFailureReason,
+    sequentialFallbackExecuted: false,
+    paneIds: run.workers.map((worker) => worker.paneId).filter((paneId): paneId is string => typeof paneId === "string" && paneId.length > 0),
+    workers: run.workers.map((worker) => ({
+      id: worker.id,
+      role: worker.role,
+      label: worker.label,
+      status: worker.status,
+      paneId: worker.paneId,
+      resultPath: worker.resultPath,
+      diagnostics: worker.diagnostics
+    })),
+    diagnostics: run.diagnostics
+  };
+}
+
 async function runPanelStatusCommand(args: Record<string, string | boolean>): Promise<void> {
   const context = await requireWorkspaceContext(args);
   const runId = requireRunId(args);
@@ -3112,7 +3141,12 @@ async function runPanelStatusCommand(args: Record<string, string | boolean>): Pr
   const nextCommands = panelWorkerNextCommands(context, refreshed.id);
 
   if (args.json === true) {
-    console.log(JSON.stringify({ ...refreshed, nextCommands, recordedPanelResult: summarizePanelRecordOutput(recordedPanelResult) }, null, 2));
+    console.log(JSON.stringify({
+      ...refreshed,
+      execution: summarizePanelWorkerExecution(refreshed),
+      nextCommands,
+      recordedPanelResult: summarizePanelRecordOutput(recordedPanelResult)
+    }, null, 2));
     return;
   }
 
@@ -3123,6 +3157,7 @@ async function runPanelStatusCommand(args: Record<string, string | boolean>): Pr
     console.log(`- ${worker.label} (${worker.role}): ${worker.status}`);
   }
   console.log(`- stop: ${nextCommands.stop}`);
+  console.log(`- shutdown: ${nextCommands.shutdown}`);
   console.log(`- resume: ${nextCommands.resume}`);
   if (recordedPanelResult) {
     console.log(`- recorded evidence: ${recordedPanelResult.evidenceRecords.length}`);
@@ -3146,6 +3181,32 @@ async function runPanelStopCommand(args: Record<string, string | boolean>): Prom
   for (const worker of stopped.workers) {
     console.log(`- ${worker.label} (${worker.role}): ${worker.status}`);
   }
+  console.log(`- shutdown: ${nextCommands.shutdown}`);
+  console.log(`- resume: ${nextCommands.resume}`);
+}
+
+async function runPanelShutdownCommand(args: Record<string, string | boolean>): Promise<void> {
+  const context = await requireWorkspaceContext(args);
+  const runId = requireRunId(args);
+  const shutdown = await requestPanelWorkerStop(await readPanelWorkerRun(context.project.projectPath, runId));
+  const nextCommands = panelWorkerNextCommands(context, shutdown.id);
+
+  if (args.json === true) {
+    console.log(JSON.stringify({
+      ...shutdown,
+      execution: summarizePanelWorkerExecution(shutdown),
+      nextCommands
+    }, null, 2));
+    return;
+  }
+
+  console.log("LongTable panel run shutdown requested");
+  console.log(`- run: ${shutdown.id}`);
+  console.log(`- status: ${shutdown.status}`);
+  for (const worker of shutdown.workers) {
+    console.log(`- ${worker.label} (${worker.role}): ${worker.status}`);
+  }
+  console.log(`- status command: ${nextCommands.status}`);
   console.log(`- resume: ${nextCommands.resume}`);
 }
 
@@ -3349,10 +3410,16 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
             nativeRunCreated: Boolean(finalNativeRun),
             waitMs,
             degradedReason: nativeWorkersRequested && !finalNativeRun
-              ? "native workers require an existing LongTable workspace; sequential fallback prompt returned"
+              ? "native workers require an existing LongTable workspace; no native run was created and no sequential fallback was executed"
               : finalNativeRun?.status === "degraded"
-              ? "native workers require local tmux and codex commands; sequential fallback remains available"
-              : undefined
+              ? "native worker bridge unavailable; sequential fallback remains available but was not executed by this native-workers request"
+              : undefined,
+            bridgeFailureReason: finalNativeRun?.status === "degraded"
+              ? "native worker bridge unavailable before execution"
+              : finalNativeRun?.status === "failed" || finalNativeRun?.status === "blocked"
+              ? "native worker bridge did not complete all role passes"
+              : undefined,
+            sequentialFallbackExecuted: !nativeWorkersRequested
           },
           nativeRun: finalNativeRun,
           recordedPanelResult: summarizePanelRecordOutput(recordedPanelResult),
@@ -3376,12 +3443,13 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
     const nextCommands = panelWorkerNextCommands(nativeRunContext!, finalNativeRun.id);
     console.log(`- next status: ${nextCommands.status}`);
     console.log(`- stop: ${nextCommands.stop}`);
+    console.log(`- shutdown: ${nextCommands.shutdown}`);
     console.log(`- resume: ${nextCommands.resume}`);
     if (recordedPanelResult) {
       console.log(`- recorded evidence: ${recordedPanelResult.evidenceRecords.length}`);
     }
     if (finalNativeRun.status === "degraded") {
-      console.log("- degraded: native workers are unavailable; use the sequential fallback prompt below.");
+      console.log("- degraded: native workers are unavailable; sequential fallback is available but was not executed by this native-workers request.");
       console.log("");
       console.log(fallback.prompt);
     }
@@ -5335,6 +5403,10 @@ async function main(): Promise<void> {
     }
     if (subcommand === "stop") {
       await runPanelStopCommand(values);
+      return;
+    }
+    if (subcommand === "shutdown") {
+      await runPanelShutdownCommand(values);
       return;
     }
     if (subcommand === "resume") {
