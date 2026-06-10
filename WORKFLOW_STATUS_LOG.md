@@ -1,5 +1,11 @@
 # Workflow Status Log
 
+## 2026-06-10T05:45:00Z
+- Step 5 freeze handoff packet generated at `.longtable/handoffs/handoff-step5-freeze-handoff.md`.
+- Added Step 5 artifact integrity manifest (SHA-256 for core state/workflow files) to `WORKFLOW_STATUS_STEP5_BUNDLE.json`.
+- Updated Step 5 closeout status in `CURRENT.md`, `.longtable/current-session.json`, `.longtable/state.json`, and `sessions/longtable-1776783045627.json`.
+- Next action now set to Step 5 integrity verification + artifact synchronization.
+
 ## 2026-06-10T05:35:00Z
 - Step 4 package readiness check and caveat-preserving audit were completed.
 - Starting Step 5 freeze handoff.
