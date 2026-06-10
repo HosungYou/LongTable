@@ -17,13 +17,13 @@
   },
   "workingState": {
     "currentGoal": "Review LongTable checkpoint behavior, version alignment, and workspace policy",
-    "currentBlocker": "Full-corpus Step 4 freeze authorization/log verification and package readiness check remains open only if caveat drift is detected.",
-    "nextAction": "Run Step 4 frozen package check and record artifact bundle after checkpoint-aware validation.",
+    "currentBlocker": "Full-corpus Step 4 freeze authorization/log verification is done; Step 5 handoff begins only if caveat set is preserved.",
+    "nextAction": "Step 5 freeze handoff after checkpoint-aware audit closure and artifact integrity check.",
     "openQuestions": [],
     "activeModes": [
       "explore"
     ],
-    "resumeHint": "I want to continue Review LongTable checkpoint behavior, version alignment, and workspace policy. The blocker is Step 4 freeze authorization review with QA caveat preservation."
+    "resumeHint": "I want to continue Review LongTable checkpoint behavior, version alignment, and workspace policy. Step 5 freeze handoff starts now."
   },
   "inferredHypotheses": [],
   "openTensions": [],
@@ -219,5 +219,6 @@
       ],
       "source": "User requested saving the npm authentication method after LongTable 0.1.16 publish on 2026-04-21."
     }
-  ]
+  ],
+  "lastUpdatedAt": "2026-06-10T05:35:00Z"
 }
