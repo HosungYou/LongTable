@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "id": "longtable-1776783045627",
   "createdAt": "2026-04-21T14:50:45.638Z",
-  "lastUpdatedAt": "2026-06-10T06:00:00Z",
+  "lastUpdatedAt": "2026-06-10T06:15:15Z",
   "projectName": "LongTable",
   "projectPath": "/Volumes/External SSD/Projects/LongTable",
   "currentGoal": "Review LongTable checkpoint behavior, version alignment, and workspace policy",
-  "currentBlocker": "Step 5 freeze handoff closeout is complete.",
-  "nextAction": "Begin next operational step using the Step 5 handoff artifact as reference.",
+  "currentBlocker": "Step 7 Paper1/Paper2 joint checkpoint matrix created; unresolved evidence gaps are queued for manual verification.",
+  "nextAction": "Validate the joint checkpoint decision in AI/Meta artifacts, then start the next Step-7 research action (reference-standard vs model-ready boundary lock-in).",
   "openQuestions": [],
   "requestedPerspectives": [
     "reviewer",
@@ -21,6 +21,6 @@
   "activeModes": [
     "explore"
   ],
-  "resumeHint": "I want to continue Review LongTable checkpoint behavior, version alignment, and workspace policy. Step 5 closeout is done, and the next action is to run the next operational workflow step.",
+  "resumeHint": "Continue from Step 7: complete Paper1/Paper 2 joint checkpoint, then execute the first synchronized action with the selected checkpoint boundary.",
   "locale": "en"
 }

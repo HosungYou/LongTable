@@ -17,13 +17,13 @@
   },
   "workingState": {
     "currentGoal": "Review LongTable checkpoint behavior, version alignment, and workspace policy",
-    "currentBlocker": "Step 5 freeze handoff closeout is complete.",
-    "nextAction": "Begin next operational step using the Step 5 handoff artifact as reference.",
+    "currentBlocker": "Step 7 Paper1/Paper2 joint checkpoint matrix created; unresolved evidence gaps are queued for manual verification.",
+    "nextAction": "Validate the joint checkpoint decision in AI/Meta artifacts, then start the next Step-7 research action (reference-standard vs model-ready boundary lock-in).",
     "openQuestions": [],
     "activeModes": [
       "explore"
     ],
-    "resumeHint": "I want to continue Review LongTable checkpoint behavior, version alignment, and workspace policy. Step 5 closeout is done, and the next action is to run the next operational workflow step."
+    "resumeHint": "Continue from Step 7: complete Paper1/Paper 2 joint checkpoint, then execute the first synchronized action with the selected checkpoint boundary."
   },
   "inferredHypotheses": [],
   "openTensions": [],
@@ -46,9 +46,587 @@
       "summary": "Step 4 freeze authorization audit: proceed with current conditions after QA caveat preservation check.",
       "selectedOption": "proceed",
       "rationale": "Allowed freeze attempt with S051/S151/S164 partial completion and S203 N=251 preserved along with caveats."
+    },
+    {
+      "id": "decision_mq7ndx8b_0m7b7x",
+      "timestamp": "2026-06-10T05:48:14.842Z",
+      "checkpointKey": "panel_next_decision",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered Panel follow-up decision: Proceed with current direction",
+      "selectedOption": "proceed",
+      "selectedOptions": [
+        "proceed"
+      ],
+      "rationale": "Proceed to Step 6 operational execution using the Step 5 handoff artifact as continuity anchor, while preserving existing Step 4 caveats."
+    },
+    {
+      "id": "decision_mq7nehfz_4lvay0",
+      "timestamp": "2026-06-10T05:48:41.038Z",
+      "checkpointKey": "panel_next_decision",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered Panel follow-up decision: Proceed with current direction",
+      "selectedOption": "proceed",
+      "selectedOptions": [
+        "proceed"
+      ],
+      "rationale": "Proceed with Step 6 operational execution and use Step 5 handoff artifact plus unresolved checkpoint records as continuity anchor while preserving existing caveats."
+    },
+    {
+      "id": "decision_mq7ngdwk_nq2h8i",
+      "timestamp": "2026-06-10T05:50:09.764Z",
+      "checkpointKey": "panel_next_decision",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered Panel follow-up decision: Proceed with current direction",
+      "selectedOption": "proceed",
+      "selectedOptions": [
+        "proceed"
+      ],
+      "rationale": "Proceed with Step 6 operational verification outcome: checkpoint/routing, hooks, panel, question, role, research-spec, and release checks have passed."
+    },
+    {
+      "id": "decision_mq7nitt9_etg0jt",
+      "timestamp": "2026-06-10T05:52:03.693Z",
+      "checkpointKey": "panel_next_decision",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered Panel follow-up decision: Proceed with current direction",
+      "selectedOption": "proceed",
+      "selectedOptions": [
+        "proceed"
+      ],
+      "rationale": "Proceed with Step-7 continuity work: explicit checkpoint plan, then evidence-preserving operational verification before any spec lock-in."
+    },
+    {
+      "id": "decision_mq7o8w8r_j8v3q8",
+      "timestamp": "2026-06-10T06:15:15Z",
+      "checkpointKey": "step7_joint_checkpoint",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Completed Step7 paper-level alignment by defining a shared checkpoint boundary for Paper 1 and Paper 2.",
+      "selectedOption": "proceed",
+      "selectedOptions": [
+        "proceed"
+      ],
+      "rationale": "Both streams are evidence-ready in different maturity states; proceed with a synchronized joint checkpoint at the point where Paper1 model-ready tiered freeze inputs and Paper2 reference-freeze inputs are both explicitly present, then hold final freeze claims pending direct alignment checks."
     }
   ],
-  "invocationLog": [],
+  "invocationLog": [
+    {
+      "id": "invocation_record_mq7ndvt1_71rkek",
+      "createdAt": "2026-06-10T05:48:12.997Z",
+      "updatedAt": "2026-06-10T05:48:14.843Z",
+      "intent": {
+        "id": "invocation_mq7ndvt1_vmpmv0",
+        "kind": "panel",
+        "mode": "review",
+        "prompt": "LongTable project context\nproject: LongTable\ncurrent session goal: Review LongTable checkpoint behavior, version alignment, and workspace policy\ncurrent blocker: Step 5 freeze handoff closeout is complete.\nrequested perspectives: reviewer, theory_critic, methods_critic, measurement_auditor, ethics_reviewer, voice_keeper\ndisagreement preference: show_on_conflict\n\nStep 6 transition planning: we have closed Step 5 handoff; recommend what the next operational move should be and what artifacts must remain authoritative for continuity.",
+        "roles": [
+          "reviewer",
+          "methods_critic",
+          "measurement_auditor",
+          "theory_critic"
+        ],
+        "provider": "codex",
+        "requestedSurface": "sequential_fallback",
+        "visibility": "show_on_conflict",
+        "checkpointSensitivity": "high",
+        "rationale": [
+          "Option A uses provider-neutral panel semantics before native provider orchestration.",
+          "Sequential fallback is the stable execution path for both Claude Code and Codex.",
+          "The panel is constrained by explicitly requested roles."
+        ]
+      },
+      "status": "planned",
+      "provider": "codex",
+      "surface": "sequential_fallback",
+      "interactionDepth": "independent",
+      "panelPlan": {
+        "id": "panel_plan_mq7ndvt1_4gl4v5",
+        "createdAt": "2026-06-10T05:48:12.996Z",
+        "mode": "review",
+        "prompt": "LongTable project context\nproject: LongTable\ncurrent session goal: Review LongTable checkpoint behavior, version alignment, and workspace policy\ncurrent blocker: Step 5 freeze handoff closeout is complete.\nrequested perspectives: reviewer, theory_critic, methods_critic, measurement_auditor, ethics_reviewer, voice_keeper\ndisagreement preference: show_on_conflict\n\nStep 6 transition planning: we have closed Step 5 handoff; recommend what the next operational move should be and what artifacts must remain authoritative for continuity.",
+        "members": [
+          {
+            "role": "reviewer",
+            "label": "Reviewer",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "methods_critic",
+            "label": "Methods Critic",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "measurement_auditor",
+            "label": "Measurement Auditor",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "theory_critic",
+            "label": "Theory Critic",
+            "reason": "explicitly requested",
+            "required": true
+          }
+        ],
+        "visibility": "show_on_conflict",
+        "preferredSurface": "sequential_fallback",
+        "fallbackSurface": "sequential_fallback",
+        "checkpointSensitivity": "high",
+        "rationale": [
+          "Option A uses provider-neutral panel semantics before native provider orchestration.",
+          "Sequential fallback is the stable execution path for both Claude Code and Codex.",
+          "The panel is constrained by explicitly requested roles."
+        ]
+      },
+      "panelResult": {
+        "id": "panel_result_mq7ndvt1_j1ps1l",
+        "planId": "panel_plan_mq7ndvt1_4gl4v5",
+        "createdAt": "2026-06-10T05:48:12.997Z",
+        "updatedAt": "2026-06-10T05:48:14.843Z",
+        "provider": "codex",
+        "surface": "sequential_fallback",
+        "status": "planned",
+        "interactionDepth": "independent",
+        "memberResults": [
+          {
+            "role": "reviewer",
+            "label": "Reviewer",
+            "status": "planned"
+          },
+          {
+            "role": "methods_critic",
+            "label": "Methods Critic",
+            "status": "planned"
+          },
+          {
+            "role": "measurement_auditor",
+            "label": "Measurement Auditor",
+            "status": "planned"
+          },
+          {
+            "role": "theory_critic",
+            "label": "Theory Critic",
+            "status": "planned"
+          }
+        ],
+        "linkedQuestionRecordIds": [
+          "question_record_mq7ndvt1_yiplii"
+        ],
+        "linkedDecisionRecordIds": [
+          "decision_mq7ndx8b_0m7b7x"
+        ]
+      },
+      "degradationReason": "Native provider team execution is optional; sequential fallback is the stable LongTable surface."
+    },
+    {
+      "id": "invocation_record_mq7necsw_z2cbby",
+      "createdAt": "2026-06-10T05:48:35.024Z",
+      "updatedAt": "2026-06-10T05:48:41.039Z",
+      "intent": {
+        "id": "invocation_mq7necsv_9doo1t",
+        "kind": "panel",
+        "mode": "review",
+        "prompt": "LongTable project context\nproject: LongTable\ncurrent session goal: Review LongTable checkpoint behavior, version alignment, and workspace policy\ncurrent blocker: Step 5 freeze handoff closeout is complete.\nrequested perspectives: reviewer, theory_critic, methods_critic, measurement_auditor, ethics_reviewer, voice_keeper\ndisagreement preference: show_on_conflict\n\nContinue from Step 5 freeze handoff closeout. Review LongTable checkpoint behavior, version alignment, and workspace policy to identify the first Step 6 operational action.",
+        "roles": [
+          "reviewer",
+          "theory_critic",
+          "methods_critic",
+          "measurement_auditor",
+          "ethics_reviewer",
+          "voice_keeper"
+        ],
+        "provider": "codex",
+        "requestedSurface": "sequential_fallback",
+        "visibility": "always_visible",
+        "checkpointSensitivity": "high",
+        "rationale": [
+          "Option A uses provider-neutral panel semantics before native provider orchestration.",
+          "Sequential fallback is the stable execution path for both Claude Code and Codex.",
+          "The panel is constrained by explicitly requested roles."
+        ]
+      },
+      "status": "planned",
+      "provider": "codex",
+      "surface": "sequential_fallback",
+      "interactionDepth": "independent",
+      "panelPlan": {
+        "id": "panel_plan_mq7necsv_mhzooc",
+        "createdAt": "2026-06-10T05:48:35.022Z",
+        "mode": "review",
+        "prompt": "LongTable project context\nproject: LongTable\ncurrent session goal: Review LongTable checkpoint behavior, version alignment, and workspace policy\ncurrent blocker: Step 5 freeze handoff closeout is complete.\nrequested perspectives: reviewer, theory_critic, methods_critic, measurement_auditor, ethics_reviewer, voice_keeper\ndisagreement preference: show_on_conflict\n\nContinue from Step 5 freeze handoff closeout. Review LongTable checkpoint behavior, version alignment, and workspace policy to identify the first Step 6 operational action.",
+        "members": [
+          {
+            "role": "reviewer",
+            "label": "Reviewer",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "theory_critic",
+            "label": "Theory Critic",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "methods_critic",
+            "label": "Methods Critic",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "measurement_auditor",
+            "label": "Measurement Auditor",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "ethics_reviewer",
+            "label": "Ethics Reviewer",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "voice_keeper",
+            "label": "Voice Keeper",
+            "reason": "explicitly requested",
+            "required": true
+          }
+        ],
+        "visibility": "always_visible",
+        "preferredSurface": "sequential_fallback",
+        "fallbackSurface": "sequential_fallback",
+        "checkpointSensitivity": "high",
+        "rationale": [
+          "Option A uses provider-neutral panel semantics before native provider orchestration.",
+          "Sequential fallback is the stable execution path for both Claude Code and Codex.",
+          "The panel is constrained by explicitly requested roles."
+        ]
+      },
+      "panelResult": {
+        "id": "panel_result_mq7necsw_lnw9sw",
+        "planId": "panel_plan_mq7necsv_mhzooc",
+        "createdAt": "2026-06-10T05:48:35.024Z",
+        "updatedAt": "2026-06-10T05:48:41.039Z",
+        "provider": "codex",
+        "surface": "sequential_fallback",
+        "status": "planned",
+        "interactionDepth": "independent",
+        "memberResults": [
+          {
+            "role": "reviewer",
+            "label": "Reviewer",
+            "status": "planned"
+          },
+          {
+            "role": "theory_critic",
+            "label": "Theory Critic",
+            "status": "planned"
+          },
+          {
+            "role": "methods_critic",
+            "label": "Methods Critic",
+            "status": "planned"
+          },
+          {
+            "role": "measurement_auditor",
+            "label": "Measurement Auditor",
+            "status": "planned"
+          },
+          {
+            "role": "ethics_reviewer",
+            "label": "Ethics Reviewer",
+            "status": "planned"
+          },
+          {
+            "role": "voice_keeper",
+            "label": "Voice Keeper",
+            "status": "planned"
+          }
+        ],
+        "linkedQuestionRecordIds": [
+          "question_record_mq7necsv_c63cok"
+        ],
+        "linkedDecisionRecordIds": [
+          "decision_mq7nehfz_4lvay0"
+        ]
+      },
+      "degradationReason": "Native provider team execution is optional; sequential fallback is the stable LongTable surface."
+    },
+    {
+      "id": "invocation_record_mq7nerxi_9g5v87",
+      "createdAt": "2026-06-10T05:48:54.630Z",
+      "updatedAt": "2026-06-10T05:50:09.764Z",
+      "intent": {
+        "id": "invocation_mq7nerxi_5e3wxp",
+        "kind": "panel",
+        "mode": "review",
+        "prompt": "LongTable project context\nproject: LongTable\ncurrent session goal: Review LongTable checkpoint behavior, version alignment, and workspace policy\ncurrent blocker: Step 5 freeze handoff closeout is complete.\nrequested perspectives: reviewer, theory_critic, methods_critic, measurement_auditor, ethics_reviewer, voice_keeper\ndisagreement preference: show_on_conflict\n\nStep 6 operational move should be: verify checkpoint behavior and version alignment using evidence-based checks (smoke tests and policy docs) before any further workflow lock-in.",
+        "roles": [
+          "reviewer",
+          "theory_critic",
+          "methods_critic",
+          "measurement_auditor",
+          "ethics_reviewer",
+          "voice_keeper"
+        ],
+        "provider": "codex",
+        "requestedSurface": "sequential_fallback",
+        "visibility": "show_on_conflict",
+        "checkpointSensitivity": "high",
+        "rationale": [
+          "Option A uses provider-neutral panel semantics before native provider orchestration.",
+          "Sequential fallback is the stable execution path for both Claude Code and Codex.",
+          "The panel is constrained by explicitly requested roles."
+        ]
+      },
+      "status": "planned",
+      "provider": "codex",
+      "surface": "sequential_fallback",
+      "interactionDepth": "independent",
+      "panelPlan": {
+        "id": "panel_plan_mq7nerxi_h3ljse",
+        "createdAt": "2026-06-10T05:48:54.630Z",
+        "mode": "review",
+        "prompt": "LongTable project context\nproject: LongTable\ncurrent session goal: Review LongTable checkpoint behavior, version alignment, and workspace policy\ncurrent blocker: Step 5 freeze handoff closeout is complete.\nrequested perspectives: reviewer, theory_critic, methods_critic, measurement_auditor, ethics_reviewer, voice_keeper\ndisagreement preference: show_on_conflict\n\nStep 6 operational move should be: verify checkpoint behavior and version alignment using evidence-based checks (smoke tests and policy docs) before any further workflow lock-in.",
+        "members": [
+          {
+            "role": "reviewer",
+            "label": "Reviewer",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "theory_critic",
+            "label": "Theory Critic",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "methods_critic",
+            "label": "Methods Critic",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "measurement_auditor",
+            "label": "Measurement Auditor",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "ethics_reviewer",
+            "label": "Ethics Reviewer",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "voice_keeper",
+            "label": "Voice Keeper",
+            "reason": "explicitly requested",
+            "required": true
+          }
+        ],
+        "visibility": "show_on_conflict",
+        "preferredSurface": "sequential_fallback",
+        "fallbackSurface": "sequential_fallback",
+        "checkpointSensitivity": "high",
+        "rationale": [
+          "Option A uses provider-neutral panel semantics before native provider orchestration.",
+          "Sequential fallback is the stable execution path for both Claude Code and Codex.",
+          "The panel is constrained by explicitly requested roles."
+        ]
+      },
+      "panelResult": {
+        "id": "panel_result_mq7nerxi_51udwb",
+        "planId": "panel_plan_mq7nerxi_h3ljse",
+        "createdAt": "2026-06-10T05:48:54.630Z",
+        "updatedAt": "2026-06-10T05:50:09.764Z",
+        "provider": "codex",
+        "surface": "sequential_fallback",
+        "status": "planned",
+        "interactionDepth": "independent",
+        "memberResults": [
+          {
+            "role": "reviewer",
+            "label": "Reviewer",
+            "status": "planned"
+          },
+          {
+            "role": "theory_critic",
+            "label": "Theory Critic",
+            "status": "planned"
+          },
+          {
+            "role": "methods_critic",
+            "label": "Methods Critic",
+            "status": "planned"
+          },
+          {
+            "role": "measurement_auditor",
+            "label": "Measurement Auditor",
+            "status": "planned"
+          },
+          {
+            "role": "ethics_reviewer",
+            "label": "Ethics Reviewer",
+            "status": "planned"
+          },
+          {
+            "role": "voice_keeper",
+            "label": "Voice Keeper",
+            "status": "planned"
+          }
+        ],
+        "linkedQuestionRecordIds": [
+          "question_record_mq7nerxi_7ebkz2"
+        ],
+        "linkedDecisionRecordIds": [
+          "decision_mq7ngdwk_nq2h8i"
+        ]
+      },
+      "degradationReason": "Native provider team execution is optional; sequential fallback is the stable LongTable surface."
+    },
+    {
+      "id": "invocation_record_mq7nisf1_30vvg8",
+      "createdAt": "2026-06-10T05:52:01.885Z",
+      "updatedAt": "2026-06-10T05:52:03.693Z",
+      "intent": {
+        "id": "invocation_mq7nisf1_5gfi09",
+        "kind": "panel",
+        "mode": "review",
+        "prompt": "LongTable project context\nproject: LongTable\ncurrent session goal: Review LongTable checkpoint behavior, version alignment, and workspace policy\ncurrent blocker: Step 5 freeze handoff closeout is complete.\nrequested perspectives: reviewer, theory_critic, methods_critic, measurement_auditor, ethics_reviewer, voice_keeper\ndisagreement preference: show_on_conflict\n\nNext operational move: validate checkpoint + workspace-policy behavior against current local/version and produce a concrete Step-7 continuity plan; no changes to human-facing claim yet.",
+        "roles": [
+          "reviewer",
+          "theory_critic",
+          "methods_critic",
+          "measurement_auditor",
+          "ethics_reviewer",
+          "voice_keeper"
+        ],
+        "provider": "codex",
+        "requestedSurface": "sequential_fallback",
+        "visibility": "always_visible",
+        "checkpointSensitivity": "high",
+        "rationale": [
+          "Option A uses provider-neutral panel semantics before native provider orchestration.",
+          "Sequential fallback is the stable execution path for both Claude Code and Codex.",
+          "The panel is constrained by explicitly requested roles."
+        ]
+      },
+      "status": "planned",
+      "provider": "codex",
+      "surface": "sequential_fallback",
+      "interactionDepth": "independent",
+      "panelPlan": {
+        "id": "panel_plan_mq7nisf1_bxqyyq",
+        "createdAt": "2026-06-10T05:52:01.884Z",
+        "mode": "review",
+        "prompt": "LongTable project context\nproject: LongTable\ncurrent session goal: Review LongTable checkpoint behavior, version alignment, and workspace policy\ncurrent blocker: Step 5 freeze handoff closeout is complete.\nrequested perspectives: reviewer, theory_critic, methods_critic, measurement_auditor, ethics_reviewer, voice_keeper\ndisagreement preference: show_on_conflict\n\nNext operational move: validate checkpoint + workspace-policy behavior against current local/version and produce a concrete Step-7 continuity plan; no changes to human-facing claim yet.",
+        "members": [
+          {
+            "role": "reviewer",
+            "label": "Reviewer",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "theory_critic",
+            "label": "Theory Critic",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "methods_critic",
+            "label": "Methods Critic",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "measurement_auditor",
+            "label": "Measurement Auditor",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "ethics_reviewer",
+            "label": "Ethics Reviewer",
+            "reason": "explicitly requested",
+            "required": true
+          },
+          {
+            "role": "voice_keeper",
+            "label": "Voice Keeper",
+            "reason": "explicitly requested",
+            "required": true
+          }
+        ],
+        "visibility": "always_visible",
+        "preferredSurface": "sequential_fallback",
+        "fallbackSurface": "sequential_fallback",
+        "checkpointSensitivity": "high",
+        "rationale": [
+          "Option A uses provider-neutral panel semantics before native provider orchestration.",
+          "Sequential fallback is the stable execution path for both Claude Code and Codex.",
+          "The panel is constrained by explicitly requested roles."
+        ]
+      },
+      "panelResult": {
+        "id": "panel_result_mq7nisf1_db4kaj",
+        "planId": "panel_plan_mq7nisf1_bxqyyq",
+        "createdAt": "2026-06-10T05:52:01.885Z",
+        "updatedAt": "2026-06-10T05:52:03.693Z",
+        "provider": "codex",
+        "surface": "sequential_fallback",
+        "status": "planned",
+        "interactionDepth": "independent",
+        "memberResults": [
+          {
+            "role": "reviewer",
+            "label": "Reviewer",
+            "status": "planned"
+          },
+          {
+            "role": "theory_critic",
+            "label": "Theory Critic",
+            "status": "planned"
+          },
+          {
+            "role": "methods_critic",
+            "label": "Methods Critic",
+            "status": "planned"
+          },
+          {
+            "role": "measurement_auditor",
+            "label": "Measurement Auditor",
+            "status": "planned"
+          },
+          {
+            "role": "ethics_reviewer",
+            "label": "Ethics Reviewer",
+            "status": "planned"
+          },
+          {
+            "role": "voice_keeper",
+            "label": "Voice Keeper",
+            "status": "planned"
+          }
+        ],
+        "linkedQuestionRecordIds": [
+          "question_record_mq7nisf1_ty62ip"
+        ],
+        "linkedDecisionRecordIds": [
+          "decision_mq7nitt9_etg0jt"
+        ]
+      },
+      "degradationReason": "Native provider team execution is optional; sequential fallback is the stable LongTable surface."
+    }
+  ],
   "questionLog": [
     {
       "id": "question_record_mo8qrq3b_ihmtso",
@@ -172,6 +750,246 @@
         "surface": "numbered"
       },
       "decisionRecordId": "decision_mq7lwboi_5f7gtb"
+    },
+    {
+      "id": "question_record_mq7ndvt1_yiplii",
+      "createdAt": "2026-06-10T05:48:12.997Z",
+      "updatedAt": "2026-06-10T05:48:14.842Z",
+      "status": "answered",
+      "prompt": {
+        "id": "question_prompt_mq7ndvt1_w0nkns",
+        "checkpointKey": "panel_next_decision",
+        "title": "Panel follow-up decision",
+        "question": "What should LongTable treat as the next human decision after this panel review?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "revise",
+            "label": "Revise before proceeding",
+            "description": "Use the panel result to revise the claim, design, or draft first."
+          },
+          {
+            "value": "evidence",
+            "label": "Gather or verify evidence first",
+            "description": "Do not proceed until the relevant evidence or citation support is checked."
+          },
+          {
+            "value": "proceed",
+            "label": "Proceed with current direction",
+            "description": "Accept the risk profile and continue with the current direction."
+          },
+          {
+            "value": "defer",
+            "label": "Keep this open",
+            "description": "Do not commit yet; keep the panel issue visible as an open tension."
+          }
+        ],
+        "allowOther": true,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "runtime_guidance",
+        "rationale": [
+          "Panel review creates disagreement or risk visibility that should connect to an explicit researcher decision.",
+          "Panel checkpoint sensitivity: high."
+        ],
+        "displayReason": "Panel review can surface role disagreement that should not be collapsed without researcher approval.",
+        "preferredSurfaces": [
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_mq7ndvt1_w0nkns",
+        "selectedValues": [
+          "proceed"
+        ],
+        "selectedLabels": [
+          "Proceed with current direction"
+        ],
+        "rationale": "Proceed to Step 6 operational execution using the Step 5 handoff artifact as continuity anchor, while preserving existing Step 4 caveats.",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_mq7ndx8b_0m7b7x"
+    },
+    {
+      "id": "question_record_mq7necsv_c63cok",
+      "createdAt": "2026-06-10T05:48:35.023Z",
+      "updatedAt": "2026-06-10T05:48:41.038Z",
+      "status": "answered",
+      "prompt": {
+        "id": "question_prompt_mq7necsw_rn2ch7",
+        "checkpointKey": "panel_next_decision",
+        "title": "Panel follow-up decision",
+        "question": "What should LongTable treat as the next human decision after this panel review?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "revise",
+            "label": "Revise before proceeding",
+            "description": "Use the panel result to revise the claim, design, or draft first."
+          },
+          {
+            "value": "evidence",
+            "label": "Gather or verify evidence first",
+            "description": "Do not proceed until the relevant evidence or citation support is checked."
+          },
+          {
+            "value": "proceed",
+            "label": "Proceed with current direction",
+            "description": "Accept the risk profile and continue with the current direction."
+          },
+          {
+            "value": "defer",
+            "label": "Keep this open",
+            "description": "Do not commit yet; keep the panel issue visible as an open tension."
+          }
+        ],
+        "allowOther": true,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "runtime_guidance",
+        "rationale": [
+          "Panel review creates disagreement or risk visibility that should connect to an explicit researcher decision.",
+          "Panel checkpoint sensitivity: high."
+        ],
+        "displayReason": "Panel review can surface role disagreement that should not be collapsed without researcher approval.",
+        "preferredSurfaces": [
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_mq7necsw_rn2ch7",
+        "selectedValues": [
+          "proceed"
+        ],
+        "selectedLabels": [
+          "Proceed with current direction"
+        ],
+        "rationale": "Proceed with Step 6 operational execution and use Step 5 handoff artifact plus unresolved checkpoint records as continuity anchor while preserving existing caveats.",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_mq7nehfz_4lvay0"
+    },
+    {
+      "id": "question_record_mq7nerxi_7ebkz2",
+      "createdAt": "2026-06-10T05:48:54.630Z",
+      "updatedAt": "2026-06-10T05:50:09.764Z",
+      "status": "answered",
+      "prompt": {
+        "id": "question_prompt_mq7nerxi_dttgrh",
+        "checkpointKey": "panel_next_decision",
+        "title": "Panel follow-up decision",
+        "question": "What should LongTable treat as the next human decision after this panel review?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "revise",
+            "label": "Revise before proceeding",
+            "description": "Use the panel result to revise the claim, design, or draft first."
+          },
+          {
+            "value": "evidence",
+            "label": "Gather or verify evidence first",
+            "description": "Do not proceed until the relevant evidence or citation support is checked."
+          },
+          {
+            "value": "proceed",
+            "label": "Proceed with current direction",
+            "description": "Accept the risk profile and continue with the current direction."
+          },
+          {
+            "value": "defer",
+            "label": "Keep this open",
+            "description": "Do not commit yet; keep the panel issue visible as an open tension."
+          }
+        ],
+        "allowOther": true,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "runtime_guidance",
+        "rationale": [
+          "Panel review creates disagreement or risk visibility that should connect to an explicit researcher decision.",
+          "Panel checkpoint sensitivity: high."
+        ],
+        "displayReason": "Panel review can surface role disagreement that should not be collapsed without researcher approval.",
+        "preferredSurfaces": [
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_mq7nerxi_dttgrh",
+        "selectedValues": [
+          "proceed"
+        ],
+        "selectedLabels": [
+          "Proceed with current direction"
+        ],
+        "rationale": "Proceed with Step 6 operational verification outcome: checkpoint/routing, hooks, panel, question, role, research-spec, and release checks have passed.",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_mq7ngdwk_nq2h8i"
+    },
+    {
+      "id": "question_record_mq7nisf1_ty62ip",
+      "createdAt": "2026-06-10T05:52:01.885Z",
+      "updatedAt": "2026-06-10T05:52:03.693Z",
+      "status": "answered",
+      "prompt": {
+        "id": "question_prompt_mq7nisf1_7y7d40",
+        "checkpointKey": "panel_next_decision",
+        "title": "Panel follow-up decision",
+        "question": "What should LongTable treat as the next human decision after this panel review?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "revise",
+            "label": "Revise before proceeding",
+            "description": "Use the panel result to revise the claim, design, or draft first."
+          },
+          {
+            "value": "evidence",
+            "label": "Gather or verify evidence first",
+            "description": "Do not proceed until the relevant evidence or citation support is checked."
+          },
+          {
+            "value": "proceed",
+            "label": "Proceed with current direction",
+            "description": "Accept the risk profile and continue with the current direction."
+          },
+          {
+            "value": "defer",
+            "label": "Keep this open",
+            "description": "Do not commit yet; keep the panel issue visible as an open tension."
+          }
+        ],
+        "allowOther": true,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "runtime_guidance",
+        "rationale": [
+          "Panel review creates disagreement or risk visibility that should connect to an explicit researcher decision.",
+          "Panel checkpoint sensitivity: high."
+        ],
+        "displayReason": "Panel review can surface role disagreement that should not be collapsed without researcher approval.",
+        "preferredSurfaces": [
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_mq7nisf1_7y7d40",
+        "selectedValues": [
+          "proceed"
+        ],
+        "selectedLabels": [
+          "Proceed with current direction"
+        ],
+        "rationale": "Proceed with Step-7 continuity work: explicit checkpoint plan, then evidence-preserving operational verification before any spec lock-in.",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_mq7nitt9_etg0jt"
     }
   ],
   "artifactRecords": [],
@@ -202,6 +1020,15 @@
       "summary": "Step 4 freeze authorization and freeze-log audit completed; QA caveats preserved (S051/S151/S164 partial completion, S203 N=251, S074/S187/path/beta/HTMT/manual/status-only).",
       "visibility": "explicit",
       "importance": "high"
+    },
+    {
+      "id": "step7-joint-checkpoint-20260610",
+      "timestamp": "2026-06-10T06:15:15Z",
+      "source": "longtable-step",
+      "traceType": "judgment",
+      "summary": "Step7 joint checkpoint matrix created for Paper1/Paper2; common next checkpoint set at model-ready/reference-freeze boundary with manual evidence verification pending.",
+      "visibility": "explicit",
+      "importance": "high"
     }
   ],
   "operationalMemory": [
@@ -220,5 +1047,11 @@
       "source": "User requested saving the npm authentication method after LongTable 0.1.16 publish on 2026-04-21."
     }
   ],
-  "lastUpdatedAt": "2026-06-10T05:45:00Z"
+  "lastUpdatedAt": "2026-06-10T05:45:00Z",
+  "hooks": [],
+  "interviewTurns": [],
+  "evidenceRecords": [],
+  "specPatches": [],
+  "specRevisions": [],
+  "questionObligations": []
 }
