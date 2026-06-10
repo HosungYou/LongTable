@@ -17,11 +17,10 @@
   },
   "workingState": {
     "currentGoal": "Review LongTable checkpoint behavior, version alignment, and workspace policy",
-    "currentBlocker": "Verify whether Researcher Checkpoints trigger correctly after the latest version update",
-    "nextAction": "Open with the blocker, then ask LongTable to surface the first high-leverage uncertainty around \"Verify whether Researcher Checkpoints trigger correctly after the latest version update\".",
+    "currentBlocker": "Researcher Checkpoints trigger correctly after 0.1.11 in local smoke test",
+    "nextAction": "Step 4 freeze authorization/log review complete; proceed with frozen package readiness check.",
     "openQuestions": [
-      "What would reduce the uncertainty around \"Verify whether Researcher Checkpoints trigger correctly after the latest version update\" first?",
-      "What evidence would let you decide whether \"Verify whether Researcher Checkpoints trigger correctly after the latest version update\" is a knowledge gap, a coding rule gap, or a data gap?"
+      "Do we see any mismatch between the local smoke test and Step 4 full-corpus workflow?"
     ],
     "activeModes": [
       "explore"
@@ -29,9 +28,7 @@
     "resumeHint": "I want to continue Review LongTable checkpoint behavior, version alignment, and workspace policy. The unresolved blocker is Verify whether Researcher Checkpoints trigger correctly after the latest version update."
   },
   "inferredHypotheses": [],
-  "openTensions": [
-    "Verify whether Researcher Checkpoints trigger correctly after the latest version update"
-  ],
+  "openTensions": [],
   "decisionLog": [
     {
       "id": "decision_mo8qszuk_q9te40",
@@ -41,6 +38,16 @@
       "mode": "commit",
       "summary": "Answered Meta-decision checkpoint: Revise the platform decision",
       "selectedOption": "revise"
+    },
+    {
+      "id": "decision_mq7lwboi_5f7gtb",
+      "timestamp": "2026-06-10T05:06:34.145Z",
+      "checkpointKey": "research_question_freeze",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Step 4 freeze authorization audit: proceed with current conditions after QA caveat preservation check.",
+      "selectedOption": "proceed",
+      "rationale": "Allowed freeze attempt with S051/S151/S164 partial completion and S203 N=251 preserved along with caveats."
     }
   ],
   "invocationLog": [],
@@ -106,6 +113,67 @@
         "surface": "numbered"
       },
       "decisionRecordId": "decision_mo8qszuk_q9te40"
+    },
+    {
+      "id": "question_record_mq7lwboi_rsypxf",
+      "createdAt": "2026-06-10T05:06:34.145Z",
+      "updatedAt": "2026-06-10T05:06:34.145Z",
+      "status": "answered",
+      "prompt": {
+        "id": "question_prompt_mq7lwboi_qnv6t6",
+        "checkpointKey": "research_question_freeze",
+        "title": "Research commitment checkpoint",
+        "question": "What should LongTable treat as the final freeze condition before Step 4 external-ready packaging?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "revise",
+            "label": "Revise before freezing",
+            "description": "Update freeze criteria before treating Step 4 as complete."
+          },
+          {
+            "value": "evidence",
+            "label": "Gather evidence first",
+            "description": "Confirm the required signals before freezing."
+          },
+          {
+            "value": "proceed",
+            "label": "Proceed with current conditions",
+            "description": "Accept current conditions and continue."
+          },
+          {
+            "value": "defer",
+            "label": "Keep open",
+            "description": "Do not freeze yet and continue with open questions."
+          }
+        ],
+        "allowOther": true,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "rationale": [
+          "Step 4 freeze is a human commitment boundary with external packaging implications.",
+          "QA caveat review must be captured before final package readout.",
+          "Trigger family: research_question_freeze.",
+          "Original prompt: Evaluate Step 4 freeze authorization and logging conditions."
+        ],
+        "preferredSurfaces": [
+          "numbered",
+          "native_structured"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_mq7lwboi_qnv6t6",
+        "selectedValues": [
+          "proceed"
+        ],
+        "selectedLabels": [
+          "Proceed with current conditions"
+        ],
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_mq7lwboi_5f7gtb"
     }
   ],
   "artifactRecords": [],
@@ -124,7 +192,16 @@
       "timestamp": "2026-04-21T14:50:45.640Z",
       "source": "longtable-start",
       "traceType": "tension",
-      "summary": "Current session blocker: Verify whether Researcher Checkpoints trigger correctly after the latest version update.",
+      "summary": "Researcher Checkpoints were smoke-tested and confirmed in local CLI path: Researcher Checkpoints trigger correctly after 0.1.11 in local smoke test.",
+      "visibility": "explicit",
+      "importance": "high"
+    },
+    {
+      "id": "step4-freeze-audit_1781067994146",
+      "timestamp": "2026-06-10T05:06:34.145Z",
+      "source": "longtable-question",
+      "traceType": "judgment",
+      "summary": "Step 4 freeze authorization and freeze-log audit completed; QA caveats preserved (S051/S151/S164 partial completion, S203 N=251, S074/S187/path/beta/HTMT/manual/status-only).",
       "visibility": "explicit",
       "importance": "high"
     }
