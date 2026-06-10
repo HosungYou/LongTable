@@ -17,15 +17,13 @@
   },
   "workingState": {
     "currentGoal": "Review LongTable checkpoint behavior, version alignment, and workspace policy",
-    "currentBlocker": "Researcher Checkpoints trigger correctly after 0.1.11 in local smoke test",
-    "nextAction": "Step 4 freeze authorization/log review complete; proceed with frozen package readiness check.",
-    "openQuestions": [
-      "Do we see any mismatch between the local smoke test and Step 4 full-corpus workflow?"
-    ],
+    "currentBlocker": "Full-corpus Step 4 freeze authorization/log verification and package readiness check remains open only if caveat drift is detected.",
+    "nextAction": "Run Step 4 frozen package check and record artifact bundle after checkpoint-aware validation.",
+    "openQuestions": [],
     "activeModes": [
       "explore"
     ],
-    "resumeHint": "I want to continue Review LongTable checkpoint behavior, version alignment, and workspace policy. The unresolved blocker is Verify whether Researcher Checkpoints trigger correctly after the latest version update."
+    "resumeHint": "I want to continue Review LongTable checkpoint behavior, version alignment, and workspace policy. The blocker is Step 4 freeze authorization review with QA caveat preservation."
   },
   "inferredHypotheses": [],
   "openTensions": [],
