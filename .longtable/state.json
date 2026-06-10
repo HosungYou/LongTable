@@ -17,13 +17,16 @@
   },
   "workingState": {
     "currentGoal": "Review LongTable checkpoint behavior, version alignment, and workspace policy",
-    "currentBlocker": "Step 7 Paper1/Paper2 joint checkpoint matrix created; unresolved evidence gaps are queued for manual verification.",
-    "nextAction": "Validate the joint checkpoint decision in AI/Meta artifacts, then start the next Step-7 research action (reference-standard vs model-ready boundary lock-in).",
-    "openQuestions": [],
-    "activeModes": [
-      "explore"
+    "currentBlocker": "Paper 2 strict Gate C2 is active (study-level -> construct/coding -> source adjudication -> input mapping required); strict pass is required before any Paper 2 freeze candidate advancement.",
+    "nextAction": "Execute Paper 2 strict Gate C2 in order: study-level -> construct/coding -> source adjudication -> input mapping, and record a full pass/fail trace.",
+    "openQuestions": [
+      "Evidence artifact row-level checks for Paper2 strict Gate C2: which studies/construct cells remain unresolved?"
     ],
-    "resumeHint": "Continue from Step 7: complete Paper1/Paper 2 joint checkpoint, then execute the first synchronized action with the selected checkpoint boundary."
+    "activeModes": [
+      "explore",
+      "decision"
+    ],
+    "resumeHint": "Continue from Step 7 with strict Paper 2 Gate C2 active and no freeze advancement until all 4 criteria pass."
   },
   "inferredHypotheses": [],
   "openTensions": [],
@@ -111,6 +114,19 @@
         "proceed"
       ],
       "rationale": "Both streams are evidence-ready in different maturity states; proceed with a synchronized joint checkpoint at the point where Paper1 model-ready tiered freeze inputs and Paper2 reference-freeze inputs are both explicitly present, then hold final freeze claims pending direct alignment checks."
+    },
+    {
+      "id": "decision_mq7p9a8r_strc1",
+      "timestamp": "2026-06-10T06:20:23Z",
+      "checkpointKey": "paper2_strict_gate_c2",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Set Paper 2 freeze eligibility to strict Gate C2 with all 4 mandatory criteria.",
+      "selectedOption": "proceed",
+      "selectedOptions": [
+        "proceed"
+      ],
+      "rationale": "The strict order now fixed as study-level -> construct/coding -> source adjudication -> input mapping, with all four conditions required before any Paper 2 freeze advancement."
     }
   ],
   "invocationLog": [
@@ -1029,6 +1045,15 @@
       "summary": "Step7 joint checkpoint matrix created for Paper1/Paper2; common next checkpoint set at model-ready/reference-freeze boundary with manual evidence verification pending.",
       "visibility": "explicit",
       "importance": "high"
+    },
+    {
+      "id": "step7-paper2-strict-gate-c2-20260610",
+      "timestamp": "2026-06-10T06:20:23Z",
+      "source": "longtable-step",
+      "traceType": "judgment",
+      "summary": "Paper 2 strict Gate C2 fixed: study-level, construct/coding, source adjudication, and input-mapping must all pass in order before freeze candidate progression.",
+      "visibility": "explicit",
+      "importance": "high"
     }
   ],
   "operationalMemory": [
@@ -1047,11 +1072,18 @@
       "source": "User requested saving the npm authentication method after LongTable 0.1.16 publish on 2026-04-21."
     }
   ],
-  "lastUpdatedAt": "2026-06-10T05:45:00Z",
+  "lastUpdatedAt": "2026-06-10T06:20:23Z",
   "hooks": [],
   "interviewTurns": [],
   "evidenceRecords": [],
   "specPatches": [],
   "specRevisions": [],
-  "questionObligations": []
+  "questionObligations": [],
+  "currentGoal": "Review LongTable checkpoint behavior, version alignment, and workspace policy",
+  "currentBlocker": "Paper 2 strict Gate C2 is active (study-level, construct/coding, source adjudication, input-mapping all required); strict pass is required before any Paper 2 freeze candidate advancement.",
+  "nextAction": "Execute Paper 2 strict Gate C2 in order: study-level -> construct/coding -> source adjudication -> input mapping, and record a full pass/fail trace.",
+  "openQuestions": [
+    "Evidence artifact row-level checks for Paper2 strict Gate C2: which studies/construct cells remain unresolved?"
+  ],
+  "resumeHint": "Continue from Step 7 with strict Paper 2 Gate C2 active and no freeze advancement until all 4 criteria pass."
 }

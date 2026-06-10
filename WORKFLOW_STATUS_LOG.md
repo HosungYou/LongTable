@@ -1,5 +1,13 @@
 # Workflow Status Log
 
+# 2026-06-10T06:20:23Z
+- Fixed strict Paper 2 Gate C2 for Step 7 (`study-level -> construct/coding -> source adjudication -> input mapping`) and marked all four criteria as mandatory.
+- Added decision record `decision_mq7p9a8r_strc1` to `.longtable/state.json`.
+- Added blocker/next-action synchronization to `.longtable/state.json`, `.longtable/current-session.json`, and `.longtable/sessions/longtable-1776783045627.json`.
+- Added evidence protocol artifact `WORKFLOW_STEP7_PAPER2_STRICT_GATE_20260610.md`.
+- Next action now: run strict Gate C2 in order and log pass/fail at each step before any Paper 2 freeze-claim.
+
+
 # 2026-06-10T06:15:15Z
 - Started Step 7 continuity work for Paper 1/Paper 2 parallel visibility.
 - Created shared evidence anchor `WORKFLOW_STEP7_PAPER1_PAPER2_GAP_MATRIX_20260610.md`.

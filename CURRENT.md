@@ -6,14 +6,13 @@ This file is regenerated from `.longtable/current-session.json` and `.longtable/
 
 ## Focus Now
 - Current goal: Review LongTable checkpoint behavior, version alignment, and workspace policy
-- Current blocker: Step 7 Paper1/Paper 2 joint checkpoint matrix exists; evidence gaps for manifest counts/synchronization remain.
-- Next action: Validate the selected Step 7 checkpoint in AI/Meta source manifests, then execute synchronized Paper1/Paper2 next-step action.
+- Current blocker: Paper 2 strict Gate C2 is active (study-level, construct/coding, source adjudication, input-mapping all required); strict pass is required before any Paper 2 freeze candidate advancement.
+- Next action: Execute Paper 2 strict Gate C2 in order: study-level -> construct/coding -> source adjudication -> input mapping, and record a full pass/fail trace.
 - Perspectives: reviewer, theory_critic, methods_critic, measurement_auditor, ethics_reviewer, voice_keeper
 - Disagreement: show_on_conflict
 
 ## Open Questions
-- What is the exact manifest-level synchronization criterion for Paper1/Paper2 at the selected Step 7 checkpoint?
-- Which two additional artifacts should be used as mandatory evidence before calling the checkpoint lock-in?
+- Evidence artifact row-level checks for Paper2 strict Gate C2: which studies/construct cells remain unresolved?
 
 ## Recent LongTable Invocations
 - panel/review via sequential_fallback: reviewer, theory_critic, methods_critic, measurement_auditor, ethics_reviewer, voice_keeper
@@ -21,7 +20,7 @@ This file is regenerated from `.longtable/current-session.json` and `.longtable/
 - panel/review via sequential_fallback: reviewer, theory_critic, methods_critic, measurement_auditor, ethics_reviewer, voice_keeper
 
 ## Restart Prompt
-- "Continue from Step 7 with Paper1/Paper2 gap matrix and validate the Step7 joint checkpoint before any new freeze claim."
+- "Continue from Step 7 with strict Paper 2 Gate C2 active and no freeze advancement until all 4 criteria pass."
 
 ## Quick Start
 - Open `codex` in this directory.

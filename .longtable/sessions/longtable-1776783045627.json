@@ -2,13 +2,15 @@
   "schemaVersion": 1,
   "id": "longtable-1776783045627",
   "createdAt": "2026-04-21T14:50:45.638Z",
-  "lastUpdatedAt": "2026-06-10T06:15:15Z",
+  "lastUpdatedAt": "2026-06-10T06:20:23Z",
   "projectName": "LongTable",
   "projectPath": "/Volumes/External SSD/Projects/LongTable",
   "currentGoal": "Review LongTable checkpoint behavior, version alignment, and workspace policy",
-  "currentBlocker": "Step 7 Paper1/Paper2 joint checkpoint matrix created; unresolved evidence gaps are queued for manual verification.",
-  "nextAction": "Validate the joint checkpoint decision in AI/Meta artifacts, then start the next Step-7 research action (reference-standard vs model-ready boundary lock-in).",
-  "openQuestions": [],
+  "currentBlocker": "Paper 2 strict Gate C2 is active (study-level, construct/coding, source adjudication, input-mapping all required); strict pass is required before any Paper 2 freeze candidate advancement.",
+  "nextAction": "Execute Paper 2 strict Gate C2 in order: study-level -> construct/coding -> source adjudication -> input mapping, and record a full pass/fail trace.",
+  "openQuestions": [
+    "Evidence artifact row-level checks for Paper2 strict Gate C2: which studies/construct cells remain unresolved?"
+  ],
   "requestedPerspectives": [
     "reviewer",
     "theory_critic",
@@ -21,6 +23,6 @@
   "activeModes": [
     "explore"
   ],
-  "resumeHint": "Continue from Step 7: complete Paper1/Paper 2 joint checkpoint, then execute the first synchronized action with the selected checkpoint boundary.",
+  "resumeHint": "Continue from Step 7 with strict Paper 2 Gate C2 active and no freeze advancement until all 4 criteria pass.",
   "locale": "en"
 }
