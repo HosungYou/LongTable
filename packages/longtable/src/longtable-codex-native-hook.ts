@@ -103,12 +103,43 @@ function readCombinedOutput(payload: CodexHookPayload): string {
   ].filter(Boolean).join("\n").trim();
 }
 
-function formatQuestionOptions(question: QuestionRecord): string {
-  const options = question.prompt.options.map((option) => option.value);
+function questionUsesKorean(question: QuestionRecord): boolean {
+  return /[가-힣]/.test([
+    question.prompt.title,
+    question.prompt.question,
+    question.prompt.displayReason ?? "",
+    ...question.prompt.options.flatMap((option) => [option.label, option.description ?? ""]),
+    question.prompt.otherLabel ?? ""
+  ].join("\n"));
+}
+
+function formatQuestionChoices(question: QuestionRecord): string {
+  const korean = questionUsesKorean(question);
+  const options = question.prompt.options.flatMap((option, index) => {
+    const recommended = option.recommended ? (korean ? " (추천)" : " (recommended)") : "";
+    return [
+      `${index + 1}. ${option.label}${recommended}`,
+      ...(option.description ? [`   ${option.description}`] : []),
+      `   ${korean ? "기록값" : "Record value"}: ${option.value}`
+    ];
+  });
   if (question.prompt.allowOther) {
-    options.push("other");
+    options.push(`${question.prompt.options.length + 1}. ${question.prompt.otherLabel ?? (korean ? "직접 입력" : "Other")}`);
+    options.push(`   ${korean ? "기록값" : "Record value"}: other`);
   }
-  return options.join("/");
+  return options.join("\n");
+}
+
+function buildQuestionDecisionCard(question: QuestionRecord): string {
+  const korean = questionUsesKorean(question);
+  return [
+    korean ? "LongTable 결정 카드" : "LongTable Decision Card",
+    `${korean ? "체크포인트" : "Checkpoint"}: ${question.prompt.title}`,
+    `${korean ? "무엇이 걸렸나" : "What is blocked"}: ${question.prompt.displayReason ?? question.prompt.rationale[0] ?? question.prompt.title}`,
+    `${korean ? "지금 결정할 것" : "Decision needed"}: ${question.prompt.question}`,
+    korean ? "선택지:" : "Choices:",
+    formatQuestionChoices(question)
+  ].join("\n");
 }
 
 function pendingRequiredQuestions(state: LongTableRuntime["state"]): QuestionRecord[] {
@@ -355,8 +386,8 @@ function buildWorkspaceSummary(runtime: LongTableRuntime, detail: "compact" | "f
 
 function buildPendingQuestionContext(question: QuestionRecord): string {
   return [
-    `Required Researcher Checkpoint is still pending: ${question.prompt.question}`,
-    `Options: ${formatQuestionOptions(question)}`,
+    "Required Researcher Checkpoint is still pending.",
+    buildQuestionDecisionCard(question),
     `Record it with longtable decide --question ${question.id} --answer <value> if you are outside MCP elicitation.`,
     "Do not choose or record an answer unless the researcher explicitly provides the selection."
   ].join("\n");
@@ -377,8 +408,7 @@ function buildGeneratedQuestionsContext(questions: QuestionRecord[], created: bo
       : `LongTable found ${questions.length} pending Researcher Checkpoint${questions.length === 1 ? "" : "s"} for this prompt.`
   ];
   for (const question of questions) {
-    lines.push(`- ${question.prompt.title}: ${question.prompt.question}`);
-    lines.push(`  Options: ${formatQuestionOptions(question)}`);
+    lines.push(buildQuestionDecisionCard(question));
     lines.push(`  Record it with longtable decide --question ${question.id} --answer <value> if you are outside MCP elicitation.`);
   }
   lines.push("Do not choose or record answers for these checkpoints unless the researcher explicitly provides the selections.");

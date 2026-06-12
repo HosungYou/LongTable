@@ -110,9 +110,11 @@ a handoff or Research Specification patch:
 longtable panel record --invocation <invocation_record_id> --result-file panel-result.json
 ```
 
-Native worker result files should contain final role summaries, claims,
-objections, open questions, and evidence references. They must not contain
-hidden reasoning, raw tool traces, or tmux logs.
+Native worker-produced files live inside each worker git worktree under
+`.longtable-worker/`. Raw worker result files are re-serialized to final role
+summaries, claims, objections, open questions, and evidence references before
+aggregation. They must not contain hidden reasoning, raw tool traces, or tmux
+logs.
 
 Team-style requests route through panel. Explicit debate-language requests route
 to panel debate records under `.longtable/panel/`. `longtable team` is not a
@@ -128,6 +130,8 @@ Continuation work packet:
 - writes a Markdown handoff under `.longtable/handoffs/` by default
 - carries the latest panel/native-worker result forward as normalized
   `PanelResult` evidence, including evidence refs when roles reported them
+- preserves panel/question/decision linkage fields so continuation work can see
+  which checkpoint and decision made the panel result actionable
 - gives a provider-neutral path for users without OMX
 - includes an optional OMX path that treats `$ralplan` and `$ralph` as external
   execution loops, not as LongTable core behavior

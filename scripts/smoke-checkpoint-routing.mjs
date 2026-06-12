@@ -43,6 +43,12 @@ function assertEqual(actual, expected, label) {
   }
 }
 
+function assertIncludes(text, expected, label) {
+  if (!text.includes(expected)) {
+    throw new Error(`${label}: expected text to include ${expected}`);
+  }
+}
+
 async function assertRejects(promiseFactory, expectedMessage, label) {
   try {
     await promiseFactory();
@@ -152,7 +158,7 @@ const created = JSON.parse(runCli([
 ]));
 
 assertEqual(created.question.prompt.checkpointKey, "panel_disagreement_resolution", "created question checkpoint key");
-assertEqual(created.question.prompt.preferredSurfaces[0], "mcp_elicitation", "codex preferred surface");
+assertEqual(created.question.prompt.preferredSurfaces[0], "tmux_popup", "codex preferred surface");
 assertEqual(created.question.commitmentFamily, "method", "created question commitment family");
 
 const context = await loadProjectContextFromDirectory(tmp);
@@ -160,15 +166,41 @@ if (!context) {
   throw new Error("Smoke workspace context was not created.");
 }
 
-const decided = await answerWorkspaceQuestion({
-  context,
-  questionId: created.question.id,
-  answer: "surface_disagreement",
-  provider: "codex",
-  surface: "mcp_elicitation"
-});
+const renderedExisting = JSON.parse(runCli([
+  "question",
+  "--cwd", tmp,
+  "--provider", "codex",
+  "--question", created.question.id,
+  "--json"
+]));
+assertEqual(renderedExisting.question.id, created.question.id, "existing pending question can be rendered by id");
+assertEqual(renderedExisting.question.prompt.preferredSurfaces[0], "tmux_popup", "existing question keeps tmux popup preference");
 
-assertEqual(decided.question.answer?.surface, "mcp_elicitation", "accepted MCP surface");
+const renderedNumbered = runCli([
+  "question",
+  "--cwd", tmp,
+  "--provider", "codex",
+  "--question", created.question.id,
+  "--surface", "numbered"
+]);
+assertIncludes(renderedNumbered, "LongTable Decision Card", "numbered fallback renders a decision card");
+assertIncludes(renderedNumbered, "What is blocked:", "numbered fallback explains the blocker");
+assertIncludes(renderedNumbered, "Record value: surface_disagreement", "numbered fallback shows durable answer values");
+assertIncludes(renderedNumbered, "--surface numbered", "numbered fallback records the intended surface in the command hint");
+assertEqual(renderedNumbered.includes("- options:"), false, "numbered fallback should not render slash-delimited raw options");
+
+const decided = JSON.parse(runCli([
+  "decide",
+  "--cwd", tmp,
+  "--question", created.question.id,
+  "--answer", "surface_disagreement",
+  "--provider", "codex",
+  "--surface", "tmux_popup",
+  "--json"
+]));
+
+assertEqual(decided.question.answer?.surface, "tmux_popup", "accepted tmux popup surface");
+assertEqual(decided.question.transportStatus?.surface, "tmux_popup", "accepted transport surface");
 assertEqual(decided.decision.commitmentFamily, "method", "decision copies commitment family");
 
 const interview = await beginLongTableInterview({
@@ -438,6 +470,10 @@ const naturalDebate = JSON.parse(execFileSync("node", [
   encoding: "utf8"
 }));
 assertEqual(naturalDebate.run.interactionDepth, "debated", "natural debate preserves panel debate route");
+assertIncludes(naturalDebate.questionRecord.prompt.question, "measurement or coding decision", "natural debate question names measurement focus");
+assertIncludes(JSON.stringify(naturalDebate.questionRecord.prompt.options), "Revise measurement/coding plan", "natural debate revise option names measurement target");
+assertEqual(naturalDebate.questionRecord.prompt.options.length, 3, "natural debate shows compact primary choices");
+assertEqual(naturalDebate.questionRecord.prompt.options[0]?.recommended, true, "natural debate marks recommended choice");
 assertEqual(existsSync(join(naturalDebateTmp, ".longtable", "team")), false, "natural debate creates no team artifacts");
 assertEqual(existsSync(join(naturalDebateTmp, ".longtable", "panel")), true, "natural debate creates panel artifacts");
 

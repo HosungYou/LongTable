@@ -932,6 +932,15 @@ function formatQuestionMetadata(record: Pick<QuestionRecord, "commitmentFamily" 
   return parts.length > 0 ? ` [${parts.join("; ")}]` : "";
 }
 
+const QUESTION_SURFACES = new Set<QuestionSurface>([
+  "native_structured",
+  "tmux_popup",
+  "mcp_elicitation",
+  "numbered",
+  "terminal_selector",
+  "web_form"
+]);
+
 function compactLine(value: string, limit = 160): string {
   const compacted = value.replace(/\s+/g, " ").trim();
   return compacted.length > limit ? `${compacted.slice(0, limit - 1)}…` : compacted;
@@ -941,6 +950,17 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : null;
+}
+
+function asStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+  }
+  return typeof value === "string" && value.trim().length > 0 ? [value] : [];
+}
+
+function isQuestionSurfaceValue(value: unknown): value is QuestionSurface {
+  return typeof value === "string" && QUESTION_SURFACES.has(value as QuestionSurface);
 }
 
 const SPEC_DIFF_IGNORED_PATHS = new Set([
@@ -1056,10 +1076,10 @@ function buildResearchSpecificationGapQuestion(
         "Research Specification is the required durable interview artifact.",
         "Missing required sections can make later resume, screening, coding, or evidence decisions stale."
       ],
-      preferredSurfaces: ["mcp_elicitation", "numbered"]
+      preferredSurfaces: ["tmux_popup", "mcp_elicitation", "numbered"]
     },
     transportStatus: {
-      surface: "mcp_elicitation",
+      surface: "tmux_popup",
       status: "not_attempted",
       updatedAt: timestamp,
       ...(sourceEvidenceIds.length > 0 ? { message: `Source evidence: ${sourceEvidenceIds.join(", ")}` } : {})
@@ -3606,7 +3626,7 @@ export async function createWorkspaceFollowUpQuestions(options: {
   const createdAt = nowIso();
   const preferredSurfaces = options.provider === "claude"
     ? ["native_structured", "terminal_selector", "numbered"]
-    : ["mcp_elicitation", "terminal_selector", "numbered"];
+    : ["tmux_popup", "mcp_elicitation", "terminal_selector", "numbered"];
   const specs = buildQuestionOpportunitySpecs(options.prompt, {
     includeFallback: options.force === true ? true : options.auto !== true,
     autoOnly: options.auto === true,
@@ -3746,7 +3766,7 @@ export async function createWorkspaceQuestion(options: {
       rationale,
       preferredSurfaces: options.provider === "claude"
         ? ["native_structured", "numbered"]
-        : ["mcp_elicitation", "numbered"]
+        : ["tmux_popup", "mcp_elicitation", "numbered"]
     }
   };
 
@@ -4018,6 +4038,16 @@ function normalizeQuestionAnswerSelection(
   };
 }
 
+function selectedLabelsForValues(question: QuestionRecord, selectedValues: string[]): string[] {
+  return selectedValues.map((value) => {
+    if (value === "other") {
+      return question.prompt.otherLabel ?? "Other";
+    }
+    const option = question.prompt.options.find((candidate) => candidate.value === value);
+    return option?.label ?? value;
+  });
+}
+
 export async function answerWorkspaceQuestion(options: {
   context: LongTableProjectContext;
   questionId?: string;
@@ -4070,7 +4100,12 @@ export async function answerWorkspaceQuestion(options: {
     updatedAt: timestamp,
     status: "answered",
     answer,
-    decisionRecordId: decision.id
+    decisionRecordId: decision.id,
+    transportStatus: {
+      surface: answer.surface,
+      status: "accepted",
+      updatedAt: timestamp
+    }
   };
 
   const withQuestion = {
@@ -4324,6 +4359,60 @@ export async function repairWorkspaceStateConsistency(options: {
         }
         return obligation;
       })
+    };
+  }
+
+  const repairTimestamp = nowIso();
+  const repairedQuestionLog = (updated.questionLog ?? []).map((record) => {
+    const answerRecord = asRecord(record.answer);
+    if (!answerRecord) {
+      return record;
+    }
+    const selectedValues = [
+      ...asStringArray(answerRecord.selectedValues),
+      ...asStringArray(answerRecord.selectedValue),
+      ...asStringArray(answerRecord.selectedOptions),
+      ...asStringArray(answerRecord.value)
+    ];
+    if (selectedValues.length === 0) {
+      return record;
+    }
+    const selectedLabels = asStringArray(answerRecord.selectedLabels);
+    const needsRepair =
+      typeof answerRecord.promptId !== "string" ||
+      selectedLabels.length === 0 ||
+      !isQuestionSurfaceValue(answerRecord.surface);
+    if (!needsRepair) {
+      return record;
+    }
+    repaired.push(`normalized legacy answer shape for question ${record.id}`);
+    const normalizedAnswer: QuestionAnswer = {
+      promptId: typeof answerRecord.promptId === "string" ? answerRecord.promptId : record.prompt.id,
+      selectedValues: uniqueStrings(selectedValues),
+      selectedLabels: selectedLabels.length > 0
+        ? selectedLabels
+        : selectedLabelsForValues(record, uniqueStrings(selectedValues)),
+      ...(typeof answerRecord.otherText === "string" && answerRecord.otherText.trim()
+        ? { otherText: answerRecord.otherText }
+        : {}),
+      ...(typeof answerRecord.rationale === "string" && answerRecord.rationale.trim()
+        ? { rationale: answerRecord.rationale }
+        : {}),
+      ...(answerRecord.provider === "codex" || answerRecord.provider === "claude"
+        ? { provider: answerRecord.provider }
+        : {}),
+      surface: isQuestionSurfaceValue(answerRecord.surface) ? answerRecord.surface : "numbered"
+    };
+    return {
+      ...record,
+      updatedAt: repairTimestamp,
+      answer: normalizedAnswer
+    };
+  });
+  if (repairedQuestionLog.some((record, index) => record !== (updated.questionLog ?? [])[index])) {
+    updated = {
+      ...updated,
+      questionLog: repairedQuestionLog
     };
   }
 

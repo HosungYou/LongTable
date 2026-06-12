@@ -106,11 +106,41 @@ const panel = JSON.parse(runCli([
   "--json"
 ]));
 
+assertIncludes(panel.questionRecord.prompt.question, "panel output can become actionable next work", "panel question names generic prompt focus");
 assertEqual(panel.plan.preferredSurface, "native_subagents", "legacy native subagent preferred panel surface");
 assertEqual(panel.plan.fallbackSurface, "sequential_fallback", "panel fallback surface");
 assertEqual(panel.execution.nativeParallel, "session_dependent", "legacy native subagent availability marker");
 assertEqual(panel.execution.stableSurface, "sequential_fallback", "stable surface remains fallback");
-runCli(["decide", "--cwd", projectPath, "--question", panel.questionRecord.id, "--answer", "defer", "--json"]);
+runCli(["decide", "--cwd", projectPath, "--question", panel.questionRecord.id, "--answer", "revise", "--json"]);
+
+const manuscriptPanel = JSON.parse(runCli([
+  "panel",
+  "--cwd", projectPath,
+  "--provider", "codex",
+  "--prompt", "Review the get-journal manuscript shells because the promised table/figure spine was not reflected.",
+  "--json"
+]));
+assertIncludes(manuscriptPanel.questionRecord.prompt.question, "manuscript table/figure spine", "panel question names manuscript table/figure focus");
+assertIncludes(JSON.stringify(manuscriptPanel.questionRecord.prompt.options), "Revise manuscript table/figure spine", "panel revise option names manuscript target");
+assertIncludes(JSON.stringify(manuscriptPanel.questionRecord.prompt.options), "Verify table/figure evidence", "panel evidence option names table/figure target");
+assertEqual(manuscriptPanel.questionRecord.prompt.options.length, 3, "panel follow-up uses compact primary choices");
+assertEqual(manuscriptPanel.questionRecord.prompt.options[0]?.value, "revise", "manuscript panel recommends revise first");
+assertEqual(manuscriptPanel.questionRecord.prompt.options[0]?.recommended, true, "manuscript panel marks recommended choice");
+assertEqual(manuscriptPanel.questionRecord.prompt.preferredSurfaces[0], "tmux_popup", "panel checkpoint prefers tmux popup for Codex");
+assertEqual(manuscriptPanel.questionRecord.prompt.options.some((option) => option.value === "defer"), false, "panel does not show defer unless prompt asks to keep the issue open");
+runCli(["decide", "--cwd", projectPath, "--question", manuscriptPanel.questionRecord.id, "--answer", "revise", "--json"]);
+
+const koreanMeasurementPanel = JSON.parse(runCli([
+  "panel",
+  "--cwd", projectPath,
+  "--provider", "codex",
+  "--prompt", "이 측정/코딩 계획을 확정하기 전에 패널로 검토해줘.",
+  "--json"
+]));
+assertIncludes(koreanMeasurementPanel.questionRecord.prompt.question, "측정 또는 코딩 결정", "Korean panel question names measurement focus in Korean");
+assertIncludes(JSON.stringify(koreanMeasurementPanel.questionRecord.prompt.options), "측정/코딩 계획을 수정한다", "Korean panel option label is localized");
+assertEqual(koreanMeasurementPanel.questionRecord.prompt.otherLabel, "직접 입력", "Korean panel other label is localized");
+runCli(["decide", "--cwd", projectPath, "--question", koreanMeasurementPanel.questionRecord.id, "--answer", "revise", "--json"]);
 
 const nativeWorkersPanel = JSON.parse(runCli([
   "panel",
@@ -126,7 +156,7 @@ assertEqual(nativeWorkersPanel.plan.fallbackSurface, "sequential_fallback", "nat
 assertEqual(nativeWorkersPanel.execution.nativeParallel, "longtable_native_workers", "native workers availability marker");
 assertEqual(nativeWorkersPanel.execution.nativeRunCreated, true, "native workers run record created");
 assertEqual(nativeWorkersPanel.nativeRun.requestedSurface, "native_workers", "native workers run surface");
-runCli(["decide", "--cwd", projectPath, "--question", nativeWorkersPanel.questionRecord.id, "--answer", "defer", "--json"]);
+runCli(["decide", "--cwd", projectPath, "--question", nativeWorkersPanel.questionRecord.id, "--answer", "revise", "--json"]);
 
 const claudeNativeWorkersPanel = JSON.parse(runCli([
   "panel",
@@ -139,7 +169,7 @@ const claudeNativeWorkersPanel = JSON.parse(runCli([
 assertEqual(claudeNativeWorkersPanel.plan.preferredSurface, "sequential_fallback", "Claude native workers request remains sequential fallback");
 assertEqual(claudeNativeWorkersPanel.execution.nativeParallel, "not_requested", "Claude native workers request does not launch Codex workers");
 assertEqual(claudeNativeWorkersPanel.execution.nativeRunCreated, false, "Claude native workers request creates no native worker run");
-runCli(["decide", "--cwd", projectPath, "--question", claudeNativeWorkersPanel.questionRecord.id, "--answer", "defer", "--json"]);
+runCli(["decide", "--cwd", projectPath, "--question", claudeNativeWorkersPanel.questionRecord.id, "--answer", "revise", "--json"]);
 
 const bothFlagsPanel = JSON.parse(runCli([
   "panel",
@@ -153,7 +183,7 @@ const bothFlagsPanel = JSON.parse(runCli([
 
 assertEqual(bothFlagsPanel.plan.preferredSurface, "native_workers", "native workers preferred when both native flags are present");
 assertEqual(bothFlagsPanel.execution.nativeParallel, "longtable_native_workers", "native workers marker when both flags are present");
-runCli(["decide", "--cwd", projectPath, "--question", bothFlagsPanel.questionRecord.id, "--answer", "defer", "--json"]);
+runCli(["decide", "--cwd", projectPath, "--question", bothFlagsPanel.questionRecord.id, "--answer", "revise", "--json"]);
 
 const invalidResultFile = join(projectPath, "invalid-panel-result.json");
 writeFileSync(invalidResultFile, JSON.stringify({
@@ -262,5 +292,11 @@ assertIncludes(handoffText, "$ralph", "handoff ralph guidance");
 assertIncludes(handoffText, "longtable panel record", "handoff panel record guidance");
 assertIncludes(handoffText, "Unincorporated Evidence", "handoff evidence section");
 assertIncludes(handoffText, "Native worker note", "handoff native worker section");
+const finalState = JSON.parse(readFileSync(join(projectPath, ".longtable", "state.json"), "utf8"));
+const recordedPanel = finalState.invocationLog.find((invocation) => invocation.id === bothFlagsPanel.invocationRecord.id)?.panelResult;
+if (!recordedPanel) {
+  throw new Error("recorded panel result should remain linked to its invocation.");
+}
+assertIncludes(recordedPanel.linkedQuestionRecordIds, bothFlagsPanel.questionRecord.id, "recorded panel links originating question");
 
 console.log("panel handoff smoke passed");

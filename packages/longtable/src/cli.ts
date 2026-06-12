@@ -2,7 +2,7 @@
 
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { createRequire } from "node:module";
 import { stdin as input, stdout as output, cwd, env, exit } from "node:process";
@@ -20,6 +20,7 @@ import type {
   QuestionAuditResult,
   QuestionOpportunityKind,
   QuestionRecord,
+  QuestionSurface,
   ResearchSpecification,
   ResearchStage,
   RoleAuditEntry,
@@ -94,6 +95,7 @@ import {
   refreshPanelWorkerRun,
   requestPanelWorkerStop,
   resumePanelWorkerRun,
+  shutdownPanelWorkerRun,
   waitForPanelWorkerRun
 } from "./panel-runtime.js";
 import {
@@ -409,15 +411,16 @@ function usage(): string {
     "  longtable sentinel --prompt <text> [--cwd <path>] [--json] [--record]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable clarify --prompt <task-context> [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json] [--force]",
-    "  longtable question --prompt <decision-context> [--title <text>] [--text <question>] [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json]",
+    "  longtable question (--prompt <decision-context> | --question <id>) [--title <text>] [--text <question>] [--provider codex|claude] [--required|--advisory] [--surface tmux_popup|terminal_selector|numbered] [--print] [--cwd <path>] [--json]",
     "  longtable clear-question --question <id> --reason <text> [--cwd <path>] [--json]",
     "  longtable panel [--prompt <text>] [--role <role[,role]>] [--mode review|critique|draft|commit] [--visibility synthesis_only|show_on_conflict|always_visible] [--provider codex|claude] [--native-workers|--native-subagents] [--wait [ms]] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable panel status --run <panel_run_id> [--wait [ms]] [--cwd <path>] [--json]",
     "  longtable panel stop --run <panel_run_id> [--cwd <path>] [--json]",
+    "  longtable panel shutdown --run <panel_run_id> [--cwd <path>] [--json]",
     "  longtable panel resume --run <panel_run_id> [--wait [ms]] [--cwd <path>] [--json]",
     "  longtable panel record [--invocation <id>] --result-file <json> [--surface sequential_fallback|native_subagents|native_workers] [--cwd <path>] [--json]",
     "  longtable handoff [--cwd <path>] [--output <file>] [--print] [--json]",
-    "  longtable decide [--question <id>] --answer <value-or-text> [--rationale <text>] [--provider codex|claude] [--cwd <path>] [--json]",
+    "  longtable decide [--question <id>] --answer <value-or-text> [--rationale <text>] [--provider codex|claude] [--surface tmux_popup|mcp_elicitation|terminal_selector|numbered] [--cwd <path>] [--json]",
     "  longtable explore|review|critique|draft|commit|submit [--prompt <text>] [--role <role[,role]>] [--panel] [--show-conflicts] [--show-deliberation] [--print] [--json] [--stage <stage>] [--setup <path>] [--cwd <path>]",
     "  longtable codex persist-init [--answers-json <json> | --stdin | full setup flags] [--install-skills] [--install-prompts] [--json]",
     "  longtable codex install-skills [--surface compact|full] [--dir <path>]",
@@ -564,6 +567,29 @@ function parseSkillSurface(args: Record<string, string | boolean>): LongTableSki
     return value;
   }
   throw new Error("Invalid --surface value. Use compact or full.");
+}
+
+const QUESTION_SURFACE_VALUES: QuestionSurface[] = [
+  "native_structured",
+  "tmux_popup",
+  "mcp_elicitation",
+  "numbered",
+  "terminal_selector",
+  "web_form"
+];
+
+function parseQuestionSurface(value: string | boolean | undefined): QuestionSurface | undefined {
+  if (value === undefined || value === false) {
+    return undefined;
+  }
+  if (value === true) {
+    throw new Error(`Invalid --surface value. Use one of: ${QUESTION_SURFACE_VALUES.join(", ")}.`);
+  }
+  const normalized = value.trim();
+  if (QUESTION_SURFACE_VALUES.includes(normalized as QuestionSurface)) {
+    return normalized as QuestionSurface;
+  }
+  throw new Error(`Invalid --surface value. Use one of: ${QUESTION_SURFACE_VALUES.join(", ")}.`);
 }
 
 function stripWrappingQuotes(value: string): string {
@@ -3042,6 +3068,171 @@ function commandAvailable(command: string): boolean {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function stringArrayValue(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+  }
+  return typeof value === "string" && value.trim().length > 0 ? [value] : [];
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function currentTmuxReturnPane(): string | undefined {
+  const explicit = stringValue(env.OMX_QUESTION_RETURN_PANE);
+  if (explicit) {
+    return explicit;
+  }
+  return stringValue(env.TMUX_PANE);
+}
+
+function codexTmuxPopupAvailable(): boolean {
+  return Boolean(currentTmuxReturnPane() && commandAvailable("omx"));
+}
+
+function buildOmxQuestionInput(record: QuestionRecord): Record<string, unknown> {
+  const options = record.prompt.options.map((option) => ({
+    label: option.label,
+    value: option.value,
+    ...(option.description ? { description: option.description } : {})
+  }));
+  const freeText = record.prompt.type === "free_text";
+  const type = record.prompt.type === "multi_choice" ? "multi-answerable" : "single-answerable";
+  return {
+    header: "LongTable",
+    question: record.prompt.question,
+    questions: [{
+      id: record.id,
+      question: record.prompt.question,
+      options,
+      allow_other: freeText ? true : record.prompt.allowOther,
+      other_label: freeText ? "Answer" : record.prompt.otherLabel ?? "Other",
+      type,
+      multi_select: record.prompt.type === "multi_choice"
+    }],
+    options,
+    allow_other: freeText ? true : record.prompt.allowOther,
+    other_label: freeText ? "Answer" : record.prompt.otherLabel ?? "Other",
+    type,
+    multi_select: record.prompt.type === "multi_choice",
+    source: "longtable",
+    session_id: record.id
+  };
+}
+
+function readOmxAnswerPayload(payload: unknown): unknown {
+  const root = isRecord(payload) ? payload : {};
+  const answers = Array.isArray(root.answers) ? root.answers : [];
+  for (const entry of answers) {
+    if (!isRecord(entry)) {
+      continue;
+    }
+    if (entry.answer !== undefined) {
+      return entry.answer;
+    }
+    return entry;
+  }
+  if (root.answer !== undefined) {
+    return root.answer;
+  }
+  return root;
+}
+
+function questionAnswerFromOmxPayload(record: QuestionRecord, payload: unknown): string | string[] | {
+  selectedValues?: string[];
+  otherText?: string;
+} {
+  const answer = readOmxAnswerPayload(payload);
+  if (typeof answer === "string") {
+    return answer;
+  }
+  if (Array.isArray(answer)) {
+    return stringArrayValue(answer);
+  }
+  if (!isRecord(answer)) {
+    throw new Error("OMX question returned an answer payload LongTable cannot parse.");
+  }
+
+  if (record.prompt.type === "free_text") {
+    const freeText = [
+      stringValue(answer.other_text),
+      stringValue(answer.otherText),
+      stringValue(answer.text),
+      stringValue(answer.value),
+      stringArrayValue(answer.selected_values).join("\n"),
+      stringArrayValue(answer.selectedValues).join("\n")
+    ].find((entry) => entry && entry.trim().length > 0);
+    if (freeText) {
+      return freeText;
+    }
+  }
+
+  const selectedValues = [
+    ...stringArrayValue(answer.selected_values),
+    ...stringArrayValue(answer.selectedValues)
+  ];
+  const otherText = stringValue(answer.other_text) ?? stringValue(answer.otherText) ?? stringValue(answer.text);
+  if (answer.kind === "other" && otherText) {
+    return { selectedValues: ["other"], otherText };
+  }
+  if (selectedValues.length > 0) {
+    return otherText
+      ? { selectedValues: selectedValues.includes("other") ? selectedValues : [...selectedValues, "other"], otherText }
+      : selectedValues;
+  }
+
+  const valueValues = stringArrayValue(answer.value);
+  if (valueValues.length > 0) {
+    return valueValues.length === 1 ? valueValues[0] : valueValues;
+  }
+
+  if (otherText) {
+    return otherText;
+  }
+
+  throw new Error("OMX question did not include an answer value.");
+}
+
+function invokeOmxQuestionPopup(record: QuestionRecord): unknown {
+  const returnPane = currentTmuxReturnPane();
+  if (!returnPane || !commandAvailable("omx")) {
+    throw new Error("LongTable tmux_popup transport requires an attached tmux pane and the `omx` command.");
+  }
+
+  const child = spawnSync(
+    "omx",
+    ["question", "--input", JSON.stringify(buildOmxQuestionInput(record)), "--json"],
+    {
+      cwd: cwd(),
+      env: {
+        ...env,
+        OMX_QUESTION_RETURN_PANE: returnPane
+      },
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    }
+  );
+  if (child.error) {
+    throw child.error;
+  }
+  if (child.status !== 0) {
+    const detail = [String(child.stderr ?? "").trim(), String(child.stdout ?? "").trim()].filter(Boolean).join("\n");
+    throw new Error(`LongTable tmux_popup transport failed${detail ? `: ${detail}` : "."}`);
+  }
+
+  const raw = String(child.stdout ?? "").trim();
+  try {
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    throw new Error(`LongTable tmux_popup transport returned non-JSON output: ${raw.slice(0, 200)}`);
+  }
+}
+
 function parseWaitMs(value: string | boolean | undefined): number | undefined {
   if (value === undefined || value === false) {
     return undefined;
@@ -3061,12 +3252,14 @@ function parseWaitMs(value: string | boolean | undefined): number | undefined {
 function panelWorkerNextCommands(context: LongTableProjectContext, runId: string): {
   status: string;
   stop: string;
+  shutdown: string;
   resume: string;
 } {
   const cwdFlag = `--cwd "${context.project.projectPath}"`;
   return {
     status: `longtable panel status ${cwdFlag} --run ${runId}`,
     stop: `longtable panel stop ${cwdFlag} --run ${runId}`,
+    shutdown: `longtable panel shutdown ${cwdFlag} --run ${runId}`,
     resume: `longtable panel resume ${cwdFlag} --run ${runId}`
   };
 }
@@ -3102,6 +3295,33 @@ function summarizePanelRecordOutput(result: PanelResultRecordOutput | null): unk
   };
 }
 
+function summarizePanelWorkerExecution(run: PanelWorkerRun): unknown {
+  const bridgeStatus = run.bridgeStatus ?? run.status;
+  const bridgeFailureReason = run.bridgeFailureReason ?? (bridgeStatus === "degraded"
+    ? "native worker bridge unavailable before execution"
+    : bridgeStatus === "failed" || bridgeStatus === "blocked"
+    ? "native worker bridge did not complete all role passes"
+    : undefined);
+  return {
+    requestedSurface: run.requestedSurface,
+    fallbackSurface: run.fallbackSurface,
+    bridgeStatus,
+    bridgeFailureReason,
+    sequentialFallbackExecuted: false,
+    paneIds: run.workers.map((worker) => worker.paneId).filter((paneId): paneId is string => typeof paneId === "string" && paneId.length > 0),
+    workers: run.workers.map((worker) => ({
+      id: worker.id,
+      role: worker.role,
+      label: worker.label,
+      status: worker.status,
+      paneId: worker.paneId,
+      resultPath: worker.resultPath,
+      diagnostics: worker.diagnostics
+    })),
+    diagnostics: run.diagnostics
+  };
+}
+
 async function runPanelStatusCommand(args: Record<string, string | boolean>): Promise<void> {
   const context = await requireWorkspaceContext(args);
   const runId = requireRunId(args);
@@ -3112,7 +3332,12 @@ async function runPanelStatusCommand(args: Record<string, string | boolean>): Pr
   const nextCommands = panelWorkerNextCommands(context, refreshed.id);
 
   if (args.json === true) {
-    console.log(JSON.stringify({ ...refreshed, nextCommands, recordedPanelResult: summarizePanelRecordOutput(recordedPanelResult) }, null, 2));
+    console.log(JSON.stringify({
+      ...refreshed,
+      execution: summarizePanelWorkerExecution(refreshed),
+      nextCommands,
+      recordedPanelResult: summarizePanelRecordOutput(recordedPanelResult)
+    }, null, 2));
     return;
   }
 
@@ -3123,6 +3348,7 @@ async function runPanelStatusCommand(args: Record<string, string | boolean>): Pr
     console.log(`- ${worker.label} (${worker.role}): ${worker.status}`);
   }
   console.log(`- stop: ${nextCommands.stop}`);
+  console.log(`- shutdown: ${nextCommands.shutdown}`);
   console.log(`- resume: ${nextCommands.resume}`);
   if (recordedPanelResult) {
     console.log(`- recorded evidence: ${recordedPanelResult.evidenceRecords.length}`);
@@ -3146,6 +3372,32 @@ async function runPanelStopCommand(args: Record<string, string | boolean>): Prom
   for (const worker of stopped.workers) {
     console.log(`- ${worker.label} (${worker.role}): ${worker.status}`);
   }
+  console.log(`- shutdown: ${nextCommands.shutdown}`);
+  console.log(`- resume: ${nextCommands.resume}`);
+}
+
+async function runPanelShutdownCommand(args: Record<string, string | boolean>): Promise<void> {
+  const context = await requireWorkspaceContext(args);
+  const runId = requireRunId(args);
+  const shutdown = await shutdownPanelWorkerRun(await readPanelWorkerRun(context.project.projectPath, runId));
+  const nextCommands = panelWorkerNextCommands(context, shutdown.id);
+
+  if (args.json === true) {
+    console.log(JSON.stringify({
+      ...shutdown,
+      execution: summarizePanelWorkerExecution(shutdown),
+      nextCommands
+    }, null, 2));
+    return;
+  }
+
+  console.log("LongTable panel run shutdown requested");
+  console.log(`- run: ${shutdown.id}`);
+  console.log(`- status: ${shutdown.status}`);
+  for (const worker of shutdown.workers) {
+    console.log(`- ${worker.label} (${worker.role}): ${worker.status}`);
+  }
+  console.log(`- status command: ${nextCommands.status}`);
   console.log(`- resume: ${nextCommands.resume}`);
 }
 
@@ -3153,7 +3405,7 @@ async function runPanelResumeCommand(args: Record<string, string | boolean>): Pr
   const context = await requireWorkspaceContext(args);
   const runId = requireRunId(args);
   const waitMs = parseWaitMs(args.wait);
-  const { run } = await refreshPanelWorkerRun(await readPanelWorkerRun(context.project.projectPath, runId));
+  const run = await readPanelWorkerRun(context.project.projectPath, runId);
   const resumed = run.status === "completed" ? run : await launchPanelWorkerRun(await resumePanelWorkerRun(run));
   const finalRun = waitMs ? await waitForPanelWorkerRun(resumed, waitMs) : resumed;
   const recordedPanelResult = await recordTerminalNativeWorkerRun(context, finalRun);
@@ -3349,10 +3601,17 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
             nativeRunCreated: Boolean(finalNativeRun),
             waitMs,
             degradedReason: nativeWorkersRequested && !finalNativeRun
-              ? "native workers require an existing LongTable workspace; sequential fallback prompt returned"
+              ? "native workers require an existing LongTable workspace; no native run was created and no sequential fallback was executed"
               : finalNativeRun?.status === "degraded"
-              ? "native workers require local tmux and codex commands; sequential fallback remains available"
-              : undefined
+              ? "native worker bridge unavailable; sequential fallback remains available but was not executed by this native-workers request"
+              : undefined,
+            bridgeStatus: finalNativeRun?.bridgeStatus ?? finalNativeRun?.status,
+            bridgeFailureReason: finalNativeRun?.bridgeFailureReason ?? (finalNativeRun?.status === "degraded"
+              ? "native worker bridge unavailable before execution"
+              : finalNativeRun?.status === "failed" || finalNativeRun?.status === "blocked"
+              ? "native worker bridge did not complete all role passes"
+              : undefined),
+            sequentialFallbackExecuted: !nativeWorkersRequested
           },
           nativeRun: finalNativeRun,
           recordedPanelResult: summarizePanelRecordOutput(recordedPanelResult),
@@ -3376,16 +3635,26 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
     const nextCommands = panelWorkerNextCommands(nativeRunContext!, finalNativeRun.id);
     console.log(`- next status: ${nextCommands.status}`);
     console.log(`- stop: ${nextCommands.stop}`);
+    console.log(`- shutdown: ${nextCommands.shutdown}`);
     console.log(`- resume: ${nextCommands.resume}`);
     if (recordedPanelResult) {
       console.log(`- recorded evidence: ${recordedPanelResult.evidenceRecords.length}`);
     }
     if (finalNativeRun.status === "degraded") {
-      console.log("- degraded: native workers are unavailable; use the sequential fallback prompt below.");
+      console.log("- degraded: native workers are unavailable; sequential fallback is available but was not executed by this native-workers request.");
       console.log("");
       console.log(fallback.prompt);
     }
     return;
+  }
+
+  if (nativeWorkersRequested) {
+    console.log("LongTable native panel worker run was not created");
+    console.log("- status: failed");
+    console.log("- reason: native workers require an existing LongTable workspace; sequential fallback was not executed by this native-workers request.");
+    console.log("");
+    console.log(fallback.prompt);
+    exit(1);
   }
 
   const exitCode = await runCodexThinWrapper({
@@ -4185,11 +4454,55 @@ async function runSpec(subcommand: string | undefined, args: Record<string, stri
   throw new Error(`Unknown spec subcommand: ${command}`);
 }
 
+function questionUsesKorean(record: QuestionRecord): boolean {
+  return /[가-힣]/.test([
+    record.prompt.title,
+    record.prompt.question,
+    record.prompt.displayReason ?? "",
+    ...record.prompt.options.flatMap((option) => [option.label, option.description ?? ""]),
+    record.prompt.otherLabel ?? ""
+  ].join("\n"));
+}
+
+function renderQuestionDecisionCard(record: QuestionRecord): string {
+  const korean = questionUsesKorean(record);
+  const lines = [
+    korean ? "LongTable 결정 카드" : "LongTable Decision Card",
+    `${korean ? "체크포인트" : "Checkpoint"}: ${record.prompt.title}`,
+    `${korean ? "무엇이 걸렸나" : "What is blocked"}: ${record.prompt.displayReason ?? record.prompt.rationale[0] ?? record.prompt.title}`,
+    `${korean ? "지금 결정할 것" : "Decision needed"}: ${record.prompt.question}`,
+    korean ? "선택지:" : "Choices:"
+  ];
+  record.prompt.options.forEach((option, index) => {
+    const recommended = option.recommended ? (korean ? " (추천)" : " (recommended)") : "";
+    lines.push(`${index + 1}. ${option.label}${recommended}`);
+    if (option.description) {
+      lines.push(`   ${option.description}`);
+    }
+    lines.push(`   ${korean ? "기록값" : "Record value"}: ${option.value}`);
+  });
+  if (record.prompt.allowOther) {
+    lines.push(`${record.prompt.options.length + 1}. ${record.prompt.otherLabel ?? (korean ? "직접 입력" : "Other")}`);
+    lines.push(`   ${korean ? "기록값" : "Record value"}: other`);
+  }
+  return lines.join("\n");
+}
+
 async function runQuestion(args: Record<string, string | boolean>): Promise<void> {
   const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
-  const prompt = await resolvePrompt(typeof args.prompt === "string" ? args.prompt : undefined);
-  if (!prompt) {
-    throw new Error("A decision context is required. Pass --prompt <text>.");
+  const requestedSurface = parseQuestionSurface(args.surface);
+  if (
+    requestedSurface &&
+    requestedSurface !== "tmux_popup" &&
+    requestedSurface !== "terminal_selector" &&
+    requestedSurface !== "numbered"
+  ) {
+    throw new Error("The LongTable question CLI can render tmux_popup, terminal_selector, or numbered surfaces. Use the MCP or provider-native runtime for other surfaces.");
+  }
+  const questionId = typeof args.question === "string" ? args.question.trim() : "";
+  const prompt = questionId ? undefined : await resolvePrompt(typeof args.prompt === "string" ? args.prompt : undefined);
+  if (!prompt && !questionId) {
+    throw new Error("A decision context or pending question id is required. Pass --prompt <text> or --question <id>.");
   }
 
   const context = await loadProjectContextFromDirectory(workingDirectory);
@@ -4199,17 +4512,80 @@ async function runQuestion(args: Record<string, string | boolean>): Promise<void
 
   const provider = args.provider === "claude" ? "claude" : args.provider === "codex" ? "codex" : undefined;
   const required = args.required === true ? true : args.advisory === true ? false : undefined;
-  const result = await createWorkspaceQuestion({
-    context,
-    prompt,
-    title: typeof args.title === "string" ? args.title : undefined,
-    question: typeof args.text === "string" ? args.text : undefined,
-    provider,
-    required
-  });
+  let result: { question: QuestionRecord; state: unknown };
+  if (questionId) {
+    const state = await loadWorkspaceState(context);
+    const question = state.questionLog.find((record) =>
+      record.id === questionId && record.status === "pending"
+    );
+    if (!question) {
+      throw new Error(`No pending LongTable question found for ${questionId}.`);
+    }
+    result = { question, state };
+  } else {
+    result = await createWorkspaceQuestion({
+      context,
+      prompt: prompt ?? "",
+      title: typeof args.title === "string" ? args.title : undefined,
+      question: typeof args.text === "string" ? args.text : undefined,
+      provider,
+      required
+    });
+  }
   const transport = provider === "claude"
     ? renderQuestionRecordInput(result.question)
     : renderQuestionRecordPrompt(result.question);
+
+  const shouldTryTmuxPopup = requestedSurface === "tmux_popup" ||
+    (requestedSurface === undefined && provider === "codex" && codexTmuxPopupAvailable() && args.print !== true && args.json !== true);
+  if (shouldTryTmuxPopup) {
+    try {
+      const popupPayload = invokeOmxQuestionPopup(result.question);
+      const answer = questionAnswerFromOmxPayload(result.question, popupPayload);
+      const decision = await answerWorkspaceQuestion({
+        context,
+        questionId: result.question.id,
+        answer,
+        provider,
+        surface: "tmux_popup"
+      });
+      if (args.json === true) {
+        console.log(
+          JSON.stringify(
+            {
+              question: decision.question,
+              decision: decision.decision,
+              transport: {
+                surface: "tmux_popup",
+                status: "accepted"
+              },
+              files: {
+                state: context.stateFilePath,
+                current: context.currentFilePath
+              }
+            },
+            null,
+            2
+          )
+        );
+        return;
+      }
+      console.log("LongTable checkpoint decision recorded");
+      console.log(`- question: ${decision.question.id}`);
+      console.log(`- decision: ${decision.decision.id}`);
+      console.log(`- surface: tmux_popup`);
+      console.log(`- answer: ${decision.decision.selectedOption ?? "recorded"}`);
+      console.log(`- state: ${context.stateFilePath}`);
+      console.log(`- current: ${context.currentFilePath}`);
+      return;
+    } catch (error) {
+      if (requestedSurface === "tmux_popup") {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`LongTable tmux_popup transport unavailable; falling back. ${message}`);
+    }
+  }
 
   if (args.json === true) {
     console.log(
@@ -4239,7 +4615,7 @@ async function runQuestion(args: Record<string, string | boolean>): Promise<void
     return;
   }
 
-  if (isInteractiveTerminal()) {
+  if ((requestedSurface === undefined || requestedSurface === "terminal_selector") && isInteractiveTerminal()) {
     console.log(renderBrandBanner("LongTable", "Researcher Checkpoint"));
     console.log("");
     const answer = await promptChoice(
@@ -4268,16 +4644,11 @@ async function runQuestion(args: Record<string, string | boolean>): Promise<void
     return;
   }
 
-  const optionValues = [
-    ...result.question.prompt.options.map((option) => option.value),
-    ...(result.question.prompt.allowOther ? ["other"] : [])
-  ];
   console.log(result.question.prompt.required ? "LongTable required Researcher Checkpoint recorded" : "LongTable advisory Researcher Checkpoint recorded");
   console.log(`- question: ${result.question.id}`);
   console.log(`- checkpoint: ${result.question.prompt.checkpointKey ?? "manual"}`);
-  console.log(`- prompt: ${result.question.prompt.question}`);
-  console.log(`- options: ${optionValues.join("/")}`);
-  console.log(`- answer: longtable decide --question ${result.question.id} --answer <value>`);
+  console.log(renderQuestionDecisionCard(result.question));
+  console.log(`- answer: longtable decide --question ${result.question.id} --answer <value> --surface numbered`);
   console.log(`- current: ${context.currentFilePath}`);
 }
 
@@ -4816,12 +5187,14 @@ async function runDecide(args: Record<string, string | boolean>): Promise<void> 
   }
 
   const provider = args.provider === "claude" ? "claude" : args.provider === "codex" ? "codex" : undefined;
+  const surface = parseQuestionSurface(args.surface);
   const result = await answerWorkspaceQuestion({
     context,
     questionId: typeof args.question === "string" ? args.question : undefined,
     answer,
     rationale: typeof args.rationale === "string" ? args.rationale : undefined,
-    provider
+    provider,
+    ...(surface ? { surface } : {})
   });
 
   if (args.json === true) {
@@ -5335,6 +5708,10 @@ async function main(): Promise<void> {
     }
     if (subcommand === "stop") {
       await runPanelStopCommand(values);
+      return;
+    }
+    if (subcommand === "shutdown") {
+      await runPanelShutdownCommand(values);
       return;
     }
     if (subcommand === "resume") {
