@@ -1,0 +1,30 @@
+{
+  "step": "Step 4",
+  "artifactType": "frozen-package-audit",
+  "timestamp": "2026-06-10T05:06:34.145Z",
+  "checkpoint": "research_question_freeze",
+  "decision": {
+    "mode": "proceed",
+    "level": "adaptive_required",
+    "scope": "full-corpus freeze readiness"
+  },
+  "qaCaveats": {
+    "S051": "partial completion",
+    "S151": "partial completion",
+    "S164": "partial completion",
+    "S203": "N=251",
+    "S074": "preserve",
+    "S187": "preserve",
+    "path": "preserve",
+    "beta": "preserve",
+    "HTMT": "preserve",
+    "manual": "preserve",
+    "status-only": "preserve"
+  },
+  "sourceFiles": [
+    ".longtable/state.json",
+    ".longtable/current-session.json",
+    "CURRENT.md",
+    "WORKFLOW_STATUS_LOG.md"
+  ]
+}
