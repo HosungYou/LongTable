@@ -20,23 +20,26 @@ elicitations. LongTable uses that only as a presentation layer:
 1. create a durable QuestionRecord first
 2. request MCP form elicitation from the client
 3. append a DecisionRecord when the user accepts the form
-4. return the same numbered checkpoint fallback when elicitation is unavailable,
-   declined, canceled, or unsupported
+4. return the same numbered checkpoint fallback when popup or elicitation
+   transport is unavailable, declined, canceled, or unsupported
 
 `supportsStructuredQuestions` must not be set to `true` merely because LongTable
 can render a structured schema. It should reflect a verified provider/client
-capability. For Codex, the stable contract remains numbered fallback plus
-optional MCP elicitation.
+capability. For Codex, the stable contract remains durable QuestionRecord /
+DecisionRecord state with optional tmux popup, MCP elicitation, terminal
+selector, or numbered rendering.
 
 `$longtable-start` is the Codex research-start skill. `$longtable-interview` is
 post-start and must route to `$longtable-start` when no usable Research
 Specification exists.
 
-Routing rule: if the `mcp__longtable_state__.elicit_question` tool is visible
-in the current Codex session, the adapter guidance should use it first for a
-Researcher Checkpoint. `longtable question --print --provider codex` is the
-fallback only when MCP elicitation is unavailable, unsupported, declined,
-canceled, or blocked by client policy.
+Routing rule: in attached tmux sessions where the OMX question renderer is
+available, the adapter should try `longtable question --question <id> --surface
+tmux_popup --provider codex` first for an existing Researcher Checkpoint. If the
+popup transport is unavailable, use MCP elicitation when the
+`mcp__longtable_state__.elicit_question` tool is visible and approved. Numbered
+Decision Card text is the final fallback when popup and MCP elicitation are
+unavailable, unsupported, declined, canceled, or blocked by client policy.
 
 Codex UI checkpoints are opt-in. Setup may enable them only when the researcher
 chooses `--checkpoint-ui interactive` or `--checkpoint-ui strong` with an MCP
@@ -54,14 +57,15 @@ required question so a canceled form does not keep blocking the session.
 
 ## Terminal Popup Boundary
 
-LongTable does not require tmux for Codex. The current stable Codex transports
-are MCP elicitation when available and numbered fallback otherwise. Interactive
-terminal selectors require TTY input and output.
+LongTable does not require tmux for Codex. The current Codex checkpoint ladder
+is attached tmux popup, MCP elicitation, terminal selector, then numbered
+Decision Card fallback. Interactive terminal selectors require TTY input and
+output.
 
-If LongTable later borrows an OMX-style popup renderer, that renderer must be
-documented as optional Codex terminal transport requiring an attached tmux
-session. It must not redefine the LongTable question contract, and it must fall
-back to the durable `QuestionRecord -> DecisionRecord` flow.
+The OMX-style popup renderer is optional Codex terminal transport requiring an
+attached tmux session and the `omx` command. It must not redefine the LongTable
+question contract; accepted popup answers are normalized back into the durable
+`QuestionRecord -> DecisionRecord` flow with `surface: "tmux_popup"`.
 
 ## Responsibilities
 

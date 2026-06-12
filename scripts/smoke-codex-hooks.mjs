@@ -462,6 +462,10 @@ const closurePromptWithPendingQuestion = await dispatchCodexHook({
 }, workspaceTmp);
 const pendingQuestionContext = closurePromptWithPendingQuestion?.hookSpecificOutput?.additionalContext ?? "";
 assert(pendingQuestionContext.includes("Required Researcher Checkpoint is still pending"), "Research closure prompts should surface pending required question context");
+assert(pendingQuestionContext.includes("LongTable Decision Card"), "Pending checkpoint context should render a decision card");
+assert(pendingQuestionContext.includes("What is blocked:"), "Pending checkpoint context should explain why the checkpoint blocks closure");
+assert(pendingQuestionContext.includes("Behavioral reliance"), "Pending checkpoint context should show option labels, not only raw values");
+assert(pendingQuestionContext.includes("Record value: behavioral"), "Pending checkpoint context should show the durable answer value");
 assert(pendingQuestionContext.includes("Do not choose or record an answer"), "Pending checkpoint context should preserve researcher choice");
 
 await answerWorkspaceQuestion({

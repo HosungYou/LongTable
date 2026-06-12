@@ -68,7 +68,7 @@ export const CODEX_PROVIDER_CAPABILITIES: ProviderCapabilities = {
     "Installed prompt files are not guaranteed to become slash commands in current Codex builds.",
     "Native parallel subagents may exist in an interactive session, but the npm CLI must not require them.",
     "Sequential panel fallback is the stable provider-neutral path.",
-    "MCP elicitation can present Researcher Checkpoints when the Codex client exposes granular MCP elicitations; numbered prompts remain the fallback."
+    "Attached tmux sessions can use a LongTable-owned tmux_popup renderer first; MCP elicitation and numbered prompts remain fallback transports."
   ]
 };
 

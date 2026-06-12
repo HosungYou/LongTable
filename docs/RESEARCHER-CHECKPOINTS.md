@@ -9,8 +9,8 @@ The LongTable name is **Researcher Checkpoint**.
 Provider-native tools can still be used:
 
 - Claude Code may expose a structured AskUserQuestion-style surface.
-- Codex may expose MCP elicitation when available, with numbered-choice or
-  terminal-style fallback.
+- Codex may expose an attached tmux popup, MCP elicitation, terminal selector,
+  or numbered Decision Card fallback.
 - A future web app may render the same prompt as a form.
 
 But the product-level concept is not the provider tool. The concept is the
@@ -159,6 +159,26 @@ A good Researcher Checkpoint has:
 - an optional rationale path for logs, not mandatory UI friction
 - a clear record target
 
+Panel follow-up checkpoints should name the artifact, decision focus, or
+research risk that the panel just reviewed. Stable answer values such as
+`revise`, `evidence`, `proceed`, and `defer` are acceptable for durable records,
+but the researcher-facing label and description must explain what would be
+revised, what evidence would be checked, and what risk would remain open.
+
+For Codex-facing fallback text, do not render panel follow-up checkpoints as a
+raw value list such as `revise/evidence/proceed/defer/other`. Render a compact
+decision card instead:
+
+- what is blocked
+- what decision is needed now
+- two or three primary choices with labels, descriptions, recommended marking
+  when defensible, and the durable record value
+- an explicit Other/free-text escape hatch
+
+`defer` is not a mandatory panel option. Include it only when the prompt or
+panel result is genuinely about postponing closure or keeping an unresolved
+tension open; otherwise prefer `revise`, `evidence`, and `proceed` plus Other.
+
 Bad checkpoint patterns:
 
 - asking for generic approval after the AI has already decided
@@ -171,7 +191,7 @@ Bad checkpoint patterns:
 
 | LongTable concept | Claude Code | Codex | Future MCP/Web |
 | --- | --- | --- | --- |
-| Researcher Checkpoint | native structured question when available | MCP elicitation when available, numbered fallback otherwise | structured transport |
+| Researcher Checkpoint | native structured question when available | tmux popup when attached, MCP elicitation when approved, numbered Decision Card otherwise | structured transport |
 | QuestionRecord | shared state | shared state | shared state |
 | DecisionRecord | shared state | shared state | shared state |
 | CURRENT.md pending view | regenerated file | regenerated file | regenerated file |

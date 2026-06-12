@@ -74,8 +74,10 @@ Specification Preview로 돌아와야 한다.
 
 ## Codex Note
 
-Codex checkpoints should use MCP elicitation first when the `elicit_question`
-tool is available and approved. Numbered choice plus strict parsing remains the
+Codex checkpoints should use the attached-tmux `tmux_popup` transport first
+when the OMX question renderer is available. If popup transport is unavailable,
+MCP elicitation is the next UI transport when `elicit_question` is available
+and approved. Numbered Decision Card text plus strict parsing remains the final
 fallback interaction contract. CLI paths that render numbered options must
 normalize the same numbers back to stable decision values when `longtable
 decide` records the answer.

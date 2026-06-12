@@ -78,6 +78,7 @@ export type PromptStyle =
 
 export type QuestionSurface =
   | "native_structured"
+  | "tmux_popup"
   | "mcp_elicitation"
   | "numbered"
   | "terminal_selector"

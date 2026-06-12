@@ -12,7 +12,7 @@ import type {
   TeamDebateRun,
   TeamDebateSynthesis
 } from "@longtable/core";
-import { buildInvocationIntent, buildPanelPlan } from "./panel.js";
+import { buildInvocationIntent, buildPanelDecisionContext, buildPanelPlan } from "./panel.js";
 import { getPersonaDefinition, parsePersonaKey } from "./personas.js";
 import type { CanonicalPersona } from "./personas.js";
 
@@ -235,6 +235,10 @@ function buildSynthesis(plan: PanelPlan, artifactPath: string, kind: TeamRunKind
   const labels = plan.members.map((member) => member.label);
   const highSensitivity = plan.checkpointSensitivity === "high";
   const runLabel = kind === "debate" ? "panel debate" : "panel review";
+  const decisionContext = buildPanelDecisionContext(plan.prompt);
+  const localizedRunLabel = decisionContext.language === "ko"
+    ? (kind === "debate" ? "패널 토론" : "패널 리뷰")
+    : runLabel;
   return {
     artifactPath,
     summary: `The ${runLabel} completed across ${labels.join(", ")}. It should slow closure by turning role disagreement into an explicit researcher decision.`,
@@ -255,14 +259,17 @@ function buildSynthesis(plan: PanelPlan, artifactPath: string, kind: TeamRunKind
       "Choose whether the debate should affect the current artifact, the research design, or only the decision log."
     ],
     recommendedCheckpoint: highSensitivity
-      ? `The ${runLabel} surfaced high-sensitivity disagreement. What should LongTable treat as the next human decision before closure?`
-      : `The ${runLabel} surfaced role disagreement. Should LongTable revise, verify evidence, proceed, or keep the tension open?`
+      ? (decisionContext.language === "ko"
+        ? `${localizedRunLabel}에서 ${decisionContext.focus}에 대한 높은 민감도의 불일치가 드러났습니다. ${decisionContext.decisionQuestion}`
+        : `The ${runLabel} surfaced high-sensitivity disagreement about ${decisionContext.focus}. ${decisionContext.decisionQuestion}`)
+      : decisionContext.decisionQuestion
   };
 }
 
 export function createTeamDebateQuestionRecord(run: TeamDebateRun, provider?: ProviderKind): QuestionRecord {
   const createdAt = nowIso();
   const isDebate = run.interactionDepth === "debated";
+  const decisionContext = buildPanelDecisionContext(run.prompt);
   return {
     id: createId("question_record"),
     createdAt,
@@ -271,51 +278,32 @@ export function createTeamDebateQuestionRecord(run: TeamDebateRun, provider?: Pr
     prompt: {
       id: createId("question_prompt"),
       checkpointKey: "panel_debate_next_decision",
-      title: isDebate ? "Panel debate follow-up decision" : "Panel review follow-up decision",
+      title: decisionContext.language === "ko"
+        ? (isDebate ? "패널 토론 후속 결정" : "패널 리뷰 후속 결정")
+        : (isDebate ? "Panel debate follow-up decision" : "Panel review follow-up decision"),
       question: run.synthesis.recommendedCheckpoint,
       type: "single_choice",
-      options: [
-        {
-          value: "revise",
-          label: "Revise before proceeding",
-          description: "Use the debate result to revise the claim, design, or draft first."
-        },
-        {
-          value: "evidence",
-          label: "Gather or verify evidence first",
-          description: "Check source, data, or local artifact support before proceeding."
-        },
-        {
-          value: "proceed",
-          label: "Proceed with current direction",
-          description: "Accept the risk profile and continue with the current direction."
-        },
-        {
-          value: "defer",
-          label: "Keep this open",
-          description: "Do not commit yet; keep the debate issue visible as an open tension."
-        }
-      ],
+      options: decisionContext.options,
       allowOther: true,
-      otherLabel: "Other decision",
+      otherLabel: decisionContext.otherLabel,
       required: run.roles.some((member) => {
         const key = parsePersonaKey(member.role);
         return key ? getPersonaDefinition(key).checkpointSensitivity === "high" : false;
       }),
       source: "runtime_guidance",
-      displayReason: isDebate
-        ? "Role rebuttals and convergence should connect to an explicit researcher decision."
-        : "Cross-review created role disagreement that should connect to an explicit researcher decision.",
+      displayReason: decisionContext.displayReason,
       rationale: [
         "LongTable panel orchestration is a research harness surface, not a substitute for researcher judgment.",
         isDebate
           ? "The fixed debate rounds created disagreement that should connect to an explicit researcher decision."
           : "The cross-review round created disagreement that should connect to an explicit researcher decision.",
+        `Panel decision focus: ${decisionContext.focus}.`,
+        "Panel follow-up choices are compact by default; unlisted decisions should use Other.",
         `LongTable panel run: ${run.id}.`
       ],
       preferredSurfaces: provider === "claude"
         ? ["native_structured", "numbered"]
-        : ["mcp_elicitation", "numbered"]
+        : ["tmux_popup", "mcp_elicitation", "numbered"]
     }
   };
 }
