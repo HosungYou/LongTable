@@ -53,6 +53,8 @@ jobs:
           publish_if_needed @longtable/memory packages/longtable-memory
           publish_if_needed @longtable/checkpoints packages/longtable-checkpoints
           publish_if_needed @longtable/setup packages/longtable-setup
+          publish_if_needed @longtable/scholar-research packages/longtable-scholar-research
+          publish_if_needed @longtable/research-search packages/longtable-research-search
           publish_if_needed @longtable/provider-codex packages/longtable-provider-codex
           publish_if_needed @longtable/provider-claude packages/longtable-provider-claude
           publish_if_needed @longtable/cli packages/longtable

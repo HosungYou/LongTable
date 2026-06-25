@@ -6,3 +6,4 @@ export * from "./panel.js";
 export * from "./project-session.js";
 export * from "./question-obligations.js";
 export * from "./hard-stop.js";
+export * from "./search/index.js";

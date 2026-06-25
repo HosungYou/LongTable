@@ -68,7 +68,7 @@ function defaultFetch(): SearchFetch {
   if (typeof fetch !== "function") {
     throw new Error("LongTable publisher access probing requires a fetch-capable Node runtime.");
   }
-  return fetch as unknown as SearchFetch;
+  return fetch;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -191,7 +191,7 @@ export async function discoverCrossrefTdm(
   const response = await httpFetch(url, {
     headers: {
       accept: "application/json",
-      "user-agent": "LongTable/0.1.31 (https://github.com/HosungYou/LongTable)"
+      "user-agent": "LongTable/0.1.60 (https://github.com/HosungYou/LongTable)"
     }
   });
   if (!response.ok) {

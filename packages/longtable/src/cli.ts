@@ -29,12 +29,15 @@ import type {
 import { classifyCheckpointTrigger } from "@longtable/checkpoints";
 import {
   assessSearchSourceCapabilities,
+  assessScholarResearchReadiness,
   buildResearchSearchIntent,
+  buildScholarResearchSmokeFixture,
   parsePublisherTarget,
   probePublisherAccess,
   publisherConfigs,
   runResearchSearch,
   SEARCH_SOURCES,
+  writeScholarResearchRunScaffold,
   summarizeConfiguredPublisherAccess,
   type EvidenceRun,
   type PublisherAccessRecord,
@@ -218,6 +221,7 @@ interface CodexSkillHealth extends ProviderSkillHealth {
 interface LongTableDoctorStatus {
   setupPath: string;
   setupExists: boolean;
+  scholarResearch: ReturnType<typeof assessScholarResearchReadiness>;
   providers: {
     codex: CodexSkillHealth;
     claude: ProviderSkillHealth;
@@ -408,6 +412,9 @@ function usage(): string {
     "  longtable access doctor [--doi <doi>] [--publisher auto|elsevier|springer_nature|wiley|taylor_francis|all] [--json]",
     "  longtable access probe --doi <doi> [--publisher auto|elsevier|springer_nature|wiley|taylor_francis] [--json]",
     "  longtable search --query <text> [--intent literature|theory|measurement|citation|metadata|venue] [--field <text>] [--source all|crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj,unpaywall] [--must <term[,term]>] [--exclude <term[,term]>] [--limit <n>] [--allow-partial] [--publisher-access] [--record] [--cwd <path>] [--json]",
+    "  longtable scholar-research doctor [--json]",
+    "  longtable scholar-research scaffold [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable scholar-research smoke-fixture [--json]",
     "  longtable sentinel --prompt <text> [--cwd <path>] [--json] [--record]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable clarify --prompt <task-context> [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json] [--force]",
@@ -458,7 +465,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "handoff", "decide", "sentinel", "access", "search", "spec"].includes(command);
+    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "handoff", "decide", "sentinel", "access", "search", "scholar-research", "spec"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -466,7 +473,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     startIndex = 1;
   } else if (command === "codex" || command === "claude" || command === "mcp") {
     startIndex = 2;
-  } else if ((command === "access" || command === "search" || command === "spec" || command === "panel") && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
+  } else if ((command === "access" || command === "search" || command === "scholar-research" || command === "spec" || command === "panel") && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
     subcommand = maybeSubcommand;
     startIndex = 2;
   } else if (command === "audit" && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
@@ -1449,12 +1456,16 @@ async function collectProjectInterview(
     console.log("");
   }
 
-  const projectName =
+  const projectNameInput =
     (typeof args.name === "string" && args.name.trim()) ||
     (await promptText(
       renderQuestionHeader(1, 2, "Workspace", "What should this project be called?"),
       true
-    ))!;
+    ));
+  if (!projectNameInput) {
+    throw new Error("LongTable start needs a project name.");
+  }
+  const projectName = projectNameInput;
 
   const suggestedParentDir =
     typeof args.path === "string" && args.path.trim()
@@ -1462,23 +1473,23 @@ async function collectProjectInterview(
       : homedir();
   const suggestedPath = resolveInteractiveProjectPath(suggestedParentDir, projectName);
 
-  const projectPath =
-    (typeof args.path === "string" && args.path.trim()
-      ? normalizeUserPath(args.path.trim())
-      : resolveInteractiveProjectPath(
-          (
-            await promptText(
-              renderQuestionHeader(
-                2,
-                2,
-                "Workspace",
-                `Which parent directory should contain this project?\nLongTable will create this folder:\n${suggestedPath}`
-              ),
-              true
-            )
-          )!,
-          projectName
-        ))!;
+  const projectPathInput = typeof args.path === "string" && args.path.trim()
+    ? normalizeUserPath(args.path.trim())
+    : await promptText(
+        renderQuestionHeader(
+          2,
+          2,
+          "Workspace",
+          `Which parent directory should contain this project?\nLongTable will create this folder:\n${suggestedPath}`
+        ),
+        true
+      );
+  if (!projectPathInput) {
+    throw new Error("LongTable start needs a project path.");
+  }
+  const projectPath = typeof args.path === "string" && args.path.trim()
+    ? projectPathInput
+    : resolveInteractiveProjectPath(projectPathInput, projectName);
 
   const adaptive = skipResearchInterview
     ? {}
@@ -2242,6 +2253,7 @@ async function collectDoctorStatus(args: Record<string, string | boolean>): Prom
   return {
     setupPath,
     setupExists: existsSync(setupPath),
+    scholarResearch: assessScholarResearchReadiness(env),
     providers: {
       codex: {
         command: "codex",
@@ -2309,6 +2321,8 @@ function renderDoctorStatus(status: LongTableDoctorStatus): string {
   const lines = [
     "LongTable doctor",
     `- setup: ${status.setupExists ? "present" : "missing"} (${status.setupPath})`,
+    `- scholar-research connectors: ${status.scholarResearch.connectors.filter((connector) => connector.status === "ready").length}/${status.scholarResearch.connectors.length} ready`,
+    `- scholar-research safety: paywall bypass ${status.scholarResearch.safety.paywallBypassAllowed ? "allowed" : "disabled"}, institution login automation ${status.scholarResearch.safety.institutionLoginAutomationAllowed ? "allowed" : "disabled"}`,
     "",
     ...renderProviderDoctorBlock("Codex", status.providers.codex),
     `- legacy prompt files: ${status.providers.codex.legacyPromptFilesInstalled.length}`,
@@ -2748,12 +2762,14 @@ function buildRoleAuditEntry(
 
 function runRoleAudit(): RoleAuditResult {
   const baseSkillNames = new Set([
+    "critical-interview",
     "longtable",
     "longtable-start",
     "longtable-interview",
     "longtable-panel",
     "longtable-explore",
-    "longtable-review"
+    "longtable-review",
+    "scholar-research"
   ]);
   const roles: RoleAuditEntry[] = [
     ...buildCodexSkillSpecs(listRoleDefinitions(), "full")
@@ -3628,11 +3644,14 @@ async function runPanelCommand(args: Record<string, string | boolean>): Promise<
   console.log("");
 
   if (finalNativeRun) {
+    if (!nativeRunContext) {
+      throw new Error("Native panel worker run finished without a run context.");
+    }
     console.log("LongTable native panel worker run created");
     console.log(`- run: ${finalNativeRun.id}`);
     console.log(`- status: ${finalNativeRun.status}`);
-    console.log(`- state: ${panelWorkerRunPath(nativeRunContext!.project.projectPath, finalNativeRun.id)}`);
-    const nextCommands = panelWorkerNextCommands(nativeRunContext!, finalNativeRun.id);
+    console.log(`- state: ${panelWorkerRunPath(nativeRunContext.project.projectPath, finalNativeRun.id)}`);
+    const nextCommands = panelWorkerNextCommands(nativeRunContext, finalNativeRun.id);
     console.log(`- next status: ${nextCommands.status}`);
     console.log(`- stop: ${nextCommands.stop}`);
     console.log(`- shutdown: ${nextCommands.shutdown}`);
@@ -4341,6 +4360,59 @@ async function runSearch(subcommand: string | undefined, args: Record<string, st
   }
 
   console.log(renderEvidenceRunSummary(run, recordedPath));
+}
+
+async function runScholarResearch(
+  subcommand: string | undefined,
+  args: Record<string, string | boolean>
+): Promise<void> {
+  const json = args.json === true;
+  if (subcommand === "doctor" || subcommand === "status" || !subcommand) {
+    const readiness = assessScholarResearchReadiness(env);
+    if (json) {
+      console.log(JSON.stringify(readiness, null, 2));
+      return;
+    }
+    console.log("LongTable scholar-research doctor");
+    for (const connector of readiness.connectors) {
+      const missing = connector.missingEnv.length > 0 ? ` (missing ${connector.missingEnv.join(", ")})` : "";
+      console.log(`- ${connector.name}: ${connector.status}${missing}`);
+    }
+    console.log("- safety: paywall bypass disabled; institution-login automation disabled");
+    return;
+  }
+
+  if (subcommand === "scaffold") {
+    const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+    const runId = typeof args["run-id"] === "string" ? args["run-id"] : undefined;
+    const scaffold = await writeScholarResearchRunScaffold({
+      cwd: workingDirectory,
+      ...(runId ? { runId } : {})
+    });
+    if (json) {
+      console.log(JSON.stringify(scaffold, null, 2));
+      return;
+    }
+    console.log("LongTable scholar-research scaffold");
+    console.log(`- run: ${scaffold.runId}`);
+    console.log(`- dir: ${scaffold.runDir}`);
+    return;
+  }
+
+  if (subcommand === "smoke-fixture") {
+    const fixture = buildScholarResearchSmokeFixture();
+    if (json) {
+      console.log(JSON.stringify({ fixture }, null, 2));
+      return;
+    }
+    console.log("LongTable scholar-research smoke fixture");
+    for (const item of fixture) {
+      console.log(`- ${item.id}: ${item.category} - ${item.label}`);
+    }
+    return;
+  }
+
+  throw new Error(`Unknown scholar-research subcommand: ${subcommand}`);
 }
 
 async function requireWorkspaceContext(args: Record<string, string | boolean>): Promise<LongTableProjectContext> {
@@ -5664,6 +5736,11 @@ async function main(): Promise<void> {
 
   if (command === "search") {
     await runSearch(subcommand, values);
+    return;
+  }
+
+  if (command === "scholar-research") {
+    await runScholarResearch(subcommand, values);
     return;
   }
 

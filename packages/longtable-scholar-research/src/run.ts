@@ -25,7 +25,7 @@ function defaultFetch(): SearchFetch {
   if (typeof fetch !== "function") {
     throw new Error("LongTable search requires a fetch-capable Node runtime.");
   }
-  return fetch as unknown as SearchFetch;
+  return fetch;
 }
 
 export async function runResearchSearch(input: RunResearchSearchInput): Promise<EvidenceRun> {

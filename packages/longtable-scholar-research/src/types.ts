@@ -199,9 +199,10 @@ export interface HttpResponseLike {
   json(): Promise<unknown>;
 }
 
-export type SearchFetch = (url: string, init?: {
-  headers?: Record<string, string>;
-}) => Promise<HttpResponseLike>;
+export type SearchFetch = (
+  input: string | URL | Request,
+  init?: RequestInit
+) => Promise<HttpResponseLike>;
 
 export interface SourceSearchContext {
   fetch: SearchFetch;
