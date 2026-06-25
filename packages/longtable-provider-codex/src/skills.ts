@@ -7,6 +7,7 @@ import type { RoleDefinition } from "@longtable/core";
 export interface CodexSkillSpec {
   name: string;
   description: string;
+  disableModelInvocation?: boolean;
   body: string[];
 }
 
@@ -46,6 +47,7 @@ function renderSkillFile(spec: CodexSkillSpec): string {
     "---",
     `name: ${spec.name}`,
     `description: ${yamlString(spec.description)}`,
+    ...(spec.disableModelInvocation ? ["disable-model-invocation: true"] : []),
     "---",
     "",
     `# ${spec.name}`,
@@ -79,6 +81,8 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): CodexSkillS
         "- `$longtable-methods`, `$longtable-measure`, `$longtable-theory`, `$longtable-reviewer`, or `$longtable-voice` when the researcher explicitly wants that shortcut.",
         "- `$longtable-start` to create or continue the first research-start interview.",
         "- `$longtable-interview` to run a structured follow-up interview after a Research Specification exists.",
+        "- `$critical-interview` for a relentless LongTable interview that sharpens a research plan, argument, method, or product decision.",
+        "- `$scholar-research` for scholarly evidence recovery, citation-slot research, and legal full-text readiness.",
         "",
         "## Routing Rules",
         "",
@@ -128,6 +132,51 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): CodexSkillS
         "- If `CURRENT.md` shows a pending required checkpoint, ask the researcher for a selection and wait. Do not choose or record `longtable decide --question <id> --answer <value>` unless the researcher explicitly provides that value.",
         "- Preserve open tensions and authorship instead of forcing closure.",
         "- Label unsupported external claims as inference or estimate."
+      ]
+    },
+    {
+      name: "critical-interview",
+      description:
+        "A relentless LongTable interview to sharpen a research plan, argument, method, or product decision.",
+      disableModelInvocation: true,
+      body: [
+        "Run a LongTable critical interview session. Continue only while questions sharpen the research or design; stop when remaining questions repeat the same tension without producing a new decision."
+      ]
+    },
+    {
+      name: "scholar-research",
+      description:
+        "LongTable scholarly evidence recovery and citation-slot research using host-agent orchestration, legal OA/fulltext connectors, evidence ledgers, and Researcher Checkpoints.",
+      body: [
+        "Run a LongTable scholar-research session.",
+        "",
+        "Treat `.longtable/` as the source of truth. Recover only legally accessible scholarly evidence. Do not bypass paywalls, authentication, robots.txt, WAFs, or access controls. Use host-agent orchestration for parallel research, but write journal, evidence ledger, claim ledger, fallback ledger, and citation-slot matrix into `.longtable/research-runs/<run-id>/`.",
+        "",
+        "## Required Flow",
+        "",
+        "1. Start with a citation-slot matrix or DOI/title/URL seed batch; free-form literature search is post-MVP.",
+        "2. Run `longtable scholar-research doctor` before evidence recovery and surface any missing connector readiness.",
+        "3. Create or reuse a run scaffold with `longtable scholar-research scaffold --cwd <project> --json`.",
+        "4. Search in this order: DOI/title seed, Crossref/OpenAlex/Semantic Scholar metadata, Unpaywall OA status, arXiv/SSRN/ERIC/PubMed/PMC/CORE/DOAJ/repository sweep, publisher landing page, legal PDF/full text, fallback ledger.",
+        "5. Mark citation slots `filled` only when full text produced an extracted quote/claim. Metadata, abstract, or fallback evidence is `provisional`, not filled.",
+        "6. Stop for a Researcher Checkpoint when access is restricted, when a strong claim has weak evidence, or when synthesis would change the research direction.",
+        "",
+        "## Safety Boundary",
+        "",
+        "- Do not bypass paywalls, authentication, robots.txt, WAFs, or access controls.",
+        "- Do not automate institution login, cookie reuse, proxy/VPN bypass, or session extraction.",
+        "- Request manual upload only when the researcher says they have legitimate access.",
+        "- Record failure reasons with the LongTable taxonomy: `not_found`, `no_full_text`, `restricted_access`, `robots_or_terms_blocked`, `ambiguous_match`, `download_failed`, `parse_failed`, `weak_evidence`.",
+        "",
+        "## Output Contract",
+        "",
+        "- `.longtable/research-runs/<run-id>/journal.md`",
+        "- `.longtable/research-runs/<run-id>/expansion-log.md`",
+        "- `.longtable/research-runs/<run-id>/claim-ledger.md`",
+        "- `.longtable/research-runs/<run-id>/evidence-ledger.md`",
+        "- `.longtable/research-runs/<run-id>/fallback-ledger.md`",
+        "- `.longtable/research-runs/<run-id>/citation-slot-matrix.md`",
+        "- `.longtable/research-runs/<run-id>/sources/manifest.jsonl`"
       ]
     },
     {
