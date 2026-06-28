@@ -6,7 +6,7 @@ LongTable should expose a small researcher-facing workflow:
 
 1. `longtable setup`
 2. `$longtable-start`
-3. `$longtable-interview` after a Research Specification exists
+3. `$longtable-interview` for grilling-style pressure interviews
 4. natural in-session directives such as `lt explore:`, `lt review:`, and
    `lt panel:`
 
@@ -46,22 +46,19 @@ Provider-native research start:
 
 ### `$longtable-interview`
 
-Unified structured and critical interview:
+LongTable grilling interview:
 
-- runs ordinary option-first follow-up only when a usable Research Specification
-  exists
-- routes ordinary follow-up to `$longtable-start` when no spec exists
-- treats First Research Shape without Research Specification as incomplete start
-  state
-- uses small bounded choice sets for spec revisions, checkpoint resolution,
-  evidence boundaries, coding rules, methods choices, or protected decisions
-- includes an escape hatch such as Other, free text, or one open follow-up
-  question
-- runs critical/grill-me-style requests inside the same `$longtable-interview`
-  surface
-- asks one relentless sharpening question at a time in critical mode
-- stops critical mode when remaining questions repeat the same tension without
-  producing a new decision
+- can run with or without a completed Research Specification
+- reads `CURRENT.md`, `.longtable/`, supplied documents, and cited evidence
+  before asking when those sources can answer
+- asks one relentless sharpening question at a time
+- states the tension
+- gives the recommended answer
+- asks the researcher to accept, revise, or reject the recommendation
+- continues only while the next question can produce a new decision, sharper
+  boundary, stronger evidence standard, or clearer open tension
+- stops when remaining questions repeat the same tension without producing a
+  new decision
 - treats `$critical-interview` as a compatibility alias, not a separate
   interview contract
 - records changes as a Research Specification patch, DecisionRecord, or open

@@ -56,10 +56,15 @@ interview-to-First-Research-Shape handoff.
 `$longtable-start` is the research-start surface. It asks open natural-language
 questions and creates or updates the Research Specification.
 
-`$longtable-interview` is post-start. It can use option-first structured
-questions only after a usable Research Specification exists. If no specification
-exists, or if only a First Research Shape exists, `$longtable-interview` must
-route to `$longtable-start`.
+`$longtable-interview` is a grilling interview surface. It can use the Research
+Specification when one exists, but it does not require one before asking a
+pressure question. It asks one question at a time, states the tension, gives the
+recommended answer, and asks the researcher to accept, revise, or reject it.
+
+If the researcher explicitly wants a first research-start interview, use
+`$longtable-start`. Otherwise, `$longtable-interview` stays in the grilling
+loop and records any resulting decision, specification patch, or open tension
+when state tools are available.
 
 First Research Shape is a short handle and resume layer. It is not the
 substantive endpoint.

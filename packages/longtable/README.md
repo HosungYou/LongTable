@@ -30,22 +30,22 @@ $longtable-start
 `$longtable-start` creates or resumes the workspace, asks open research-start
 questions, and stores a Research Specification when there is enough material.
 
-Use the unified interview surface for follow-up and critical pressure testing:
+Use the LongTable grilling surface for pressure interviews:
 
 ```text
 $longtable-interview
 ```
 
-Ordinary `$longtable-interview` follow-up is post-start. It uses option-first
-choices for spec revisions, checkpoint resolution, evidence boundaries, coding
-rules, method choices, and protected decisions. If no usable Research
-Specification exists, it must route to `$longtable-start`.
+`$longtable-interview` asks one relentless sharpening question at a time. It
+states the tension, gives the recommended answer, and asks the researcher to
+accept, revise, or reject it. It can use Research Specification state when
+present, but it does not require one before asking the next pressure question.
 
-Critical, pressure, or grill-me-style requests also run through
-`$longtable-interview`. In that mode LongTable asks one relentless sharpening
-question at a time and stops when remaining questions repeat the same tension
-without producing a new decision. `$critical-interview` remains a compatibility
-alias for this mode, not a separate interview contract.
+It continues only while the next question can produce a new decision, sharper
+boundary, stronger evidence standard, or clearer open tension, and stops when
+remaining questions repeat the same tension without producing a new decision.
+`$critical-interview` remains a compatibility alias, not a separate interview
+contract.
 
 ## Workspace Artifacts
 

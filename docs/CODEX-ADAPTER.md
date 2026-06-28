@@ -30,8 +30,8 @@ DecisionRecord state with optional tmux popup, MCP elicitation, terminal
 selector, or numbered rendering.
 
 `$longtable-start` is the Codex research-start skill. `$longtable-interview` is
-post-start and must route to `$longtable-start` when no usable Research
-Specification exists.
+the Codex grilling interview skill. It can use Research Specification state when
+present, but it does not require one before asking a pressure question.
 
 Routing rule: in attached tmux sessions where the OMX question renderer is
 available, the adapter should try `longtable question --question <id> --surface
