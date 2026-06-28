@@ -173,6 +173,32 @@ Team-style requests route through panel. Explicit debate-language requests
 write panel debate records under `.longtable/panel/`. LongTable team execution
 is disabled for new work, and `.longtable/team/` is historical state only.
 
+## Journal Editor and Venue Fit
+
+`longtable-editor` is intentionally a thin role adapter. It foregrounds the
+Journal Editor perspective and must disclose `LongTable consulted: Journal
+Editor`, but it is not allowed to invent knowledge about a named target journal.
+
+If a target journal is named, LongTable should not claim journal fit from role
+intuition alone. A fit judgment needs a journal profile: aims/scope, author
+guidance, recent article patterns, and article type expectations. Without that
+profile, the editor judgment should either ask whether to run scholarly/venue
+search or label fit as provisional.
+
+Useful command surfaces:
+
+```bash
+longtable review --role editor --prompt "Evaluate this manuscript positioning."
+longtable panel --role editor,reviewer --prompt "Compare journal fit and reviewer risk."
+longtable search --intent venue --query "<journal or venue context>"
+longtable scholar-research scaffold --cwd "<project-path>" --json
+```
+
+Treat journal fit as a risk rubric, not an acceptance prediction. A useful
+editor pass separates scope fit, contribution fit, method/evidence norm fit,
+editorial salience, and citation/evidence risk, and marks unsupported claims as
+provisional.
+
 ## Researcher Checkpoints
 
 LongTable asks and waits when a research commitment is about to become settled:

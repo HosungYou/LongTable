@@ -1,6 +1,6 @@
 {
   "name": "@longtable/research-search",
-  "version": "0.1.64",
+  "version": "0.1.65",
   "private": false,
   "description": "Deprecated compatibility layer for @longtable/scholar-research",
   "type": "module",
@@ -21,7 +21,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@longtable/scholar-research": "0.1.64"
+    "@longtable/scholar-research": "0.1.65"
   },
   "devDependencies": {
     "typescript": "^5.6.0"
