@@ -46,16 +46,24 @@ Provider-native research start:
 
 ### `$longtable-interview`
 
-Post-start structured interview:
+Unified structured and critical interview:
 
-- only runs option-first when a usable Research Specification exists
-- routes to `$longtable-start` when no spec exists
+- runs ordinary option-first follow-up only when a usable Research Specification
+  exists
+- routes ordinary follow-up to `$longtable-start` when no spec exists
 - treats First Research Shape without Research Specification as incomplete start
   state
 - uses small bounded choice sets for spec revisions, checkpoint resolution,
   evidence boundaries, coding rules, methods choices, or protected decisions
 - includes an escape hatch such as Other, free text, or one open follow-up
   question
+- runs critical/grill-me-style requests inside the same `$longtable-interview`
+  surface
+- asks one relentless sharpening question at a time in critical mode
+- stops critical mode when remaining questions repeat the same tension without
+  producing a new decision
+- treats `$critical-interview` as a compatibility alias, not a separate
+  interview contract
 - records changes as a Research Specification patch, DecisionRecord, or open
   tension rather than silently overwriting state
 

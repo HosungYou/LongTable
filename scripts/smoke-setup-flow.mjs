@@ -163,6 +163,7 @@ if (installOutput.includes("longtable-methods-critic")) {
 }
 const startSkill = readFileSync(join(skillsDir, "longtable-start", "SKILL.md"), "utf8");
 const interviewSkill = readFileSync(join(skillsDir, "longtable-interview", "SKILL.md"), "utf8");
+const criticalInterviewSkill = readFileSync(join(skillsDir, "critical-interview", "SKILL.md"), "utf8");
 if (!startSkill.includes("First Research Shape")) {
   throw new Error("longtable-start skill should document First Research Shape.");
 }
@@ -192,6 +193,15 @@ if (!interviewSkill.includes("route to `$longtable-start` immediately")) {
 }
 if (!interviewSkill.includes("option-first") || !interviewSkill.includes("Other") || !interviewSkill.includes("free text")) {
   throw new Error("longtable-interview skill should document option-first follow-up with an escape hatch.");
+}
+if (!interviewSkill.includes("Critical Interview Mode") || !interviewSkill.includes("relentless")) {
+  throw new Error("longtable-interview skill should absorb the critical/grill-me interview mode.");
+}
+if (!interviewSkill.includes("remaining questions repeat the same tension without producing a new decision")) {
+  throw new Error("longtable-interview skill should preserve the critical-interview stop rule.");
+}
+if (!criticalInterviewSkill.includes("Compatibility alias") || !criticalInterviewSkill.includes("$longtable-interview")) {
+  throw new Error("critical-interview skill should be a compatibility alias for longtable-interview.");
 }
 const mcpInstall = JSON.parse(runCli([
   "mcp",
