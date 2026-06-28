@@ -36,8 +36,7 @@ Inside the provider, start the project with:
 $longtable-start
 ```
 
-Run follow-up and critical pressure interviews with the unified interview
-surface:
+Run pressure interviews with the LongTable grilling surface:
 
 ```text
 $longtable-interview
@@ -46,14 +45,13 @@ $longtable-interview
 Required routing:
 
 - `$longtable-start` is the research-start surface.
-- `$longtable-interview` is the unified interview surface.
-- Ordinary `$longtable-interview` follow-up is post-start and option-first.
-- If ordinary `$longtable-interview` is invoked before a usable Research
-  Specification exists, it must route to `$longtable-start`.
-- Critical, pressure, or grill-me-style requests stay in `$longtable-interview`
-  and ask one sharpening question at a time.
+- `$longtable-interview` is the grilling interview surface.
+- It does not require a Research Specification before asking the next pressure
+  question.
+- It asks one question at a time, states the tension, gives a recommended
+  answer, and asks the researcher to accept, revise, or reject it.
 - `$critical-interview` remains only as a compatibility alias for
-  `$longtable-interview` critical mode.
+  `$longtable-interview`.
 - If only a First Research Shape exists, LongTable continues through
   `$longtable-start` until a Research Specification is created or explicitly
   kept open.
@@ -98,19 +96,18 @@ construct ontology, theory framing, coding and measurement rules, method
 options, evidence and access requirements, epistemic alignment, protected
 decisions, open questions, next actions, and confidence.
 
-`$longtable-interview` is the single interview surface after start. For ordinary
-follow-up after the specification exists, it can use option-first questions for
-spec revisions, checkpoint resolution, evidence boundaries, coding rules, method
-choices, and protected decisions. It should still include an escape hatch such
-as Other, free text, or one open follow-up question.
+`$longtable-interview` is a relentless sharpening interview for a research plan,
+argument, method, manuscript, evidence standard, or product decision. It inspects
+`CURRENT.md`, `.longtable/`, supplied documents, and cited evidence first when
+those can answer the question. Then it asks one high-leverage question using
+this frame: tension, recommended answer, and a request to accept, revise, or
+reject that recommendation.
 
-For critical mode, `$longtable-interview` runs a relentless sharpening interview
-for a research plan, argument, method, manuscript, or product decision. It asks
-one question at a time and continues only while the next question can produce a
-new decision, sharper boundary, stronger evidence standard, or clearer open
-tension. It stops when remaining questions repeat the same tension without
-producing a new decision. `$critical-interview` is a compatibility alias for
-this mode, not a separate interview contract.
+The interview continues only while the next question can produce a new decision,
+sharper boundary, stronger evidence standard, or clearer open tension. It stops
+when remaining questions repeat the same tension without producing a new
+decision. `$critical-interview` is a compatibility alias for this mode, not a
+separate interview contract.
 
 Multiple interviews append to the same workspace state. A later interview may
 propose or apply a Research Specification patch, append a DecisionRecord, or

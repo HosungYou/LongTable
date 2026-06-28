@@ -188,17 +188,20 @@ if (!startSkill.includes("summarize_research_specification")) {
 if (!startSkill.includes("one main uncertainty") || !startSkill.includes("mini-questionnaire")) {
   throw new Error("longtable-start skill should softly document one-question-at-a-time behavior.");
 }
-if (!interviewSkill.includes("route to `$longtable-start` immediately")) {
-  throw new Error("longtable-interview skill should force no-spec routing to longtable-start.");
+if (interviewSkill.includes("option-first") || interviewSkill.includes("ordinary follow-up")) {
+  throw new Error("longtable-interview skill should not keep the old ordinary option-first mode.");
 }
-if (!interviewSkill.includes("option-first") || !interviewSkill.includes("Other") || !interviewSkill.includes("free text")) {
-  throw new Error("longtable-interview skill should document option-first follow-up with an escape hatch.");
+if (interviewSkill.includes("route to `$longtable-start` immediately")) {
+  throw new Error("longtable-interview skill should no longer route grilling interviews away from itself.");
 }
-if (!interviewSkill.includes("Critical Interview Mode") || !interviewSkill.includes("relentless")) {
-  throw new Error("longtable-interview skill should absorb the critical/grill-me interview mode.");
+if (!interviewSkill.includes("LongTable grilling interview") || !interviewSkill.includes("recommended answer")) {
+  throw new Error("longtable-interview skill should be a simple grilling loop with recommended answers.");
+}
+if (!interviewSkill.includes("accept, revise, or reject")) {
+  throw new Error("longtable-interview skill should ask the researcher to accept, revise, or reject the recommendation.");
 }
 if (!interviewSkill.includes("remaining questions repeat the same tension without producing a new decision")) {
-  throw new Error("longtable-interview skill should preserve the critical-interview stop rule.");
+  throw new Error("longtable-interview skill should preserve the grilling stop rule.");
 }
 if (!criticalInterviewSkill.includes("Compatibility alias") || !criticalInterviewSkill.includes("$longtable-interview")) {
   throw new Error("critical-interview skill should be a compatibility alias for longtable-interview.");

@@ -1,6 +1,6 @@
 {
   "name": "longtable-monorepo",
-  "version": "0.1.66",
+  "version": "0.1.67",
   "private": true,
   "description": "Monorepo for the LongTable product surface and provider-neutral runtime packages",
   "workspaces": [
@@ -18,9 +18,10 @@
     "smoke:question-audit": "node scripts/smoke-question-audit.mjs",
     "smoke:role-audit": "node scripts/smoke-role-audit.mjs",
     "smoke:human-persona": "node scripts/e2e-human-persona-flow.mjs",
+    "smoke:grilling-interview": "node scripts/e2e-grilling-interview-flow.mjs",
     "smoke:search": "node scripts/smoke-search.mjs",
     "smoke:scholar-research": "node scripts/smoke-scholar-research.mjs",
-    "test": "npm run build && npm run smoke:setup && npm run smoke:checkpoints && npm run smoke:hooks && npm run smoke:panel-handoff && npm run smoke:panel-workers && npm run smoke:research-spec-audit && npm run smoke:question-audit && npm run smoke:role-audit && npm run smoke:human-persona && npm run smoke:search && npm run smoke:scholar-research && npm run typecheck",
+    "test": "npm run build && npm run smoke:setup && npm run smoke:checkpoints && npm run smoke:hooks && npm run smoke:panel-handoff && npm run smoke:panel-workers && npm run smoke:research-spec-audit && npm run smoke:question-audit && npm run smoke:role-audit && npm run smoke:human-persona && npm run smoke:grilling-interview && npm run smoke:search && npm run smoke:scholar-research && npm run typecheck",
     "pack:check": "npm pack --workspaces --dry-run",
     "release:check": "npm run test && npm run pack:check"
   },

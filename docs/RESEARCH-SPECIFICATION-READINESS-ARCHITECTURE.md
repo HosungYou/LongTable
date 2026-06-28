@@ -8,8 +8,8 @@ This document is the maintainable diagram source for the `$longtable-start` to
 It exists because the product contract is simple but easy to scatter:
 
 - `$longtable-start` creates or continues a Research Specification.
-- `$longtable-interview` is post-start and option-first only after a usable
-  Research Specification exists.
+- `$longtable-interview` can use a Research Specification as context but is no
+  longer gated by one; it is a grilling interview surface.
 - First Research Shape is a handle and resume layer, not a substitute for the
   Research Specification.
 
@@ -23,10 +23,11 @@ LongTable should keep one shared Research Specification readiness gate. Provider
 skills, MCP tools, CLI status, hooks, and docs should all use the same readiness
 meaning.
 
-The gate answers one question:
+The gate answers one question for structured startup completion and state
+readiness:
 
-> Can this workspace safely move from research-start into structured follow-up
-> interview?
+> Can this workspace safely treat the Research Specification as usable project
+> context?
 
 The answer is not provider-specific. Codex, Claude, MCP, terminal prompts, and
 future UI surfaces may present the result differently, but they must not define
@@ -177,13 +178,16 @@ type ResearchSpecificationReadiness = {
 
 Minimum gate meaning:
 
-- No Research Specification means `$longtable-interview` routes to
-  `$longtable-start`.
+- No Research Specification means `$longtable-start` should keep building
+  startup context when the researcher asks to start the project.
+- `$longtable-interview` may still run as a grilling interview without a
+  Research Specification.
 - First Research Shape without a Research Specification is still incomplete.
 - A structurally thin specification must keep asking start questions.
 - A complete draft without confirmation is saved, but it must surface a pending
   confirmation next action.
-- Only a confirmed Research Specification unlocks normal option-first interview.
+- A confirmed Research Specification becomes usable context for later grilling
+  questions and state updates.
 
 ## Orchestration Boundary
 
