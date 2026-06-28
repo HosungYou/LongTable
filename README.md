@@ -36,8 +36,8 @@ Inside the provider, start the project with:
 $longtable-start
 ```
 
-After a usable Research Specification exists, run structured follow-up
-interviews with:
+Run follow-up and critical pressure interviews with the unified interview
+surface:
 
 ```text
 $longtable-interview
@@ -46,9 +46,14 @@ $longtable-interview
 Required routing:
 
 - `$longtable-start` is the research-start surface.
-- `$longtable-interview` is post-start and option-first.
-- If `$longtable-interview` is invoked before a usable Research Specification
-  exists, it must route to `$longtable-start`.
+- `$longtable-interview` is the unified interview surface.
+- Ordinary `$longtable-interview` follow-up is post-start and option-first.
+- If ordinary `$longtable-interview` is invoked before a usable Research
+  Specification exists, it must route to `$longtable-start`.
+- Critical, pressure, or grill-me-style requests stay in `$longtable-interview`
+  and ask one sharpening question at a time.
+- `$critical-interview` remains only as a compatibility alias for
+  `$longtable-interview` critical mode.
 - If only a First Research Shape exists, LongTable continues through
   `$longtable-start` until a Research Specification is created or explicitly
   kept open.
@@ -93,11 +98,19 @@ construct ontology, theory framing, coding and measurement rules, method
 options, evidence and access requirements, epistemic alignment, protected
 decisions, open questions, next actions, and confidence.
 
-`$longtable-interview` is for follow-up after the specification exists. It can
-use option-first questions for spec revisions, checkpoint resolution, evidence
-boundaries, coding rules, method choices, and protected decisions. It should
-still include an escape hatch such as Other, free text, or one open follow-up
-question.
+`$longtable-interview` is the single interview surface after start. For ordinary
+follow-up after the specification exists, it can use option-first questions for
+spec revisions, checkpoint resolution, evidence boundaries, coding rules, method
+choices, and protected decisions. It should still include an escape hatch such
+as Other, free text, or one open follow-up question.
+
+For critical mode, `$longtable-interview` runs a relentless sharpening interview
+for a research plan, argument, method, manuscript, or product decision. It asks
+one question at a time and continues only while the next question can produce a
+new decision, sharper boundary, stronger evidence standard, or clearer open
+tension. It stops when remaining questions repeat the same tension without
+producing a new decision. `$critical-interview` is a compatibility alias for
+this mode, not a separate interview contract.
 
 Multiple interviews append to the same workspace state. A later interview may
 propose or apply a Research Specification patch, append a DecisionRecord, or
