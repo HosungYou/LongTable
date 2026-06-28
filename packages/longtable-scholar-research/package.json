@@ -1,6 +1,6 @@
 {
   "name": "@longtable/scholar-research",
-  "version": "0.1.61",
+  "version": "0.1.62",
   "private": false,
   "description": "LongTable scholarly evidence recovery, citation-slot research, and legal full-text readiness",
   "type": "module",

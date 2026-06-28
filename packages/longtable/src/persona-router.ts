@@ -180,6 +180,20 @@ export function renderDisclosure(roles: CanonicalPersona[], language: OutputLang
     : `LongTable consulted: ${labels.join(", ")}`;
 }
 
+export function renderRoleGuidance(roles: readonly CanonicalPersona[]): string | null {
+  if (roles.length === 0) {
+    return null;
+  }
+
+  return [
+    "Role guidance:",
+    ...roles.map((role) => {
+      const definition = getPersonaDefinition(role);
+      return `- ${definition.label}: ${definition.shortDescription}`;
+    })
+  ].join("\n");
+}
+
 export function buildPersonaGuidance(options: {
   mode: InteractionMode;
   prompt: string;
@@ -203,6 +217,11 @@ export function buildPersonaGuidance(options: {
 
   if (disclosure) {
     lines.push(disclosure);
+  }
+
+  const roleGuidance = renderRoleGuidance(routing.consultedRoles);
+  if (roleGuidance) {
+    lines.push(roleGuidance);
   }
 
   if (routing.ambiguousSignal === "editor_or_reviewer") {
