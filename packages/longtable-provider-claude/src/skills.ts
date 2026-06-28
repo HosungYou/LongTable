@@ -425,6 +425,13 @@ function mustAskQuestionsForRole(role: RoleDefinition): string[] {
 
 function roleSkillSpec(role: RoleDefinition, surface: LongTableSkillSurface = "compact"): ClaudeSkillSpec {
   const label = role.label;
+  const roleSpecificRules = role.key === "editor"
+    ? [
+        "- If a target journal is named, do not claim journal fit from role intuition alone.",
+        "- Require a journal profile before fit judgment: aims/scope, author guidance, recent article pattern, and article type expectations.",
+        "- If the journal profile is missing, ask whether to run scholarly/venue search or label the fit as provisional."
+      ]
+    : [];
   return {
     name: skillNameForRole(role, surface),
     description: `Use the LongTable ${label} role: ${role.shortDescription}`,
@@ -469,6 +476,7 @@ function roleSkillSpec(role: RoleDefinition, surface: LongTableSkillSurface = "c
       `- Disclose: \`LongTable consulted: ${label}\`.`,
       "- Keep the role grounded in the user's research object and project state.",
       "- Do not invent a separate role definition; this skill is an adapter generated from the LongTable role registry.",
+      ...roleSpecificRules,
       "- If evidence is needed, ask whether the researcher wants scholarly search or citation verification.",
       "- If the role's judgment would change the project direction, ask a Researcher Checkpoint before closure."
     ]
