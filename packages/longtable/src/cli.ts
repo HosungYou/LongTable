@@ -411,7 +411,7 @@ function usage(): string {
     "  longtable access status [--json]",
     "  longtable access doctor [--doi <doi>] [--publisher auto|elsevier|springer_nature|wiley|taylor_francis|all] [--json]",
     "  longtable access probe --doi <doi> [--publisher auto|elsevier|springer_nature|wiley|taylor_francis] [--json]",
-    "  longtable search --query <text> [--intent literature|theory|measurement|citation|metadata|venue] [--field <text>] [--source all|crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj,unpaywall] [--must <term[,term]>] [--exclude <term[,term]>] [--limit <n>] [--allow-partial] [--publisher-access] [--record] [--cwd <path>] [--json]",
+    "  longtable search --query <text> [--intent literature|theory|measurement|citation|metadata|venue] [--field <text>] [--source all|crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj] [--must <term[,term]>] [--exclude <term[,term]>] [--limit <n>] [--allow-partial] [--publisher-access] [--record] [--cwd <path>] [--json]",
     "  longtable scholar-research doctor [--json]",
     "  longtable scholar-research scaffold [--cwd <path>] [--run-id <id>] [--json]",
     "  longtable scholar-research smoke-fixture [--json]",
@@ -4208,7 +4208,7 @@ async function runInteractiveAccessSetup(args: Record<string, string | boolean>)
   }
 
   const routeSelections = await promptMultiChoice("Select every scholarly access route that is available or intended. Secrets are never stored.", [
-    { id: "metadata", label: "Open metadata", description: "Crossref, OpenAlex, Semantic Scholar, PubMed, ERIC, DOAJ, Unpaywall." },
+    { id: "metadata", label: "Open metadata", description: "Crossref, OpenAlex, Semantic Scholar, PubMed, ERIC, DOAJ." },
     { id: "oa_full_text", label: "OA full text", description: "Use open-access PDF/full-text when legally available." },
     { id: "institutional", label: "Institutional access", description: "VPN, library proxy, or browser SSO handled by the researcher." },
     { id: "publisher_tdm", label: "Publisher API/TDM", description: "Use configured publisher API/TDM environment variables." },

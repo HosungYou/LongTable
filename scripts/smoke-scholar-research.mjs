@@ -38,8 +38,9 @@ const readiness = scholar.assessScholarResearchReadiness({
 });
 assertEqual(readiness.safety.paywallBypassAllowed, false, "paywall bypass must be disabled");
 assertEqual(readiness.safety.institutionLoginAutomationAllowed, false, "institution login automation must be disabled");
+assert(!scholar.SEARCH_SOURCES.includes("unpaywall"), "Unpaywall should not be included as a scholar-research source");
 assert(readiness.connectors.some((connector) => connector.name === "Crossref" && connector.status === "ready"), "Crossref readiness");
-assert(readiness.connectors.some((connector) => connector.name === "Unpaywall" && connector.status === "ready"), "Unpaywall readiness");
+assert(!readiness.connectors.some((connector) => connector.name === "Unpaywall"), "Unpaywall should not be included in scholar-research readiness");
 assert(readiness.connectors.some((connector) => connector.name === "CORE" && connector.status === "ready"), "CORE readiness");
 
 const fixture = scholar.buildScholarResearchSmokeFixture();
@@ -90,6 +91,7 @@ const doctor = JSON.parse(execFileSync("node", [
 }));
 assert(doctor.scholarResearch, "doctor should include scholarResearch readiness");
 assertEqual(doctor.scholarResearch.safety.paywallBypassAllowed, false, "doctor safety gate");
+assert(!doctor.scholarResearch.connectors.some((connector) => connector.name === "Unpaywall"), "doctor should not report Unpaywall readiness");
 
 const roles = personas.listRoleDefinitions();
 const codexSkillNames = codex.buildCodexSkillSpecs(roles, "compact").map((skill) => skill.name);

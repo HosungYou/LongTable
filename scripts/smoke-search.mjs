@@ -195,34 +195,19 @@ async function mockFetch(url) {
     });
   }
 
-  if (parsed.hostname === "api.unpaywall.org") {
-    return jsonResponse({
-      results: [{
-        response: {
-          title: "Open copy of trust calibration measurement",
-          year: 2024,
-          journal_name: "Open Trust",
-          doi: "10.1234/trust.2024.1",
-          doi_url: "https://doi.org/10.1234/trust.2024.1",
-          best_oa_location: { url: "https://example.test/oa.pdf" }
-        }
-      }]
-    });
-  }
-
   throw new Error(`Unexpected mock URL: ${url}`);
 }
 
 const blocked = await search.runResearchSearch({
   query: "trust calibration measurement",
   source: "test",
-  sources: "openalex,unpaywall",
+  sources: "openalex",
   projectGoal: "unrelated checkpoint behavior",
   env: {},
   fetch: mockFetch
 });
 assertEqual(blocked.status, "blocked", "missing credential route blocks without partial approval");
-assertEqual(blocked.skippedSources.length, 2, "blocked route skipped source count");
+assertEqual(blocked.skippedSources.length, 1, "blocked route skipped source count");
 assert(!blocked.intent.query.includes("checkpoint"), "explicit query should not be polluted by workspace context");
 
 const run = await search.runResearchSearch({
@@ -230,7 +215,7 @@ const run = await search.runResearchSearch({
   intent: "measurement",
   field: "human AI trust",
   source: "test",
-  sources: "crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj,unpaywall",
+  sources: "crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj",
   env: {
     OPENALEX_API_KEY: "test-openalex",
     LONGTABLE_CONTACT_EMAIL: "researcher@example.test"
@@ -241,12 +226,12 @@ const run = await search.runResearchSearch({
 });
 
 assertEqual(run.status, "completed", "full mocked search status");
-assertEqual(run.sourceReports.filter((report) => report.status === "completed").length, 8, "completed source count");
+assertEqual(run.sourceReports.filter((report) => report.status === "completed").length, 7, "completed source count");
 assert(run.cards.length >= 5, "search should produce ranked cards");
 assert(run.cards[0].relevanceScore >= run.cards[run.cards.length - 1].relevanceScore, "cards sorted by score");
 const merged = run.cards.find((card) => card.doi === "10.1234/trust.2024.1");
 assert(merged, "duplicate DOI card should remain after dedupe");
-assert(merged.sourceRoutes.length >= 3, "duplicate DOI card should merge source routes");
+assert(merged.sourceRoutes.length >= 2, "duplicate DOI card should merge source routes");
 assert(["direct_support", "indirect_support"].includes(merged.citationSupportStatus), "merged card should have abstract-based support status");
 assert(merged.accessStatus, "merged card should expose access status");
 assert(merged.verificationNote.includes("not full-paper verified"), "abstract evidence should make verification depth explicit");
