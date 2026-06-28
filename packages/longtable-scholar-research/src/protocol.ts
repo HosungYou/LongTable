@@ -110,11 +110,6 @@ const CONNECTORS: readonly ConnectorRequirement[] = [
     purpose: "Paper metadata, abstracts, citation counts, and open PDF hints."
   },
   {
-    name: "Unpaywall",
-    requiredEnv: ["LONGTABLE_CONTACT_EMAIL"],
-    purpose: "Open-access location discovery for DOI seeds."
-  },
-  {
     name: "arXiv",
     requiredEnv: [],
     purpose: "Preprint metadata and open PDF route discovery."

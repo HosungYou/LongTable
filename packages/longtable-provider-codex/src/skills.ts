@@ -157,7 +157,7 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): CodexSkillS
         "1. Start with a citation-slot matrix or DOI/title/URL seed batch; free-form literature search is post-MVP.",
         "2. Run `longtable scholar-research doctor` before evidence recovery and surface any missing connector readiness.",
         "3. Create or reuse a run scaffold with `longtable scholar-research scaffold --cwd <project> --json`.",
-        "4. Search in this order: DOI/title seed, Crossref/OpenAlex/Semantic Scholar metadata, Unpaywall OA status, arXiv/SSRN/ERIC/PubMed/PMC/CORE/DOAJ/repository sweep, publisher landing page, legal PDF/full text, fallback ledger.",
+        "4. Search in this order: DOI/title seed, Crossref/OpenAlex/Semantic Scholar metadata, arXiv/SSRN/ERIC/PubMed/PMC/CORE/DOAJ/repository sweep, publisher landing page, legal PDF/full text, fallback ledger.",
         "5. Mark citation slots `filled` only when full text produced an extracted quote/claim. Metadata, abstract, or fallback evidence is `provisional`, not filled.",
         "6. Stop for a Researcher Checkpoint when access is restricted, when a strong claim has weak evidence, or when synthesis would change the research direction.",
         "",

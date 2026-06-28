@@ -5,8 +5,7 @@ export const SEARCH_SOURCES = [
   "semantic_scholar",
   "pubmed",
   "eric",
-  "doaj",
-  "unpaywall"
+  "doaj"
 ] as const;
 
 export type SearchSource = typeof SEARCH_SOURCES[number];

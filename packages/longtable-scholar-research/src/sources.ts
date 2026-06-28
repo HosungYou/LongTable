@@ -228,16 +228,6 @@ function getCapability(source: SearchSource, env: Record<string, string | undefi
       setupHint: "Set OPENALEX_API_KEY to enable reliable OpenAlex API use."
     };
   }
-  if (source === "unpaywall" && !env.LONGTABLE_CONTACT_EMAIL) {
-    return {
-      source,
-      enabled: false,
-      requiredEnv: ["LONGTABLE_CONTACT_EMAIL"],
-      missingEnv: ["LONGTABLE_CONTACT_EMAIL"],
-      reason: "Unpaywall route is disabled because LONGTABLE_CONTACT_EMAIL is missing.",
-      setupHint: "Set LONGTABLE_CONTACT_EMAIL so Unpaywall can receive the required email parameter."
-    };
-  }
   return {
     source,
     enabled: true,
@@ -546,32 +536,6 @@ async function searchDoaj(request: SourceSearchRequest, context: SourceSearchCon
   return { source: "doaj", endpoint: url, cards };
 }
 
-async function searchUnpaywall(request: SourceSearchRequest, context: SourceSearchContext): Promise<SourceSearchResult> {
-  const url = endpoint("https://api.unpaywall.org/v2/search/", {
-    query: queryForSource(request.intent),
-    email: context.env.LONGTABLE_CONTACT_EMAIL
-  });
-  const payload = asRecord(await fetchJson(context, url));
-  const cards = asArray(payload.results).map((item) => {
-    const result = asRecord(item);
-    const response = asRecord(result.response);
-    const best = asRecord(response.best_oa_location);
-    return baseCard({
-      source: "unpaywall",
-      title: asString(response.title),
-      authors: [],
-      year: asNumber(response.year),
-      venue: asString(response.journal_name),
-      doi: asString(response.doi),
-      url: asString(response.doi_url),
-      sourceRecordId: asString(response.doi),
-      legalFullTextAvailable: Boolean(asString(best.url)),
-      fullTextUrl: asString(best.url)
-    });
-  });
-  return { source: "unpaywall", endpoint: url, cards };
-}
-
 export async function runSourceSearch(
   request: SourceSearchRequest,
   context: SourceSearchContext
@@ -591,8 +555,6 @@ export async function runSourceSearch(
       return searchEric(request, context);
     case "doaj":
       return searchDoaj(request, context);
-    case "unpaywall":
-      return searchUnpaywall(request, context);
   }
 }
 
