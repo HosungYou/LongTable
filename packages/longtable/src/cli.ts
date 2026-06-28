@@ -3463,6 +3463,12 @@ async function buildProjectAwarePrompt(
     `project: ${context.project.projectName}`,
     `current session goal: ${context.session.currentGoal}`,
     ...(context.session.currentBlocker ? [`current blocker: ${context.session.currentBlocker}`] : []),
+    ...(context.session.researchObject ? [`research object: ${context.session.researchObject}`] : []),
+    ...(context.session.gapRisk ? [`gap/tacit risk: ${context.session.gapRisk}`] : []),
+    ...(context.session.protectedDecision ? [`protected decision: ${context.session.protectedDecision}`] : []),
+    ...(context.project.globalSetupSummary.humanAuthorshipSignal
+      ? [`human authorship signal: ${context.project.globalSetupSummary.humanAuthorshipSignal}`]
+      : []),
     `requested perspectives: ${context.session.requestedPerspectives.length > 0 ? context.session.requestedPerspectives.join(", ") : "auto"}`,
     `disagreement preference: ${context.session.disagreementPreference}`,
     "",

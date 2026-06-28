@@ -476,12 +476,24 @@ function panelDecisionOptions(
     }));
 }
 
+function promptForPanelDecision(prompt: string): string {
+  const trimmed = prompt.trim();
+  if (!trimmed.startsWith("LongTable project context\n")) {
+    return prompt;
+  }
+
+  const sections = trimmed.split(/\n\s*\n/).map((section) => section.trim()).filter(Boolean);
+  const lastSection = sections.length > 0 ? sections[sections.length - 1] : undefined;
+  return lastSection ?? prompt;
+}
+
 export function buildPanelDecisionContext(prompt: string): PanelDecisionContext {
-  const language = detectOutputLanguage(prompt);
-  const domain = decisionDomainFromPrompt(prompt);
+  const decisionPrompt = promptForPanelDecision(prompt);
+  const language = detectOutputLanguage(decisionPrompt);
+  const domain = decisionDomainFromPrompt(decisionPrompt);
   const copy = PANEL_DECISION_COPY[domain];
   const domainFocus = copy.focus[language];
-  const focus = domain === "generic" ? conciseFocusFromPrompt(prompt) || domainFocus : domainFocus;
+  const focus = domain === "generic" ? conciseFocusFromPrompt(decisionPrompt) || domainFocus : domainFocus;
   const blockerSummary = copy.blockerSummary[language];
   return {
     language,
@@ -497,7 +509,7 @@ export function buildPanelDecisionContext(prompt: string): PanelDecisionContext 
       `${blockerSummary} This should be resolved by the researcher before LongTable treats the direction as settled.`,
       `${blockerSummary} LongTable이 방향을 확정하기 전에 연구자가 직접 선택해야 합니다.`
     ),
-    options: panelDecisionOptions(copy, language, focus, shouldIncludeDeferOption(prompt)),
+    options: panelDecisionOptions(copy, language, focus, shouldIncludeDeferOption(decisionPrompt)),
     otherLabel: languageText(language, "Other decision", "직접 입력")
   };
 }
