@@ -6,10 +6,10 @@ Current hardening work remains in the `0.1.x` line. Use patch releases for
 packaging, provider adapters, checkpoint policy, documentation, and CI hardening.
 
 Reserve `0.2.0` for richer interactive question sessions, stronger
-provider-native question rendering, and scholarly search adapters. The `0.1.x`
-line may include the basic `longtable question -> longtable decide` lifecycle
-and optional MCP transport when they remain provider-neutral and
-backward-compatible.
+provider-native question rendering, and deeper scholarly connector
+orchestration. The `0.1.x` line may include the basic `longtable question ->
+longtable decide` lifecycle, legal scholarly search scaffolds, and optional MCP
+transport when they remain provider-neutral and backward-compatible.
 
 ## Required Checks
 
@@ -68,7 +68,7 @@ policy, MCP tools, setup behavior, or state files.
 The release workflow publishes all public workspaces when a `v0.1.*` tag is
 pushed. It requires `NPM_TOKEN` to be configured in GitHub repository secrets.
 Packages are published in dependency order: core, memory, checkpoints, setup,
-provider adapters, CLI, then MCP.
+scholar-research, research-search, provider adapters, CLI, then MCP.
 
 `NPM_TOKEN` must be an npm automation/granular access token with `read-write`
 access to every published `@longtable/*` package. A token scoped to another npm
@@ -83,6 +83,7 @@ npm access list packages @longtable --json
 
 The required packages must all report `read-write`: `@longtable/core`,
 `@longtable/memory`, `@longtable/checkpoints`, `@longtable/setup`,
+`@longtable/scholar-research`, `@longtable/research-search`,
 `@longtable/provider-codex`, `@longtable/provider-claude`, `@longtable/cli`,
 and `@longtable/mcp`.
 
@@ -101,6 +102,8 @@ npm publish --workspace @longtable/core --access public
 npm publish --workspace @longtable/memory --access public
 npm publish --workspace @longtable/checkpoints --access public
 npm publish --workspace @longtable/setup --access public
+npm publish --workspace @longtable/scholar-research --access public
+npm publish --workspace @longtable/research-search --access public
 npm publish --workspace @longtable/provider-codex --access public
 npm publish --workspace @longtable/provider-claude --access public
 npm publish --workspace @longtable/cli --access public
@@ -158,6 +161,8 @@ The publishable packages are:
 - `@longtable/memory`
 - `@longtable/checkpoints`
 - `@longtable/setup`
+- `@longtable/scholar-research`
+- `@longtable/research-search`
 - `@longtable/provider-codex`
 - `@longtable/provider-claude`
 - `@longtable/cli`

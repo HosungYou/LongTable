@@ -103,6 +103,23 @@ Team-style requests route through panel. Explicit debate-language requests write
 panel debate records under `.longtable/panel/`; LongTable team execution is
 disabled for new work.
 
+## Journal Editor Fit Boundary
+
+`longtable-editor` and `--role editor` foreground the Journal Editor role; they
+do not invent target-journal knowledge. If a target journal is named, journal
+fit claims require a journal profile: aims/scope, author guidance, recent
+article patterns, and article type expectations. Without that profile,
+LongTable should ask whether to run scholarly/venue search or mark fit as
+provisional.
+
+```bash
+longtable review --role editor --prompt "Evaluate this manuscript positioning."
+longtable panel --role editor,reviewer --prompt "Compare journal fit and reviewer risk."
+longtable search --intent venue --query "<journal or venue context>"
+```
+
+Treat the result as a fit-risk rubric, not an acceptance prediction.
+
 ## Development
 
 ```bash
