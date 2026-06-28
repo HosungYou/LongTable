@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 
 const repoRoot = resolve(new URL("..", import.meta.url).pathname);
@@ -22,5 +24,27 @@ for (const role of audit.roles) {
   assert(role.missingSections.length === 0, `${role.provider}:${role.name} should include all required sections`);
   assert(role.warnings.length === 0, `${role.provider}:${role.name} should not have quality warnings`);
 }
+
+const tmp = mkdtempSync(join(tmpdir(), "longtable-role-audit-"));
+const editorPrompt = execFileSync("node", [
+  cli,
+  "review",
+  "--cwd",
+  tmp,
+  "--role",
+  "editor",
+  "--prompt",
+  "Evaluate whether this framing is journal-ready.",
+  "--print"
+], {
+  cwd: tmp,
+  encoding: "utf8"
+});
+
+assert(editorPrompt.includes("Journal Editor"), "editor role should be disclosed in generated prompts");
+assert(
+  editorPrompt.includes("Assesses venue fit, framing strength, and editorial salience."),
+  "editor role guidance should include the persona judgment criteria"
+);
 
 console.log("role audit smoke passed");
