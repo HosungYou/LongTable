@@ -38,9 +38,12 @@ assert(
 assert(!interviewSkill.includes("option-first"), "interview skill should not keep option-first mode");
 assert(!interviewSkill.includes("ordinary follow-up"), "interview skill should not keep ordinary follow-up mode");
 assert(!interviewSkill.includes("route to `$longtable-start` immediately"), "interview skill should not route itself away");
+assert(!interviewSkill.includes("grill-me"), "interview skill should not advertise grill-me requests");
 assert(routerSkill.includes("LongTable grilling interview"), "router should describe longtable-interview as grilling");
 assert(routerSkill.includes("recommended answer"), "router should preserve recommended-answer behavior");
 assert(!routerSkill.includes("$critical-interview"), "router should not advertise critical-interview");
+assert(!routerSkill.includes("$grill-me"), "router should not advertise grill-me");
+assert(!routerSkill.includes("grill-me"), "router should not route grill-me requests");
 
 console.log(JSON.stringify({
   skillsDir,
