@@ -52,8 +52,8 @@ LongTable grilling interview:
 - reads `CURRENT.md`, `.longtable/`, supplied documents, and cited evidence
   before asking when those sources can answer
 - asks one relentless sharpening question at a time
-- uses a `Tension:` plus `Pressure question:` frame
-- avoids option menus, numbered choices, and approval prompts
+- frames each turn as `Tension:` followed by `Pressure question:`
+- waits for the researcher's direct answer
 - continues only while the next question can produce a new decision, sharper
   boundary, stronger evidence standard, or clearer open tension
 - stops when remaining questions repeat the same tension without producing a
