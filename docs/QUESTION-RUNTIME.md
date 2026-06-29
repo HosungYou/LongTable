@@ -58,8 +58,8 @@ questions and creates or updates the Research Specification.
 
 `$longtable-interview` is a grilling interview surface. It can use the Research
 Specification when one exists, but it does not require one before asking a
-pressure question. It asks one question at a time, states the tension, gives the
-recommended answer, and asks the researcher to accept, revise, or reject it.
+pressure question. It asks one question at a time using `Tension:` and
+`Pressure question:`, without option menus or approval prompts.
 
 If the researcher explicitly wants a first research-start interview, use
 `$longtable-start`. Otherwise, `$longtable-interview` stays in the grilling

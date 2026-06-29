@@ -28,9 +28,13 @@ const interviewSkill = readFileSync(join(skillsDir, "longtable-interview", "SKIL
 const routerSkill = readFileSync(join(skillsDir, "longtable", "SKILL.md"), "utf8");
 
 assert(interviewSkill.includes("LongTable grilling interview"), "interview skill should expose the grilling loop");
-assert(interviewSkill.includes("state the tension"), "interview skill should require the tension frame");
-assert(interviewSkill.includes("recommended answer"), "interview skill should require a recommended answer");
-assert(interviewSkill.includes("accept, revise, or reject"), "interview skill should ask for accept/revise/reject");
+assert(interviewSkill.includes("Tension:"), "interview skill should require the tension frame");
+assert(interviewSkill.includes("Pressure question:"), "interview skill should require a pressure-question frame");
+assert(interviewSkill.includes("No option menus"), "interview skill should forbid option menus");
+assert(!interviewSkill.includes("accept, revise, or reject"), "interview skill should not ask for accept/revise/reject choices");
+assert(!interviewSkill.includes("accept/revise/reject"), "interview skill should not ask for accept/revise/reject choices");
+assert(!interviewSkill.includes("Recommended answer"), "interview skill should not use a recommended-answer frame");
+assert(!interviewSkill.includes("recommended answer"), "interview skill should not use a recommended-answer frame");
 assert(
   interviewSkill.includes("remaining questions repeat the same tension without producing a new decision"),
   "interview skill should preserve the grilling stop rule"
@@ -40,7 +44,11 @@ assert(!interviewSkill.includes("ordinary follow-up"), "interview skill should n
 assert(!interviewSkill.includes("route to `$longtable-start` immediately"), "interview skill should not route itself away");
 assert(!interviewSkill.includes("grill-me"), "interview skill should not advertise grill-me requests");
 assert(routerSkill.includes("LongTable grilling interview"), "router should describe longtable-interview as grilling");
-assert(routerSkill.includes("recommended answer"), "router should preserve recommended-answer behavior");
+assert(routerSkill.includes("Pressure question:"), "router should preserve pressure-question behavior");
+assert(!routerSkill.includes("accept, revise, or reject"), "router should not advertise accept/revise/reject choices");
+assert(!routerSkill.includes("accept/revise/reject"), "router should not advertise accept/revise/reject choices");
+assert(!routerSkill.includes("Recommended answer"), "router should not advertise a recommended-answer frame");
+assert(!routerSkill.includes("recommended answer"), "router should not advertise a recommended-answer frame");
 assert(!routerSkill.includes("$critical-interview"), "router should not advertise critical-interview");
 assert(!routerSkill.includes("$grill-me"), "router should not advertise grill-me");
 assert(!routerSkill.includes("grill-me"), "router should not route grill-me requests");
@@ -51,7 +59,7 @@ console.log(JSON.stringify({
   removedSurface: "critical-interview",
   observed: {
     grillingLoop: true,
-    recommendedAnswer: true,
+    pressureQuestion: true,
     oldOrdinaryModeRemoved: true
   }
 }, null, 2));
