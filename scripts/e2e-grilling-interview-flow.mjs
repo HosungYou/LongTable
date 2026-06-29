@@ -25,7 +25,6 @@ function runCli(args) {
 runCli(["codex", "install-skills", "--dir", skillsDir]);
 
 const interviewSkill = readFileSync(join(skillsDir, "longtable-interview", "SKILL.md"), "utf8");
-const criticalInterviewSkill = readFileSync(join(skillsDir, "critical-interview", "SKILL.md"), "utf8");
 const routerSkill = readFileSync(join(skillsDir, "longtable", "SKILL.md"), "utf8");
 
 assert(interviewSkill.includes("LongTable grilling interview"), "interview skill should expose the grilling loop");
@@ -39,15 +38,14 @@ assert(
 assert(!interviewSkill.includes("option-first"), "interview skill should not keep option-first mode");
 assert(!interviewSkill.includes("ordinary follow-up"), "interview skill should not keep ordinary follow-up mode");
 assert(!interviewSkill.includes("route to `$longtable-start` immediately"), "interview skill should not route itself away");
-assert(criticalInterviewSkill.includes("Compatibility alias"), "critical-interview should remain a compatibility alias");
-assert(criticalInterviewSkill.includes("$longtable-interview"), "critical-interview should point to longtable-interview");
 assert(routerSkill.includes("LongTable grilling interview"), "router should describe longtable-interview as grilling");
 assert(routerSkill.includes("recommended answer"), "router should preserve recommended-answer behavior");
+assert(!routerSkill.includes("$critical-interview"), "router should not advertise critical-interview");
 
 console.log(JSON.stringify({
   skillsDir,
   interviewSurface: "longtable-interview",
-  criticalInterviewSurface: "compatibility-alias",
+  removedSurface: "critical-interview",
   observed: {
     grillingLoop: true,
     recommendedAnswer: true,

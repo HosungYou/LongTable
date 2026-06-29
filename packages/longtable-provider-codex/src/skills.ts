@@ -27,6 +27,8 @@ const COMPACT_ROLE_SKILL_NAMES: Record<string, string> = {
   voice_keeper: "longtable-voice"
 };
 
+const DEPRECATED_CODEX_SKILL_NAMES = ["critical-interview"] as const;
+
 export function resolveCodexSkillsDir(customDir?: string): string {
   return customDir ? resolve(customDir) : join(homedir(), ".codex", "skills");
 }
@@ -81,7 +83,6 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): CodexSkillS
         "- `$longtable-methods`, `$longtable-measure`, `$longtable-theory`, `$longtable-reviewer`, or `$longtable-voice` when the researcher explicitly wants that shortcut.",
         "- `$longtable-start` to create or continue the first research-start interview.",
         "- `$longtable-interview` to run a LongTable grilling interview with one high-leverage question and a recommended answer at a time.",
-        "- `$critical-interview` as a compatibility alias for `$longtable-interview`.",
         "- `$scholar-research` for scholarly evidence recovery, citation-slot research, and legal full-text readiness.",
         "",
         "## Routing Rules",
@@ -132,15 +133,6 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): CodexSkillS
         "- If `CURRENT.md` shows a pending required checkpoint, ask the researcher for a selection and wait. Do not choose or record `longtable decide --question <id> --answer <value>` unless the researcher explicitly provides that value.",
         "- Preserve open tensions and authorship instead of forcing closure.",
         "- Label unsupported external claims as inference or estimate."
-      ]
-    },
-    {
-      name: "critical-interview",
-      description:
-        "Compatibility alias for `$longtable-interview`.",
-      disableModelInvocation: true,
-      body: [
-        "Compatibility alias: run `$longtable-interview`. Do not run a separate interview contract here."
       ]
     },
     {
@@ -328,7 +320,6 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): CodexSkillS
         "## When To Use",
         "",
         "- The user invokes `$longtable-interview`.",
-        "- The user invokes `$critical-interview`; treat it as a compatibility alias for this skill.",
         "- The user asks for a grill-me-style, critical, pressure, or relentless interview.",
         "- The user wants to revise, extend, or resolve a decision in an existing Research Specification.",
         "- The user needs a pressure interview around a checkpoint, spec patch, evidence boundary, method choice, coding rule, or protected decision.",
@@ -565,6 +556,9 @@ export async function installCodexSkills(
       await rm(join(skillsDir, spec.name), { recursive: true, force: true });
     }
   }
+  for (const skillName of DEPRECATED_CODEX_SKILL_NAMES) {
+    await rm(join(skillsDir, skillName), { recursive: true, force: true });
+  }
 
   const installed: InstalledCodexSkill[] = [];
   for (const spec of specs) {
@@ -591,6 +585,13 @@ export async function removeCodexSkills(
 
   for (const spec of allCodexSkillSpecs(roles)) {
     const skillDir = join(skillsDir, spec.name);
+    if (existsSync(skillDir)) {
+      await rm(skillDir, { recursive: true, force: true });
+      removed.push(skillDir);
+    }
+  }
+  for (const skillName of DEPRECATED_CODEX_SKILL_NAMES) {
+    const skillDir = join(skillsDir, skillName);
     if (existsSync(skillDir)) {
       await rm(skillDir, { recursive: true, force: true });
       removed.push(skillDir);

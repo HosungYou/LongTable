@@ -59,8 +59,7 @@ LongTable grilling interview:
   boundary, stronger evidence standard, or clearer open tension
 - stops when remaining questions repeat the same tension without producing a
   new decision
-- treats `$critical-interview` as a compatibility alias, not a separate
-  interview contract
+- removes legacy `$critical-interview` skill folders during skill install
 - records changes as a Research Specification patch, DecisionRecord, or open
   tension rather than silently overwriting state
 

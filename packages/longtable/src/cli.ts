@@ -2762,7 +2762,6 @@ function buildRoleAuditEntry(
 
 function runRoleAudit(): RoleAuditResult {
   const baseSkillNames = new Set([
-    "critical-interview",
     "longtable",
     "longtable-start",
     "longtable-interview",

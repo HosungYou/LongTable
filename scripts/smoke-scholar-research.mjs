@@ -95,15 +95,13 @@ assert(!doctor.scholarResearch.connectors.some((connector) => connector.name ===
 
 const roles = personas.listRoleDefinitions();
 const codexSkillNames = codex.buildCodexSkillSpecs(roles, "compact").map((skill) => skill.name);
-assert(codexSkillNames.includes("critical-interview"), "Codex skill bundle includes critical-interview");
 assert(codexSkillNames.includes("scholar-research"), "Codex skill bundle includes scholar-research");
-const codexCritical = codex.buildCodexSkillSpecs(roles, "compact").find((skill) => skill.name === "critical-interview");
-assertEqual(codexCritical.disableModelInvocation, true, "Codex critical-interview disables model invocation");
+assert(!codexSkillNames.includes("critical-interview"), "Codex skill bundle should not include critical-interview");
 const codexScholar = codex.buildCodexSkillSpecs(roles, "compact").find((skill) => skill.name === "scholar-research");
 assert(codexScholar.body.join("\n").includes("Do not bypass paywalls"), "Codex scholar-research states safety boundary");
 
 const claudeSkillNames = claude.buildClaudeSkillSpecs(roles, "compact").map((skill) => skill.name);
-assert(claudeSkillNames.includes("critical-interview"), "Claude skill bundle includes critical-interview");
 assert(claudeSkillNames.includes("scholar-research"), "Claude skill bundle includes scholar-research");
+assert(!claudeSkillNames.includes("critical-interview"), "Claude skill bundle should not include critical-interview");
 
 console.log("scholar research smoke passed");

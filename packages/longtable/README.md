@@ -44,8 +44,8 @@ present, but it does not require one before asking the next pressure question.
 It continues only while the next question can produce a new decision, sharper
 boundary, stronger evidence standard, or clearer open tension, and stops when
 remaining questions repeat the same tension without producing a new decision.
-`$critical-interview` remains a compatibility alias, not a separate interview
-contract.
+`$longtable-interview` is the only packaged pressure-interview skill; legacy
+`$critical-interview` skill folders are removed during skill install.
 
 ## Workspace Artifacts
 
