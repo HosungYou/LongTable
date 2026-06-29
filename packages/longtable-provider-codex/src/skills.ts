@@ -320,7 +320,7 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): CodexSkillS
         "## When To Use",
         "",
         "- The user invokes `$longtable-interview`.",
-        "- The user asks for a grill-me-style, critical, pressure, or relentless interview.",
+        "- The user asks for a research pressure interview about a plan, claim, method, evidence standard, manuscript, or LongTable product decision.",
         "- The user wants to revise, extend, or resolve a decision in an existing Research Specification.",
         "- The user needs a pressure interview around a checkpoint, spec patch, evidence boundary, method choice, coding rule, or protected decision.",
         "",
