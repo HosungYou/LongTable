@@ -48,8 +48,8 @@ Required routing:
 - `$longtable-interview` is the grilling interview surface.
 - It does not require a Research Specification before asking the next pressure
   question.
-- It asks one pressure question at a time, shows the tension, and avoids option
-  menus or approval prompts.
+- It frames each turn as `Tension:` followed by one `Pressure question:` and
+  waits for a direct answer.
 - If only a First Research Shape exists, LongTable continues through
   `$longtable-start` until a Research Specification is created or explicitly
   kept open.
@@ -97,9 +97,8 @@ decisions, open questions, next actions, and confidence.
 `$longtable-interview` is a relentless sharpening interview for a research plan,
 argument, method, manuscript, evidence standard, or product decision. It inspects
 `CURRENT.md`, `.longtable/`, supplied documents, and cited evidence first when
-those can answer the question. Then it asks one high-leverage question using
-this frame: `Tension:` plus `Pressure question:`. It does not ask the
-researcher to pick from options.
+those can answer the question. Then it names `Tension:` and asks one
+`Pressure question:`.
 
 The interview continues only while the next question can produce a new decision,
 sharper boundary, stronger evidence standard, or clearer open tension. It stops

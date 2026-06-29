@@ -37,9 +37,9 @@ $longtable-interview
 ```
 
 `$longtable-interview` asks one relentless sharpening question at a time. It
-uses `Tension:` and `Pressure question:` without option menus or approval
-prompts. It can use Research Specification state when present, but it does not
-require one before asking the next pressure question.
+frames each turn as `Tension:` followed by one `Pressure question:` and waits
+for a direct answer. It can use Research Specification state when present, but
+it does not require one before asking the next pressure question.
 
 It continues only while the next question can produce a new decision, sharper
 boundary, stronger evidence standard, or clearer open tension, and stops when

@@ -30,7 +30,10 @@ const routerSkill = readFileSync(join(skillsDir, "longtable", "SKILL.md"), "utf8
 assert(interviewSkill.includes("LongTable grilling interview"), "interview skill should expose the grilling loop");
 assert(interviewSkill.includes("Tension:"), "interview skill should require the tension frame");
 assert(interviewSkill.includes("Pressure question:"), "interview skill should require a pressure-question frame");
-assert(interviewSkill.includes("No option menus"), "interview skill should forbid option menus");
+assert(interviewSkill.includes("Ask exactly one question per turn"), "interview skill should stay compact");
+assert(interviewSkill.includes("Wait for the researcher's direct answer"), "interview skill should require a direct-answer loop");
+assert(!interviewSkill.includes("No option menus"), "interview skill should avoid prohibition-first wording");
+assert(!interviewSkill.includes("approval prompts"), "interview skill should avoid prohibition-first wording");
 assert(!interviewSkill.includes("accept, revise, or reject"), "interview skill should not ask for accept/revise/reject choices");
 assert(!interviewSkill.includes("accept/revise/reject"), "interview skill should not ask for accept/revise/reject choices");
 assert(!interviewSkill.includes("Recommended answer"), "interview skill should not use a recommended-answer frame");
@@ -45,6 +48,8 @@ assert(!interviewSkill.includes("route to `$longtable-start` immediately"), "int
 assert(!interviewSkill.includes("grill-me"), "interview skill should not advertise grill-me requests");
 assert(routerSkill.includes("LongTable grilling interview"), "router should describe longtable-interview as grilling");
 assert(routerSkill.includes("Pressure question:"), "router should preserve pressure-question behavior");
+assert(routerSkill.includes("compact pressure loop"), "router should advertise the compact pressure loop");
+assert(!routerSkill.includes("approval prompts"), "router should avoid prohibition-first wording");
 assert(!routerSkill.includes("accept, revise, or reject"), "router should not advertise accept/revise/reject choices");
 assert(!routerSkill.includes("accept/revise/reject"), "router should not advertise accept/revise/reject choices");
 assert(!routerSkill.includes("Recommended answer"), "router should not advertise a recommended-answer frame");

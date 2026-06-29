@@ -200,11 +200,17 @@ if (
   !interviewSkill.includes("LongTable grilling interview") ||
   !interviewSkill.includes("Tension:") ||
   !interviewSkill.includes("Pressure question:") ||
-  !interviewSkill.includes("No option menus")
+  !interviewSkill.includes("Ask exactly one question per turn") ||
+  !interviewSkill.includes("Wait for the researcher's direct answer")
 ) {
   throw new Error("longtable-interview skill should be a simple pressure-question grilling loop.");
 }
-if (interviewSkill.includes("recommended answer") || interviewSkill.includes("accept, revise, or reject")) {
+if (
+  interviewSkill.includes("recommended answer") ||
+  interviewSkill.includes("accept, revise, or reject") ||
+  interviewSkill.includes("No option menus") ||
+  interviewSkill.includes("approval prompts")
+) {
   throw new Error("longtable-interview skill should not use the old recommended-answer approval frame.");
 }
 if (!interviewSkill.includes("remaining questions repeat the same tension without producing a new decision")) {
