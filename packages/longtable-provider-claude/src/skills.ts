@@ -27,6 +27,8 @@ const COMPACT_ROLE_SKILL_NAMES: Record<string, string> = {
   voice_keeper: "longtable-voice"
 };
 
+const DEPRECATED_CLAUDE_SKILL_NAMES = ["critical-interview"] as const;
+
 export function resolveClaudeSkillsDir(customDir?: string): string {
   return customDir ? resolve(customDir) : join(homedir(), ".claude", "skills");
 }
@@ -81,7 +83,6 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "- `$longtable-methods`, `$longtable-measure`, `$longtable-theory`, `$longtable-reviewer`, or `$longtable-voice` when the researcher explicitly wants that shortcut.",
         "- `$longtable-start` to create or continue the first research-start interview.",
         "- `$longtable-interview` to run a LongTable grilling interview with one high-leverage question and a recommended answer at a time.",
-        "- `$critical-interview` as a compatibility alias for `$longtable-interview`.",
         "- `$scholar-research` for scholarly evidence recovery, citation-slot research, and legal full-text readiness.",
         "",
         "## Rules",
@@ -121,14 +122,6 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "## Optional CLI Bridge",
         "",
         "If the `longtable` command is available and canonical prompt rendering would help, use `longtable ask --print --prompt \"...\"` or `longtable panel --print --prompt \"...\"` as an adapter aid. Do not make shell commands the user's primary interface."
-      ]
-    },
-    {
-      name: "critical-interview",
-      description: "Compatibility alias for `$longtable-interview`.",
-      triggers: ["$critical-interview", "critical interview", "research grill", "grill my research"],
-      body: [
-        "Compatibility alias: run `$longtable-interview`. Do not run a separate interview contract here."
       ]
     },
     {
@@ -290,7 +283,6 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "## When To Use",
         "",
         "- The user invokes `$longtable-interview`.",
-        "- The user invokes `$critical-interview`; treat it as a compatibility alias for this skill.",
         "- The user asks for a grill-me-style, critical, pressure, or relentless interview.",
         "- The user wants to revise, extend, or resolve a decision in an existing Research Specification.",
         "- The user needs a pressure interview around a checkpoint, spec patch, evidence boundary, method choice, coding rule, or protected decision.",
@@ -389,7 +381,6 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
     ? specs
     : specs.filter((spec) =>
         spec.name === "longtable" ||
-        spec.name === "critical-interview" ||
         spec.name === "scholar-research" ||
         spec.name === "longtable-start" ||
         spec.name === "longtable-interview" ||
@@ -528,6 +519,9 @@ export async function installClaudeSkills(
       await rm(join(skillsDir, spec.name), { recursive: true, force: true });
     }
   }
+  for (const skillName of DEPRECATED_CLAUDE_SKILL_NAMES) {
+    await rm(join(skillsDir, skillName), { recursive: true, force: true });
+  }
 
   const installed: InstalledClaudeSkill[] = [];
   for (const spec of specs) {
@@ -554,6 +548,13 @@ export async function removeClaudeSkills(
 
   for (const spec of allClaudeSkillSpecs(roles)) {
     const skillDir = join(skillsDir, spec.name);
+    if (existsSync(skillDir)) {
+      await rm(skillDir, { recursive: true, force: true });
+      removed.push(skillDir);
+    }
+  }
+  for (const skillName of DEPRECATED_CLAUDE_SKILL_NAMES) {
+    const skillDir = join(skillsDir, skillName);
     if (existsSync(skillDir)) {
       await rm(skillDir, { recursive: true, force: true });
       removed.push(skillDir);

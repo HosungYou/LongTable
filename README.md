@@ -50,8 +50,6 @@ Required routing:
   question.
 - It asks one question at a time, states the tension, gives a recommended
   answer, and asks the researcher to accept, revise, or reject it.
-- `$critical-interview` remains only as a compatibility alias for
-  `$longtable-interview`.
 - If only a First Research Shape exists, LongTable continues through
   `$longtable-start` until a Research Specification is created or explicitly
   kept open.
@@ -106,8 +104,8 @@ reject that recommendation.
 The interview continues only while the next question can produce a new decision,
 sharper boundary, stronger evidence standard, or clearer open tension. It stops
 when remaining questions repeat the same tension without producing a new
-decision. `$critical-interview` is a compatibility alias for this mode, not a
-separate interview contract.
+decision. `$longtable-interview` is the only packaged pressure-interview skill;
+legacy `$critical-interview` skill folders are removed during skill install.
 
 Multiple interviews append to the same workspace state. A later interview may
 propose or apply a Research Specification patch, append a DecisionRecord, or

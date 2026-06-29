@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -145,6 +145,9 @@ if (!movedStart.includes("$longtable-start")) {
 }
 
 const skillsDir = join(tmp, "codex-skills");
+const staleCriticalInterviewDir = join(skillsDir, "critical-interview");
+mkdirSync(staleCriticalInterviewDir, { recursive: true });
+writeFileSync(join(staleCriticalInterviewDir, "SKILL.md"), "stale critical-interview alias", "utf8");
 const installOutput = runCli(["codex", "install-skills", "--dir", skillsDir]);
 if (!installOutput.includes("longtable-start")) {
   throw new Error("Codex skill install should include longtable-start.");
@@ -163,7 +166,6 @@ if (installOutput.includes("longtable-methods-critic")) {
 }
 const startSkill = readFileSync(join(skillsDir, "longtable-start", "SKILL.md"), "utf8");
 const interviewSkill = readFileSync(join(skillsDir, "longtable-interview", "SKILL.md"), "utf8");
-const criticalInterviewSkill = readFileSync(join(skillsDir, "critical-interview", "SKILL.md"), "utf8");
 if (!startSkill.includes("First Research Shape")) {
   throw new Error("longtable-start skill should document First Research Shape.");
 }
@@ -203,8 +205,25 @@ if (!interviewSkill.includes("accept, revise, or reject")) {
 if (!interviewSkill.includes("remaining questions repeat the same tension without producing a new decision")) {
   throw new Error("longtable-interview skill should preserve the grilling stop rule.");
 }
-if (!criticalInterviewSkill.includes("Compatibility alias") || !criticalInterviewSkill.includes("$longtable-interview")) {
-  throw new Error("critical-interview skill should be a compatibility alias for longtable-interview.");
+if (installOutput.includes("critical-interview")) {
+  throw new Error("Codex skill install should not include critical-interview.");
+}
+if (existsSync(staleCriticalInterviewDir)) {
+  throw new Error("Codex skill install should remove stale critical-interview directories.");
+}
+const claudeSkillsDir = join(tmp, "claude-skills");
+const staleClaudeCriticalInterviewDir = join(claudeSkillsDir, "critical-interview");
+mkdirSync(staleClaudeCriticalInterviewDir, { recursive: true });
+writeFileSync(join(staleClaudeCriticalInterviewDir, "SKILL.md"), "stale critical-interview alias", "utf8");
+const claudeInstallOutput = runCli(["claude", "install-skills", "--dir", claudeSkillsDir]);
+if (!claudeInstallOutput.includes("longtable-interview")) {
+  throw new Error("Claude skill install should include longtable-interview.");
+}
+if (claudeInstallOutput.includes("critical-interview")) {
+  throw new Error("Claude skill install should not include critical-interview.");
+}
+if (existsSync(staleClaudeCriticalInterviewDir)) {
+  throw new Error("Claude skill install should remove stale critical-interview directories.");
 }
 const mcpInstall = JSON.parse(runCli([
   "mcp",
