@@ -196,11 +196,16 @@ if (interviewSkill.includes("option-first") || interviewSkill.includes("ordinary
 if (interviewSkill.includes("route to `$longtable-start` immediately")) {
   throw new Error("longtable-interview skill should no longer route grilling interviews away from itself.");
 }
-if (!interviewSkill.includes("LongTable grilling interview") || !interviewSkill.includes("recommended answer")) {
-  throw new Error("longtable-interview skill should be a simple grilling loop with recommended answers.");
+if (
+  !interviewSkill.includes("LongTable grilling interview") ||
+  !interviewSkill.includes("Tension:") ||
+  !interviewSkill.includes("Pressure question:") ||
+  !interviewSkill.includes("No option menus")
+) {
+  throw new Error("longtable-interview skill should be a simple pressure-question grilling loop.");
 }
-if (!interviewSkill.includes("accept, revise, or reject")) {
-  throw new Error("longtable-interview skill should ask the researcher to accept, revise, or reject the recommendation.");
+if (interviewSkill.includes("recommended answer") || interviewSkill.includes("accept, revise, or reject")) {
+  throw new Error("longtable-interview skill should not use the old recommended-answer approval frame.");
 }
 if (!interviewSkill.includes("remaining questions repeat the same tension without producing a new decision")) {
   throw new Error("longtable-interview skill should preserve the grilling stop rule.");
