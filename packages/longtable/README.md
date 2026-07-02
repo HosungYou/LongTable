@@ -109,18 +109,22 @@ Team-style requests route through panel. Explicit debate-language requests write
 panel debate records under `.longtable/panel/`; LongTable team execution is
 disabled for new work.
 
-## Journal Editor Fit Boundary
+## Journal-Grounded Reviewer
 
-`longtable-editor` and `--role editor` foreground the Journal Editor role; they
-do not invent target-journal knowledge. If a target journal is named, journal
-fit claims require a journal profile: aims/scope, author guidance, recent
-article patterns, and article type expectations. Without that profile,
-LongTable should ask whether to run scholarly/venue search or mark fit as
-provisional.
+`longtable-reviewer` and `--role reviewer` are the compact surface for
+peer-review, editor-style, and venue-fit feedback. The reviewer role combines
+Journal Editor and Venue Strategist lenses with scholar-research evidence
+instead of requiring a separate visible editor skill.
+
+If a target journal is named, journal-fit claims require a Journal Profile:
+aims/scope, author guidance, recent article patterns, and article type
+expectations. Reference papers should be compared through a Reference Pattern
+Matrix covering decision structure, paper flow, standardized terminology,
+Figure/Table conventions, and APA 7 style expectations.
 
 ```bash
-longtable review --role editor --prompt "Evaluate this manuscript positioning."
-longtable panel --role editor,reviewer --prompt "Compare journal fit and reviewer risk."
+longtable review --role reviewer --prompt "Evaluate this manuscript positioning."
+longtable panel --role reviewer,measurement_auditor --prompt "Compare journal fit and reviewer risk."
 longtable search --intent venue --query "<journal or venue context>"
 ```
 

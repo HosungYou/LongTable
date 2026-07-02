@@ -180,31 +180,33 @@ Team-style requests route through panel. Explicit debate-language requests
 write panel debate records under `.longtable/panel/`. LongTable team execution
 is disabled for new work, and `.longtable/team/` is historical state only.
 
-## Journal Editor and Venue Fit
+## Journal-Grounded Reviewer and Venue Fit
 
-`longtable-editor` is intentionally a thin role adapter. It foregrounds the
-Journal Editor perspective and must disclose `LongTable consulted: Journal
-Editor`, but it is not allowed to invent knowledge about a named target journal.
+`longtable-reviewer` is the compact surface for peer-review and editor-style
+feedback. It keeps reviewer objections, Journal Editor fit judgment, Venue
+Strategist tradeoffs, and scholar-research evidence in one evidence-backed
+workflow instead of splitting journal feedback into a separate visible skill.
 
-If a target journal is named, LongTable should not claim journal fit from role
-intuition alone. A fit judgment needs a journal profile: aims/scope, author
-guidance, recent article patterns, and article type expectations. Without that
-profile, the editor judgment should either ask whether to run scholarly/venue
-search or label fit as provisional.
+If a target journal is named, LongTable should ground reviewer feedback in a
+Journal Profile: aims/scope, author guidance, recent article patterns, and
+article type expectations. If reference papers are available or recoverable,
+LongTable should build a Reference Pattern Matrix covering decision structure,
+paper flow, standardized terminology, Figure/Table conventions, and APA 7
+style expectations.
 
 Useful command surfaces:
 
 ```bash
-longtable review --role editor --prompt "Evaluate this manuscript positioning."
-longtable panel --role editor,reviewer --prompt "Compare journal fit and reviewer risk."
+longtable review --role reviewer --prompt "Evaluate this manuscript positioning for the target journal."
+longtable panel --role reviewer,measurement_auditor --prompt "Compare journal fit, reviewer risk, and measurement evidence."
 longtable search --intent venue --query "<journal or venue context>"
 longtable scholar-research scaffold --cwd "<project-path>" --json
 ```
 
 Treat journal fit as a risk rubric, not an acceptance prediction. A useful
-editor pass separates scope fit, contribution fit, method/evidence norm fit,
-editorial salience, and citation/evidence risk, and marks unsupported claims as
-provisional.
+reviewer pass separates editor-facing contribution claim, reviewer objection,
+venue-strategy tradeoff, evidence gap, revision action, and any Researcher
+Checkpoint needed before changing venue positioning.
 
 ## Researcher Checkpoints
 

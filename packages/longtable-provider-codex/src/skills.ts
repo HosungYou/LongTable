@@ -437,7 +437,8 @@ function mustAskQuestionsForRole(role: RoleDefinition): string[] {
       "What is the strongest venue-facing contribution claim, and what would make it overreach?"
     ],
     reviewer: [
-      "What objection would a skeptical reviewer raise first, and what missing evidence would answer it?"
+      "What objection would a skeptical reviewer raise first, and what missing evidence would answer it?",
+      "Which journal or venue expectation is the draft trying to satisfy, and what reference-paper pattern proves that expectation?"
     ],
     theory_critic: [
       "Which construct boundary or theoretical assumption must stay explicit before the claim is revised?"
@@ -469,6 +470,16 @@ function roleSkillSpec(role: RoleDefinition, surface: LongTableSkillSurface = "c
         "- Require a journal profile before fit judgment: aims/scope, author guidance, recent article pattern, and article type expectations.",
         "- If the journal profile is missing, ask whether to run scholarly/venue search or label the fit as provisional."
       ]
+    : role.key === "reviewer"
+      ? [
+          "## Journal-grounded reviewer workflow",
+          "",
+          "- Keep `longtable-reviewer` as the visible compact surface; use Journal Editor and Venue Strategist as internal lenses.",
+          "- When a target journal, submission venue, reference paper set, or journal-ready claim is named, ground feedback in a `Journal Profile`: aims/scope, author guidance, recent article pattern, and article type expectations.",
+          "- Use `scholar-research` or `longtable search --intent venue` to build or refresh a `Reference Pattern Matrix` before making source-backed journal-fit claims.",
+          "- Read available reference papers and compare decision structure, paper flow, standardized terminology, Figure/Table conventions, and APA 7 style expectations.",
+          "- Return reviewer feedback as: editor-facing contribution claim, reviewer objection, Venue Strategist tradeoff, evidence gap, revision action, and Researcher Checkpoint when the recommendation changes venue positioning."
+        ]
     : [];
   return {
     name: skillNameForRole(role, surface),

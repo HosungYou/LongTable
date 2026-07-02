@@ -189,6 +189,16 @@ export function renderRoleGuidance(roles: readonly CanonicalPersona[]): string |
     "Role guidance:",
     ...roles.map((role) => {
       const definition = getPersonaDefinition(role);
+      if (role === "reviewer") {
+        return [
+          `- ${definition.label}: ${definition.shortDescription}`,
+          "  Journal-grounded reviewer workflow:",
+          "  - Build or request a Journal Profile before target-journal fit claims.",
+          "  - Use scholar-research or venue search to form a Reference Pattern Matrix.",
+          "  - Compare reference papers for decision structure, paper flow, standardized terminology, Figure/Table conventions, and APA 7 style.",
+          "  - Include the Venue Strategist tradeoff in the reviewer feedback."
+        ].join("\n");
+      }
       return `- ${definition.label}: ${definition.shortDescription}`;
     })
   ].join("\n");
