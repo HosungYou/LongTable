@@ -124,6 +124,21 @@ to panel debate records under `.longtable/panel/`. `longtable team` is not a
 public command surface. Historical `.longtable/team/` records remain readable
 only as older workspace state.
 
+### `longtable review --role reviewer`
+
+Journal-grounded review:
+
+- keeps peer-review objections, Journal Editor fit judgment, Venue Strategist
+  tradeoffs, and scholar-research evidence under the reviewer surface
+- uses `Journal Profile` before target-journal fit claims
+- uses `Reference Pattern Matrix` when reference papers are available or
+  recoverable
+- compares decision structure, paper flow, standardized terminology,
+  Figure/Table conventions, and APA 7 style expectations
+- returns editor-facing contribution claim, reviewer objection,
+  venue-strategy tradeoff, evidence gap, revision action, and any needed
+  Researcher Checkpoint
+
 ### `longtable handoff`
 
 Continuation work packet:

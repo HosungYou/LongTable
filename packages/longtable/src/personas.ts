@@ -38,9 +38,9 @@ export const PERSONA_DEFINITIONS: readonly PersonaDefinition[] = [
   {
     key: "reviewer",
     label: "Reviewer",
-    shortDescription: "Surfaces likely peer-review objections and requests for clarification.",
+    shortDescription: "Surfaces peer-review objections, journal-grounded fit risks, and missing evidence.",
     triggerMode: "auto-callable",
-    synonyms: ["reviewer", "peer reviewer", "심사자", "리뷰어", "심사위원"],
+    synonyms: ["reviewer", "peer reviewer", "journal reviewer", "editorial reviewer", "심사자", "리뷰어", "심사위원"],
     defaultPanelMember: true,
     checkpointSensitivity: "medium",
     supportedModes: ["review", "critique", "draft", "commit", "submit"]
