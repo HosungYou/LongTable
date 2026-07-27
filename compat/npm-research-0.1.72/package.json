@@ -1,0 +1,27 @@
+{
+  "name": "@longtable/research",
+  "version": "0.1.72",
+  "description": "Stable compatibility facade for the pre-0.2 LongTable scholar research runtime",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "dependencies": {
+    "@longtable/scholar-research": "0.1.72"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT"
+}

@@ -57,4 +57,8 @@ The beta implements:
 6. preserve `schema`, bundle versions, and existing run paths;
 7. remove aliases only after doctor reports no active old surfaces.
 
+Because npm requires a `latest` tag for a new package, the canonical package
+publishes a `0.1.72` stable compatibility facade that re-exports the former
+runtime. `next` points to `0.2.0-beta.1`; the beta is not the stable default.
+
 No rename should silently rewrite `.longtable/research-runs/` history.
