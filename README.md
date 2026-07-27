@@ -1,279 +1,158 @@
 # LongTable
 
-LongTable is a researcher-centered workspace for long scholarly projects. It
-helps a researcher keep research questions, construct boundaries, method
-choices, evidence standards, authorship judgments, and open tensions traceable
-across AI-assisted sessions.
+Research diagnosis and journal-grounded evidence production for Codex and Claude.
 
-LongTable is not a chatbot replacement and not a prompt collection. It is a
-small research workspace system that runs through a CLI, provider skills,
-optional MCP state and checkpoint transport, and panel collaboration records.
+![LongTable Research evidence workbench](assets/longtable-research-hero.png)
 
-LongTable also exposes a narrow Codex hard-stop guard: unresolved Research
-Specification blockers can block session stop until the researcher decides,
-clears, or explicitly defers them. Product, setup, documentation, release, and
-hook-engineering prompts are not hard-stop blockers by default.
+LongTable gives researchers two public skills:
 
-Codex, Claude Code, and other providers remain the execution environments.
-LongTable provides the durable research state, generated provider skills,
-Researcher Checkpoints, and command-line tools that keep important decisions
-from disappearing into chat history.
+- `$longtable` diagnoses the research problem, asks no more than three clarifying questions, and produces a versioned Research Brief.
+- `$longtable-research` turns that brief into a lawful, traceable, human-verified research package.
 
-## Core Workflow
+The model provider supplies native agents and tools. LongTable supplies the research-specific contract they do not: durable state, access boundaries, evidence provenance, target-journal patterns, claim gates, editable visual contracts, human checkpoints, and reproducible package verification.
 
-Use one shell setup step and one provider-native research-start step.
+> `0.2.0-beta.1` is published on npm under the `next` tag. The former `scholar-research`, `panel`, and expanded skill surfaces remain compatibility routes for one beta release; they are not the product’s primary interface.
 
-```bash
-npm install -g @longtable/cli
-longtable setup --provider codex
-cd "<research-folder>"
-codex
+## Install
+
+```sh
+npm install -g @longtable/cli@next
+longtable setup
 ```
 
-Inside the provider, start the project with:
+`longtable setup` installs exactly two provider skills. It removes obsolete LongTable start, interview, panel, and per-role skill folders from the selected Codex or Claude skill directory.
+
+Start in Codex or Claude:
 
 ```text
-$longtable-start
+$longtable Help me sharpen this research problem and decide what evidence I need.
 ```
 
-Run pressure interviews with the LongTable grilling surface:
+When the Research Brief is ready, choose:
 
 ```text
-$longtable-interview
+Start LongTable Research
+Keep shaping
+Save and stop
 ```
 
-Required routing:
-
-- `$longtable-start` is the research-start surface.
-- `$longtable-interview` is the grilling interview surface.
-- It does not require a Research Specification before asking the next pressure
-  question.
-- It frames each turn as `Tension:` followed by one `Pressure question:` and
-  waits for a direct answer.
-- If only a First Research Shape exists, LongTable continues through
-  `$longtable-start` until a Research Specification is created or explicitly
-  kept open.
-
-`longtable start` remains a shell fallback for scripts and automation. It is not
-the main research-start experience.
-
-## What Gets Created
-
-A LongTable workspace lives in the research project folder:
+The execution skill consumes the existing brief without repeating the interview:
 
 ```text
-<project>/
-  AGENTS.md
-  CURRENT.md
-  .longtable/
-    project.json
-    current-session.json
-    state.json
-    sessions/
+$longtable-research Explore the target journal, collect the lawful corpus,
+build the evidence ledger, and produce the verified tables and figures.
 ```
 
-- `AGENTS.md`: provider runtime guidance for this research workspace
-- `CURRENT.md`: human-readable current state, regenerated from LongTable state
-- `.longtable/project.json`: stable project identity
-- `.longtable/current-session.json`: current session cursor
-- `.longtable/state.json`: layered memory, questions, decisions, interview
-  turns, evidence records, First Research Shape, and Research Specification
-- `.longtable/sessions/`: session snapshots
+## What “verified” means
 
-## Start vs Interview
+A run cannot report `completed` until it creates and reads back a Verified Research Package containing:
 
-`$longtable-start` asks open, natural-language questions. It should not begin
-with a questionnaire, reader/reviewer contribution framing, or fixed
-theory/method/measurement categories. It asks one question at a time, records
-turns when MCP/state tools are available, and creates the durable Research
-Specification when the interview has enough material.
+- Research Brief in versioned JSON and human-readable Markdown
+- target-journal topic and format profile with provenance and human acceptance
+- search and full-text corpus manifests
+- bounded extraction, evidence spans, claim ledger, synthesis, and disagreement records
+- human-reviewed editable tables, figures, and diagrams with data and hashes
+- Research Assurance records at the five material boundaries
+- limitations, reproduction command, machine manifest, human README, and passing verification report
 
-The First Research Shape is only a short handle for resuming early work. The
-substantive artifact is the Research Specification. It should preserve scope,
-construct ontology, theory framing, coding and measurement rules, method
-options, evidence and access requirements, epistemic alignment, protected
-decisions, open questions, next actions, and confidence.
-
-`$longtable-interview` is a relentless sharpening interview for a research plan,
-argument, method, manuscript, evidence standard, or product decision. It inspects
-`CURRENT.md`, `.longtable/`, supplied documents, and cited evidence first when
-those can answer the question. Then it names `Tension:` and asks one
-`Pressure question:`.
-
-The interview continues only while the next question can produce a new decision,
-sharper boundary, stronger evidence standard, or clearer open tension. It stops
-when remaining questions repeat the same tension without producing a new
-decision. `$longtable-interview` is the only packaged pressure-interview skill;
-legacy `$critical-interview` skill folders are removed during skill install.
-
-Multiple interviews append to the same workspace state. A later interview may
-propose or apply a Research Specification patch, append a DecisionRecord, or
-record an open tension. It should not silently overwrite conflicting research
-commitments.
-
-## Question UI
-
-LongTable owns the question semantics. Providers own presentation.
-
-The durable lifecycle is:
-
-```text
-Researcher Checkpoint -> QuestionRecord -> DecisionRecord
+```sh
+longtable research verify --cwd "<project>" --run-id "<run-id>" --json
 ```
 
-Supported transports:
+Local edits, provider output, a reachable URL, and a polished figure are not treated as proof of completion.
 
-- MCP/native structured elicitation when the provider exposes it
-- terminal selector when the CLI has interactive TTY input and output
-- numbered/plain-text fallback everywhere else
+## Research Assurance
 
-Tmux is not required for LongTable core behavior. If a future Codex terminal
-popup borrows an OMX-style tmux renderer, it must be documented as an optional
-Codex transport that requires an attached tmux session and falls back to the
-standard LongTable question path.
+Research Assurance is the successor to the old Panel concept. Codex and Claude already know how to call multiple agents; LongTable does not compete with that orchestration.
 
-## Common Commands
+Instead, Assurance selects research-risk lenses, normalizes evidence and disagreement, and records the human decision at five boundaries:
 
-```bash
-longtable setup --provider codex
-longtable doctor
-longtable status --cwd "<project-path>"
-longtable resume --cwd "<project-path>"
-longtable roles
-longtable question --prompt "<decision context>"
-longtable decide --question <id> --answer <value>
-longtable spec read --cwd "<project-path>"
-longtable search --query "<topic>"
-longtable panel --prompt "review this measurement plan" --json
+1. scope
+2. access and corpus
+3. evidence direction or claim strength
+4. visual evidence
+5. external action
+
+It interrupts only on a hard failure or unresolved material conflict. The canonical diagnostic CLI is `longtable assure`; `longtable panel` is a one-release compatibility alias. Existing v1 `PanelPlan` and `PanelResult` records remain readable.
+
+## Lawful full-text access
+
+LongTable supports four declared routes:
+
+- public OA and repositories
+- PDFs lawfully supplied by the researcher
+- explicitly licensed text-and-data-mining access
+- manual institutional-browser handoff
+
+The manual route asks the researcher to download a lawful copy and provide a local directory. LongTable never requests or stores browser cookies, passwords, tokens, or institutional credentials. Paywall, WAF, robots, VPN, proxy, and login-control bypass are prohibited. Access failures remain typed outcomes such as `restricted_access`, `robots_or_terms_blocked`, `manual_handoff_required`, and `parse_failed`.
+
+## Professional figures and tables
+
+Research visuals are evidence artifacts, not image-generation prompts.
+
+- A table is used for exact lookup, auditability, and dense comparison.
+- A figure is used for patterns, distributions, uncertainty, and comparisons.
+- A diagram is used for mechanisms, workflow, architecture, or performed-versus-proposed boundaries.
+- Every visual begins with an analytical question, claim link, denominator or unit of analysis, evidence boundary, target-journal grammar, and reader test.
+- Research visuals must have deterministic, editable sources and data/provenance hashes.
+- Mechanical QA is followed by human domain, statistical, journal-fit, and comprehension review.
+
+Image generation may be used for clearly labeled brand or concept artwork such as the README banner above. It must not fabricate evidence-bearing research figures or tables.
+
+## CLI automation
+
+The normal path is conversational, but every durable boundary is scriptable:
+
+```sh
+# Start from a question; LongTable writes a Research Brief automatically.
+longtable research run \
+  --query "How is AI adoption validated in workplace learning research?" \
+  --target-journal "Human Resource Development Quarterly" \
+  --cwd .
+
+# Or consume a Research Brief created by $longtable.
+longtable research run --brief research-brief.json --cwd .
+
+# Resume after a lawful manual PDF handoff.
+longtable research resume \
+  --pdf-dir ./lawful-pdfs \
+  --pdf-access manual_legitimate_access \
+  --cwd .
+
+# Record the human-reviewed target-journal evidence profile.
+longtable research record-journal-profile \
+  --profile target-journal-profile.json \
+  --cwd .
+
+longtable research status --cwd . --json
+longtable research verify --cwd . --json
 ```
 
-Provider skill installation is explicit:
+The previous `longtable scholar-research` command remains a deprecated alias for the beta compatibility window.
 
-```bash
-longtable codex install-skills
-longtable claude install-skills
-longtable mcp install --provider all
-```
+## Productivity gate
 
-## Panel Collaboration
+More workflow is not automatically better. A stage remains default only when prospective conversational crossover tests show that it helps researchers.
 
-Panel is LongTable's public collaboration surface. Use it when role disagreement
-matters before a research commitment becomes project memory.
+Promotion beyond beta requires at least three complete matched E2E pairs, zero hard-gate failures, non-worse time to an accepted package, and improvement in at least one human burden or trust measure. Repetitive questions, interruptions, context switching, rework, and abandonment are measured. Stages that add friction without marginal value are removed or made opt-in.
 
-```text
-$longtable: run a panel review of this measurement plan, keep disagreement
-visible, and ask me what decision should be recorded before revising it.
+## Packages
 
-lt panel: show theory, methods, measurement, reviewer, and voice disagreements
-before I commit this argument.
-```
+- `@longtable/cli` — setup, diagnostics, state, Assurance, and research CLI
+- `@longtable/research` — canonical journal-to-artifact runtime
+- `@longtable/core`, `@longtable/memory`, `@longtable/checkpoints` — provider-neutral contracts
+- `@longtable/provider-codex`, `@longtable/provider-claude` — two-skill provider adapters
+- `@longtable/scholar-research` — one-release compatibility wrapper
 
-Scriptable equivalents:
-
-```bash
-longtable panel --prompt "review this measurement plan" --role editor,measurement_auditor --json
-longtable panel --visibility always_visible --prompt "keep unresolved disagreement visible" --json
-longtable ask --prompt "lt debate: debate this study design before I commit" --json
-```
-
-Team-style requests route through panel. Explicit debate-language requests
-write panel debate records under `.longtable/panel/`. LongTable team execution
-is disabled for new work, and `.longtable/team/` is historical state only.
-
-## Journal-Grounded Reviewer and Venue Fit
-
-`longtable-reviewer` is the compact surface for peer-review and editor-style
-feedback. It keeps reviewer objections, Journal Editor fit judgment, Venue
-Strategist tradeoffs, and scholar-research evidence in one evidence-backed
-workflow instead of splitting journal feedback into a separate visible skill.
-
-If a target journal is named, LongTable should ground reviewer feedback in a
-Journal Profile: aims/scope, author guidance, recent article patterns, and
-article type expectations. If reference papers are available or recoverable,
-LongTable should build a Reference Pattern Matrix covering decision structure,
-paper flow, standardized terminology, Figure/Table conventions, and APA 7
-style expectations.
-
-Useful command surfaces:
-
-```bash
-longtable review --role reviewer --prompt "Evaluate this manuscript positioning for the target journal."
-longtable panel --role reviewer,measurement_auditor --prompt "Compare journal fit, reviewer risk, and measurement evidence."
-longtable search --intent venue --query "<journal or venue context>"
-longtable scholar-research scaffold --cwd "<project-path>" --json
-```
-
-Treat journal fit as a risk rubric, not an acceptance prediction. A useful
-reviewer pass separates editor-facing contribution claim, reviewer objection,
-venue-strategy tradeoff, evidence gap, revision action, and any Researcher
-Checkpoint needed before changing venue positioning.
-
-## Researcher Checkpoints
-
-LongTable asks and waits when a research commitment is about to become settled:
-
-- research question or scope
-- theory frame or construct map
-- measurement, coding, or extraction standard
-- method design or analysis strategy
-- evidence access or citation standard
-- authorship, voice, submission, or public-sharing decision
-
-For low-risk, reversible, or presentational choices, LongTable should proceed
-with explicit assumptions instead of interrupting.
+See [the runtime contract](docs/LONGTABLE-RESEARCH-RUNTIME.md), [the command surface](docs/LONGTABLE-COMMAND-SURFACE.md), and [the specification](Spec.md).
 
 ## Development
 
-```bash
-npm ci
+```sh
+npm install
 npm run build
-npm run test
+npm test
 npm run release:check
 ```
 
-Useful smoke checks:
-
-```bash
-npm run smoke:setup
-npm run smoke:checkpoints
-npm run smoke:hooks
-npm run smoke:research-spec-audit
-npm run smoke:question-audit
-npm run pack:check
-```
-
-## Release
-
-LongTable packages are version-aligned under `@longtable/*`.
-
-Before publishing:
-
-```bash
-npm run release:check
-git diff --check
-```
-
-After publishing, verify the registry:
-
-```bash
-npm view @longtable/cli version dist-tags --json
-npm view @longtable/mcp version dist-tags --json
-npm install -g @longtable/cli@<version>
-longtable --help
-```
-
-Actual npm publish and GitHub release creation require explicit release
-authority. Local implementation and verification can be completed before that
-external step.
-
-## Codex Stop hard-stop
-
-LongTable Codex hooks now expose a narrow hard-stop verdict. `Stop` blocks only
-Research Specification-affecting pending questions or obligations, while
-product/tooling/docs/release work remains non-blocking unless explicitly marked
-as a hard-stop research decision. `PostToolUse` stays quiet for no-op Bash and no
-longer hard-blocks unrelated nonzero Bash failures.
-
-Inspect the current verdict with `longtable codex hook-doctor --json` or
-`longtable doctor --json`; both report hook coverage/trust, `stopWouldBlock`,
-`activeBlockers`, stale pending-question counts, and next actions.
+LongTable records research state under `.longtable/`. Historical run directories and v1 record schemas are preserved; the 0.2 beta adds canonical names and stronger completion gates without rewriting prior evidence.

@@ -1,7 +1,5 @@
-export * from "./types.js";
-export * from "./query.js";
-export * from "./sources.js";
-export * from "./rank.js";
-export * from "./run.js";
-export * from "./publisher-access.js";
-export * from "./protocol.js";
+/**
+ * @deprecated Install and import `@longtable/research`.
+ * This compatibility package is retained for the 0.2 beta migration window.
+ */
+export * from "@longtable/research";

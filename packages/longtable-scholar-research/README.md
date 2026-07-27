@@ -1,18 +1,13 @@
 # @longtable/scholar-research
 
-LongTable scholarly evidence recovery and citation-slot research support.
+Deprecated compatibility package for `@longtable/research`.
 
-This package exposes the legal scholarly search adapters, connector readiness,
-smoke fixtures, and `.longtable/research-runs/<run-id>/` scaffold used by the
-`scholar-research` skill.
+Use the canonical package and CLI surface for new work:
 
-## Journal and Venue Evidence
+```bash
+npm install @longtable/research@next
+longtable research run --query "<research topic>"
+```
 
-`scholar-research` can support editor and venue-fit work by scaffolding
-evidence ledgers and search runs for a target journal profile. Journal fit
-should be grounded in source-backed aims/scope, author guidance, recent article
-patterns, and article type expectations. Metadata-only or unsourced venue
-claims should stay provisional.
-
-This package does not bypass paywalls, authentication, robots.txt, WAFs, or
-access controls.
+This alias is retained for the 0.2 beta migration window. Existing
+`.longtable/research-runs/` records and versioned schemas are not renamed.

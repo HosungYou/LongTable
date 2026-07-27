@@ -77,25 +77,25 @@ runCli([
   "--json"
 ]);
 
-runCli(["codex", "install-skills", "--surface", "compact", "--dir", codexSkillsDir]);
-const codexPanelSkillPath = join(codexSkillsDir, "longtable-panel", "SKILL.md");
-if (!existsSync(codexPanelSkillPath)) {
-  throw new Error("compact Codex skills should include longtable-panel.");
+runCli(["codex", "install-skills", "--surface", "full", "--dir", codexSkillsDir]);
+const codexPanelSkillPath = join(codexSkillsDir, "longtable", "SKILL.md");
+if (!existsSync(codexPanelSkillPath) || existsSync(join(codexSkillsDir, "longtable-panel"))) {
+  throw new Error("Codex should route Research Assurance through the single longtable skill.");
 }
 const codexPanelSkill = readFileSync(codexPanelSkillPath, "utf8");
-assertIncludes(codexPanelSkill, "--native-workers", "Codex panel skill native worker wording");
-assertIncludes(codexPanelSkill, "Sequential fallback", "Codex panel skill fallback wording");
-assertIncludes(codexPanelSkill, "PanelResult", "Codex panel skill normalized result wording");
+assertIncludes(codexPanelSkill, "Research Assurance", "Codex router Assurance wording");
+assertIncludes(codexPanelSkill, "Provider-native multi-agent execution", "Codex router native-agent wording");
+assertIncludes(codexPanelSkill, "structured deliberation record", "Codex router normalized record wording");
 
-runCli(["claude", "install-skills", "--surface", "compact", "--dir", claudeSkillsDir]);
-const claudePanelSkillPath = join(claudeSkillsDir, "longtable-panel", "SKILL.md");
-if (!existsSync(claudePanelSkillPath)) {
-  throw new Error("compact Claude skills should include longtable-panel.");
+runCli(["claude", "install-skills", "--surface", "full", "--dir", claudeSkillsDir]);
+const claudePanelSkillPath = join(claudeSkillsDir, "longtable", "SKILL.md");
+if (!existsSync(claudePanelSkillPath) || existsSync(join(claudeSkillsDir, "longtable-panel"))) {
+  throw new Error("Claude should route Research Assurance through the single longtable skill.");
 }
 const claudePanelSkill = readFileSync(claudePanelSkillPath, "utf8");
-assertIncludes(claudePanelSkill, "--native-workers", "Claude panel skill native worker wording");
-assertIncludes(claudePanelSkill, "Sequential fallback", "Claude panel skill fallback wording");
-assertIncludes(claudePanelSkill, "PanelResult", "Claude panel skill normalized result wording");
+assertIncludes(claudePanelSkill, "Research Assurance", "Claude router Assurance wording");
+assertIncludes(claudePanelSkill, "Provider-native multi-agent execution", "Claude router native-agent wording");
+assertIncludes(claudePanelSkill, "structured deliberation record", "Claude router normalized record wording");
 
 const panel = JSON.parse(runCli([
   "panel",

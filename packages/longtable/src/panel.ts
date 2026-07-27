@@ -764,3 +764,17 @@ export function renderPanelSummary(plan: PanelPlan): string {
 export function listDefaultPanelRoles(): CanonicalPersona[] {
   return PERSONA_DEFINITIONS.filter((persona) => persona.defaultPanelMember).map((persona) => persona.key);
 }
+
+/**
+ * Research Assurance is the public name for the former Panel harness. The
+ * underlying v1 PanelPlan/PanelResult schemas remain unchanged for replay and
+ * compatibility during the 0.2 beta.
+ */
+export type ResearchAssurancePlan = PanelPlan;
+export type ResearchAssuranceResult = PanelResult;
+export type ResearchAssuranceFallback = PanelFallback;
+export type BuildResearchAssurancePlanOptions = BuildPanelPlanOptions;
+export const buildResearchAssurancePlan = buildPanelPlan;
+export const buildResearchAssuranceFallback = buildPanelFallback;
+export const renderResearchAssuranceSummary = renderPanelSummary;
+export const listDefaultResearchAssuranceRoles = listDefaultPanelRoles;

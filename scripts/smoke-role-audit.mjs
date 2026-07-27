@@ -21,7 +21,7 @@ const audit = JSON.parse(execFileSync("node", [cli, "audit", "roles", "--json"],
 }));
 
 assert(audit.passed === true, "role audit should pass");
-assert(audit.totals.roleCount >= 8, "role audit should cover generated role skills");
+assert(audit.totals.roleCount === 0, "provider installs should not expose standalone role skills");
 
 for (const role of audit.roles) {
   assert(role.missingSections.length === 0, `${role.provider}:${role.name} should include all required sections`);
@@ -74,12 +74,6 @@ const reviewerPrompt = execFileSync("node", [
 const roles = personas.listRoleDefinitions();
 const codexCompactNames = codex.buildCodexSkillSpecs(roles, "compact").map((skill) => skill.name);
 const claudeCompactNames = claude.buildClaudeSkillSpecs(roles, "compact").map((skill) => skill.name);
-const codexEditor = codex.buildCodexSkillSpecs(roles, "full").find((skill) => skill.name === "longtable-editor");
-const claudeEditor = claude.buildClaudeSkillSpecs(roles, "full").find((skill) => skill.name === "longtable-editor");
-const codexReviewer = codex.buildCodexSkillSpecs(roles, "compact").find((skill) => skill.name === "longtable-reviewer");
-const claudeReviewer = claude.buildClaudeSkillSpecs(roles, "compact").find((skill) => skill.name === "longtable-reviewer");
-const journalFitBoundary =
-  "If a target journal is named, do not claim journal fit from role intuition alone.";
 const journalGroundedReviewerMarkers = [
   "Journal-grounded reviewer workflow",
   "Journal Profile",
@@ -89,16 +83,22 @@ const journalGroundedReviewerMarkers = [
   "Figure/Table",
   "APA 7",
   "Venue Strategist",
-  "scholar-research"
+  "longtable-research"
 ];
 
-assert(codexEditor?.body.join("\n").includes(journalFitBoundary), "Codex editor skill should require journal evidence before fit claims");
-assert(claudeEditor?.body.join("\n").includes(journalFitBoundary), "Claude editor skill should require journal evidence before fit claims");
 assert(!codexCompactNames.includes("longtable-editor"), "Codex compact surface should not split editor into a separate visible skill");
 assert(!claudeCompactNames.includes("longtable-editor"), "Claude compact surface should not split editor into a separate visible skill");
+assert(JSON.stringify(codexCompactNames.sort()) === JSON.stringify(["longtable", "longtable-research"]), "Codex should expose only two skills");
+assert(JSON.stringify(claudeCompactNames.sort()) === JSON.stringify(["longtable", "longtable-research"]), "Claude should expose only two skills");
+assert(
+  JSON.stringify(codex.buildCodexSkillSpecs(roles, "full").map((skill) => skill.name).sort()) === JSON.stringify(["longtable", "longtable-research"]),
+  "Deprecated Codex full surface should not regenerate role skills"
+);
+assert(
+  JSON.stringify(claude.buildClaudeSkillSpecs(roles, "full").map((skill) => skill.name).sort()) === JSON.stringify(["longtable", "longtable-research"]),
+  "Deprecated Claude full surface should not regenerate role skills"
+);
 for (const marker of journalGroundedReviewerMarkers) {
-  assert(codexReviewer?.body.join("\n").includes(marker), `Codex reviewer skill should include ${marker}`);
-  assert(claudeReviewer?.body.join("\n").includes(marker), `Claude reviewer skill should include ${marker}`);
   assert(reviewerPrompt.includes(marker), `reviewer prompt should include ${marker}`);
   assert(reviewerPromptAlias.includes(marker), `reviewer prompt alias should include ${marker}`);
 }

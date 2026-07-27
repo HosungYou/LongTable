@@ -27,7 +27,20 @@ const COMPACT_ROLE_SKILL_NAMES: Record<string, string> = {
   voice_keeper: "longtable-voice"
 };
 
-const DEPRECATED_CLAUDE_SKILL_NAMES = ["critical-interview"] as const;
+const LEGACY_CLAUDE_SKILL_NAMES = [
+  "critical-interview",
+  "scholar-research",
+  "longtable-start",
+  "longtable-interview",
+  "longtable-panel",
+  "longtable-explore",
+  "longtable-review",
+  "longtable-methods",
+  "longtable-measure",
+  "longtable-theory",
+  "longtable-reviewer",
+  "longtable-voice"
+] as const;
 
 export function resolveClaudeSkillsDir(customDir?: string): string {
   return customDir ? resolve(customDir) : join(homedir(), ".claude", "skills");
@@ -63,7 +76,7 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
   const specs = [
     {
       name: "longtable",
-      description: "Use for LongTable research conversations, project memory, checkpointing, and role routing.",
+      description: "Use as the LongTable research front door for problem diagnosis, a bounded Research Brief, workspace memory, Research Assurance, and routing into LongTable Research.",
       triggers: ["longtable", "lt ", "research workspace", "research checkpoint"],
       body: [
         "## Purpose",
@@ -77,23 +90,22 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "- `longtable: help me narrow this project`",
         "- `lt explore: ...`",
         "- `lt review: ...`",
-        "- `lt panel: ...`",
-        "- `longtable: run a panel review of this measurement plan, show the main disagreements, and ask me what decision should be recorded before you revise it.`",
-        "- `longtable: use editor, reviewer, methods, measurement, and voice perspectives as a panel to evaluate this manuscript section. Do not collapse disagreement too early.`",
-        "- `$longtable-methods`, `$longtable-measure`, `$longtable-theory`, `$longtable-reviewer`, or `$longtable-voice` when the researcher explicitly wants that shortcut.",
-        "- `$longtable-start` to create or continue the first research-start interview.",
-        "- `$longtable-interview` to run a LongTable grilling interview with one high-leverage pressure question at a time.",
-        "- `$scholar-research` for scholarly evidence recovery, citation-slot research, and legal full-text readiness.",
+        "- `lt assure: review this high-risk decision`",
+        "- `longtable: run Research Assurance on this measurement plan, preserve disagreement, and interrupt me only if a decision is genuinely blocking.`",
+        "- Natural-language requests for research start, diagnosis, review, or a high-risk assurance pass.",
+        "- `$longtable-research` for scholarly evidence recovery, citation-slot research, and legal full-text readiness.",
         "",
         "## Rules",
         "",
         "- Treat `.longtable/` state as the project source of truth when present.",
-        "- The compact visible shortcut set is panel, methods, measure, theory, reviewer, and voice. Other roles remain available through this router when the request calls for them.",
+        "- The installation exposes exactly `$longtable` and `$longtable-research`; separate start, interview, panel, and role skills are removed.",
+        "- Ask at most three clarifying questions before presenting a versioned Research Brief and the choices: start LongTable Research, keep shaping, or save and stop.",
+        "- Treat methods, measurement, theory, reviewer, editor, ethics, venue, and voice as internal Research Assurance lenses.",
         "- Prefer natural language over asking the researcher to run shell role commands.",
         "- For systematic review, meta-analysis, PDF collection, full-text extraction, institutionally licensed sources, or TDM work, ensure `longtable access setup` readiness exists or surface an ACCESS CHECKPOINT before continuing.",
         "- Access setup records capability status only. The researcher handles VPN/proxy/library/SSO login directly; LongTable must not store passwords, API keys, tokens, PDFs, or full text in setup state.",
-        "- For `$longtable-start`, use natural-language turns for the interview and reserve structured options for final Research Specification confirmation; First Research Shape is only a shorter handle/resume layer.",
-        "- For `$longtable-interview`, run the compact pressure loop: read state, name the unresolved `Tension:`, ask exactly one `Pressure question:`, then wait. Continue only while the next question can produce a new decision.",
+        "- For the start route, use natural-language turns and reserve structured options for final Research Specification confirmation; First Research Shape is only a short resume handle.",
+        "- For the pressure-interview route, read state, name the unresolved `Tension:`, ask exactly one `Pressure question:`, then wait.",
         "- Keep unrelated pending Researcher Checkpoints separate. Treat them as blocking only when the researcher is confirming, saving, or recording a research decision.",
         "- If a Researcher Checkpoint is needed, ask a short structured question with meaningful options and wait for the researcher.",
         "- If changing LongTable product language, README positioning, or checkpoint policy, ask a Meta-Decision Checkpoint first.",
@@ -109,9 +121,11 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "- Disclose consulted roles with `LongTable consulted: ...` when a role is foregrounded.",
         "- Label unsupported external claims as inference or estimate.",
         "",
-        "## Panel And Question Ordering",
+        "## Research Assurance And Question Ordering",
         "",
-        "- If the user asks for a panel, team-style review, debate, disagreement, or multiple perspectives, use the panel surface and expose a structured deliberation record instead of a one-line summary.",
+        "- Treat panel, team-style review, debate, disagreement, or multiple perspectives as compatibility language for Research Assurance.",
+        "- Run Assurance only at scope, access/corpus, evidence/claim-strength, visual-evidence, or external-action boundaries, and interrupt only for a hard failure or unresolved disagreement.",
+        "- Provider-native multi-agent execution is an adapter, not the LongTable product contract.",
         "- The structured deliberation record must include: roles consulted, each role's main claim or objection, the disagreement map, the decision options, the recommended option when defensible, and the exact researcher-facing question.",
         "- If the panel converges, explain what changed the disagreement; if it does not converge, preserve the unresolved conflict instead of collapsing it into one confident synthesis.",
         "- Ask and stop when missing context would decide a high-risk research commitment.",
@@ -125,22 +139,24 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
       ]
     },
     {
-      name: "scholar-research",
-      description: "LongTable scholarly evidence recovery and citation-slot research using host-agent orchestration, legal OA/fulltext connectors, evidence ledgers, and Researcher Checkpoints.",
-      triggers: ["$scholar-research", "scholar research", "citation slot", "scholarly evidence", "PDF evidence"],
+      name: "longtable-research",
+      description: "Use LongTable Research for journal-grounded discovery, lawful full-text recovery, verified extraction and synthesis, professional research visuals, and a Verified Research Package.",
+      triggers: ["$longtable-research", "scholar research", "citation slot", "scholarly evidence", "PDF evidence"],
       body: [
-        "Run a LongTable scholar-research session.",
+        "Run LongTable Research.",
         "",
-        "Treat `.longtable/` as the source of truth. Recover only legally accessible scholarly evidence. Do not bypass paywalls, authentication, robots.txt, WAFs, or access controls. Use host-agent orchestration for parallel research, but write journal, evidence ledger, claim ledger, fallback ledger, and citation-slot matrix into `.longtable/research-runs/<run-id>/`.",
+        "Treat `.longtable/` as the source of truth. Consume an existing Research Brief without repeating its questions. Recover only legally accessible scholarly evidence. Provider-native agents may execute bounded tasks; LongTable owns the versioned bundle, provenance, assurance, and human gates.",
         "",
         "## Required Flow",
         "",
-        "1. Start with a citation-slot matrix or DOI/title/URL seed batch; free-form literature search is post-MVP.",
-        "2. Run `longtable scholar-research doctor` before evidence recovery and surface any missing connector readiness.",
-        "3. Create or reuse a run scaffold with `longtable scholar-research scaffold --cwd <project> --json`.",
-        "4. Search in this order: DOI/title seed, Crossref/OpenAlex/Semantic Scholar metadata, arXiv/SSRN/ERIC/PubMed/PMC/CORE/DOAJ/repository sweep, publisher landing page, legal PDF/full text, fallback ledger.",
-        "5. Mark citation slots `filled` only when full text produced an extracted quote/claim. Metadata, abstract, or fallback evidence is `provisional`, not filled.",
-        "6. Stop for a Researcher Checkpoint when access is restricted, when a strong claim has weak evidence, or when synthesis would change the research direction.",
+        "1. Run `longtable research doctor` before evidence recovery and surface missing connector readiness.",
+        "2. Use `longtable research run --query <topic>` for the durable topic, venue, collection, full-text, extraction, visual, verification, and handoff workflow. Use `resume`; do not recreate completed stages.",
+        "3. Search in this order: DOI/title seed, Crossref/OpenAlex/Semantic Scholar metadata, arXiv/ERIC/PubMed/PMC/CORE/DOAJ/repository sweep, publisher landing page, and legal PDF/full text.",
+        "4. A local PDF corpus requires `--pdf-dir` and an explicit `--pdf-access public_oa|manual_legitimate_access|licensed_tdm|private`. Do not guess its access class.",
+        "5. When the run pauses at extract, read only the bounded packets under `provider-tasks/extract/`. Return a `longtable.provider-proposed-patch`; preserve exact quote, locator, hash, version, and access class.",
+        "6. Provider proposals may create only `provisional` slots. `filled` requires independent verification and human review under the strict evidence contract.",
+        "7. Preserve supports, qualifies, and contradicts relations. Do not collapse conflicts because two providers agree.",
+        "8. Stop for a Researcher Checkpoint when access is restricted, evidence changes direction or claim strength, a Visual Evidence Contract needs approval, or an external action is requested.",
         "",
         "## Safety Boundary",
         "",
@@ -157,7 +173,14 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
         "- `.longtable/research-runs/<run-id>/evidence-ledger.md`",
         "- `.longtable/research-runs/<run-id>/fallback-ledger.md`",
         "- `.longtable/research-runs/<run-id>/citation-slot-matrix.md`",
-        "- `.longtable/research-runs/<run-id>/sources/manifest.jsonl`"
+        "- `.longtable/research-runs/<run-id>/sources/manifest.jsonl`",
+        "- `.longtable/research-runs/<run-id>/research-bundle.json`",
+        "- `.longtable/research-runs/<run-id>/events.jsonl`",
+        "- `.longtable/research-runs/<run-id>/provider-tasks/extract/manifest.json`",
+        "- `.longtable/research-runs/<run-id>/research-package/README.md`",
+        "- `.longtable/research-runs/<run-id>/research-package/package-manifest.json`",
+        "",
+        "`$scholar-research` and `longtable scholar-research` are one-release compatibility aliases only."
       ]
     },
     {
@@ -378,15 +401,11 @@ function baseSkillSpecs(surface: LongTableSkillSurface = "compact"): ClaudeSkill
       ]
     }
   ];
-  return surface === "full"
-    ? specs
-    : specs.filter((spec) =>
-        spec.name === "longtable" ||
-        spec.name === "scholar-research" ||
-        spec.name === "longtable-start" ||
-        spec.name === "longtable-interview" ||
-        spec.name === "longtable-panel"
-      );
+  void surface;
+  return specs.filter((spec) =>
+    spec.name === "longtable" ||
+    spec.name === "longtable-research"
+  );
 }
 
 function mustAskQuestionsForRole(role: RoleDefinition): string[] {
@@ -438,7 +457,7 @@ function roleSkillSpec(role: RoleDefinition, surface: LongTableSkillSurface = "c
           "",
           "- Keep `longtable-reviewer` as the visible compact surface; use Journal Editor and Venue Strategist as internal lenses.",
           "- When a target journal, submission venue, reference paper set, or journal-ready claim is named, ground feedback in a `Journal Profile`: aims/scope, author guidance, recent article pattern, and article type expectations.",
-          "- Use `scholar-research` or `longtable search --intent venue` to build or refresh a `Reference Pattern Matrix` before making source-backed journal-fit claims.",
+          "- Use `longtable-research` or `longtable search --intent venue` to build or refresh a `Reference Pattern Matrix` before making source-backed journal-fit claims.",
           "- Read available reference papers and compare decision structure, paper flow, standardized terminology, Figure/Table conventions, and APA 7 style expectations.",
           "- Return reviewer feedback as: editor-facing contribution claim, reviewer objection, Venue Strategist tradeoff, evidence gap, revision action, and Researcher Checkpoint when the recommendation changes venue positioning."
         ]
@@ -494,26 +513,26 @@ function roleSkillSpec(role: RoleDefinition, surface: LongTableSkillSurface = "c
   };
 }
 
-function compactRoles(roles: RoleDefinition[]): RoleDefinition[] {
-  return roles.filter((role) => Object.hasOwn(COMPACT_ROLE_SKILL_NAMES, role.key));
+function compactRoles(_roles: RoleDefinition[]): RoleDefinition[] {
+  return [];
 }
 
-function allClaudeSkillSpecs(roles: RoleDefinition[]): ClaudeSkillSpec[] {
-  const byName = new Map<string, ClaudeSkillSpec>();
-  for (const spec of [...buildClaudeSkillSpecs(roles, "compact"), ...buildClaudeSkillSpecs(roles, "full")]) {
-    byName.set(spec.name, spec);
-  }
-  return [...byName.values()];
+function legacyClaudeSkillNames(roles: RoleDefinition[]): string[] {
+  return [...new Set([
+    ...LEGACY_CLAUDE_SKILL_NAMES,
+    ...roles.flatMap((role) => [
+      skillNameForRole(role, "compact"),
+      skillNameForRole(role, "full")
+    ])
+  ])];
 }
 
 export function buildClaudeSkillSpecs(
   roles: RoleDefinition[],
   surface: LongTableSkillSurface = "compact"
 ): ClaudeSkillSpec[] {
-  const roleSpecs = (surface === "compact" ? compactRoles(roles) : roles).map((role) =>
-    roleSkillSpec(role, surface)
-  );
-  return [...baseSkillSpecs(surface), ...roleSpecs];
+  void roles;
+  return baseSkillSpecs(surface);
 }
 
 export async function installClaudeSkills(
@@ -525,13 +544,7 @@ export async function installClaudeSkills(
   await mkdir(skillsDir, { recursive: true });
 
   const specs = buildClaudeSkillSpecs(roles, surface);
-  const selectedNames = new Set(specs.map((spec) => spec.name));
-  for (const spec of allClaudeSkillSpecs(roles)) {
-    if (!selectedNames.has(spec.name)) {
-      await rm(join(skillsDir, spec.name), { recursive: true, force: true });
-    }
-  }
-  for (const skillName of DEPRECATED_CLAUDE_SKILL_NAMES) {
+  for (const skillName of legacyClaudeSkillNames(roles)) {
     await rm(join(skillsDir, skillName), { recursive: true, force: true });
   }
 
@@ -558,14 +571,14 @@ export async function removeClaudeSkills(
   const skillsDir = resolveClaudeSkillsDir(customDir);
   const removed: string[] = [];
 
-  for (const spec of allClaudeSkillSpecs(roles)) {
+  for (const spec of buildClaudeSkillSpecs(roles)) {
     const skillDir = join(skillsDir, spec.name);
     if (existsSync(skillDir)) {
       await rm(skillDir, { recursive: true, force: true });
       removed.push(skillDir);
     }
   }
-  for (const skillName of DEPRECATED_CLAUDE_SKILL_NAMES) {
+  for (const skillName of legacyClaudeSkillNames(roles)) {
     const skillDir = join(skillsDir, skillName);
     if (existsSync(skillDir)) {
       await rm(skillDir, { recursive: true, force: true });

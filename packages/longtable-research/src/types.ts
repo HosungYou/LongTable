@@ -225,6 +225,9 @@ export interface RunResearchSearchInput extends BuildSearchIntentInput {
   fetch?: SearchFetch;
   allowPartial?: boolean;
   publisherAccess?: boolean;
+  sourceConcurrency?: number;
+  sourceRetries?: number;
+  sourceTimeoutMs?: number;
 }
 
 export interface CrossrefTdmLink {

@@ -10,6 +10,8 @@ Repository framing and migration boundary are defined in `README.md`, `RELATIONS
 
 Active supporting docs are:
 
+- `docs/LONGTABLE-RESEARCH-RUNTIME.md`
+- `docs/LONGTABLE-RESEARCH-NAMING-MIGRATION.md`
 - `docs/ARCHITECTURE.md`
 - `docs/ACTIVE-DECISIONS.md`
 - `docs/CHECKPOINTING.md`
@@ -37,8 +39,18 @@ Historical exploration and release notes may be moved under `docs/archive/`.
 5. Codex는 native AskUserQuestion에 의존하지 않고 numbered choice protocol로 처리한다.
 6. researcher-facing execution and supporting packages should use the `longtable` identifier consistently.
 7. question semantics are provider-neutral, but provider adapters may use the strongest native question surface available.
-8. Panel orchestration is a first-class LongTable interaction pattern, but it is not OMX-style team orchestration.
-9. Panel discussion must be inspectable through structured role outputs and invocation records, not raw hidden reasoning logs.
+8. Research Assurance is the public name for the former Panel harness; provider-native agents execute work while LongTable normalizes evidence, disagreement, and human decisions.
+9. Existing `PanelPlan` and `PanelResult` v1 records remain compatibility schemas and must not be rewritten.
+10. Scholar research uses one versioned `ResearchBundle`, append-only events,
+    and an idempotent `run`/`resume` CLI; provider models can only propose
+    schema-valid patches.
+11. LongTable Research quality gates are non-compensatory, and workflow stages
+    may become default only after prospective conversational E2E evidence.
+12. Provider installation exposes exactly `$longtable` and
+    `$longtable-research`; deprecated full/role/start/interview/panel surfaces
+    must not create additional installed skills.
+13. A workflow may report `completed` only after a Verified Research Package
+    manifest and verification report pass durable readback.
 
 ## Proposed Repository Shape
 
@@ -101,6 +113,13 @@ Current code-level scaffolds now cover:
 - `ResearchState`
 - `CheckpointPolicy`
 - `DecisionRecord`
+- `ResearchBundle`
+- `ScholarResearchEvent`
+- `EvidenceSpan`
+- `CitationSlot`
+- `ProviderTaskPacket`
+- `VisualEvidenceContract`
+- `AdjudicationRecord`
 - `ArtifactRecord`
 - `InteractionMode`
 - `InvocationIntent`
