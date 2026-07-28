@@ -32,10 +32,11 @@
     "@longtable/provider-claude": "0.2.0-beta.1",
     "@longtable/provider-codex": "0.2.0-beta.1",
     "@longtable/setup": "0.2.0-beta.1",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
     "@types/node": "^22.10.1",
     "typescript": "^5.6.0"
   },
@@ -56,6 +57,6 @@
     "access": "public"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   }
 }

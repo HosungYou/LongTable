@@ -36,7 +36,11 @@ Historical exploration and release notes may be moved under `docs/archive/`.
 2. `.claude`와 `.codex`는 원본이 아니라 adapter surface다.
 3. checkpoint는 agent prerequisite가 아니라 research commitment semantics에 묶는다.
 4. researcher profile은 setup에서 시작하고 운영 중 보정한다.
-5. Codex는 native AskUserQuestion에 의존하지 않고 numbered choice protocol로 처리한다.
+5. Codex의 AskUserQuestion 및 MCP form elicitation은 provider transport로
+   사용할 수 있지만 제품 계약은 아니다. `.longtable`의
+   `QuestionRecord -> DecisionRecord` lifecycle이 checkpoint 의미,
+   idempotency, transport history, 재개 상태를 소유하며 numbered choice는
+   호환 fallback으로 유지한다.
 6. researcher-facing execution and supporting packages should use the `longtable` identifier consistently.
 7. question semantics are provider-neutral, but provider adapters may use the strongest native question surface available.
 8. Research Assurance is the public name for the former Panel harness; provider-native agents execute work while LongTable normalizes evidence, disagreement, and human decisions.
@@ -51,6 +55,10 @@ Historical exploration and release notes may be moved under `docs/archive/`.
     must not create additional installed skills.
 13. A workflow may report `completed` only after a Verified Research Package
     manifest and verification report pass durable readback.
+14. MCP 2026 transports return `input_required` instead of holding a
+    server-to-client elicitation request open. Client cancellation or timeout
+    never becomes a research decision; the same pending checkpoint remains
+    resumable.
 
 ## Proposed Repository Shape
 

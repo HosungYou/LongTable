@@ -17,6 +17,14 @@ properties:
   workingState:
     type: object
     description: Mutable task cursor for the current research session.
+  hooks:
+    type: array
+    items:
+      type: object
+  firstResearchShape:
+    type: object
+  researchSpecification:
+    type: object
   inferredHypotheses:
     type: array
     items:
@@ -52,6 +60,18 @@ properties:
     type: array
     items:
       $ref: "./decision-record.schema.yaml"
+  invocationLog:
+    type: array
+    items:
+      type: object
+  questionLog:
+    type: array
+    items:
+      type: object
+  questionObligations:
+    type: array
+    items:
+      type: object
   artifactRecords:
     type: array
     items:

@@ -31,6 +31,11 @@ LongTable의 차별점은 "더 많은 자동화"가 아니라 다음 세 가지�
 - `researcher profile aware governance`
 - `traceable research state`
 
+제품 경계는 **control-plane-first hybrid**다. 외부 provider와 학술 서비스는
+검색·독해·추출·작성·렌더링 엔진으로 교체 가능해야 한다. LongTable은
+Research Brief, 인간 판단이 필요한 시점, 결정 ledger, 접근권·provenance,
+claim-evidence 연결, visual contract, package verification을 소유한다.
+
 ## Target Users
 
 ### Primary
@@ -118,6 +123,8 @@ claim-strength, visual-evidence, and external-action boundaries.
 - Claude adapter
 - Codex adapter
 - future web app adapter
+- MCP `input_required`와 provider-native 질문 UI는 transport이며,
+  Researcher Checkpoint의 의미·내구성·재개 상태는 LongTable이 소유한다.
 
 ## Product Modes
 

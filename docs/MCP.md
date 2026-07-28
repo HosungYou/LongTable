@@ -73,8 +73,15 @@ longtable mcp install --provider codex --checkpoint-ui strong --write
 
 That writes Codex's granular MCP elicitation approval alongside the LongTable
 MCP server block. Without that approval, `elicit_question` still creates the
-same durable `QuestionRecord`, records the transport failure or fallback status,
-and returns a numbered fallback.
+same durable `QuestionRecord`. The provider can then call `render_question` or
+use `longtable question --print` for the numbered fallback surface.
+
+The current server uses MCP 2026 multi-round-trip `input_required`. A modern
+tool call returns after persisting the checkpoint; the client collects the form
+response and retries the handler with `inputResponses`. The 2025 stdio
+compatibility shim remains enabled with a 24-hour per-round watchdog, adjustable
+through `LONGTABLE_MCP_LEGACY_ELICITATION_TIMEOUT_MS`. Client cancellation does
+not clear or answer the checkpoint.
 
 Provider guidance should route checkpoint UI through MCP first when
 `elicit_question` is available. The CLI command `longtable question --print` is

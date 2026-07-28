@@ -1,6 +1,19 @@
 # LongTable
 
-Research diagnosis and journal-grounded evidence production for Codex and Claude.
+**The research control plane for Codex and Claude.**
+
+AI agents can search, read, draft, and render. LongTable keeps the research
+contract human-owned: material research commitments, evidence provenance,
+lawful-access boundaries, visual contracts, and completion gates survive beyond
+one provider UI or chat session.
+
+> **Transient UI. Durable research decisions.**
+>
+> A Researcher Checkpoint is persisted before LongTable opens a question
+> surface. Modern MCP form elicitation returns `input_required` instead of
+> holding a 60-second push request open. If a client cancels, disconnects, or
+> falls back to another surface, the same pending `QuestionRecord` remains
+> resumable; an accepted answer appends one linked `DecisionRecord`.
 
 ![LongTable Research evidence workbench](assets/longtable-research-hero.png)
 
@@ -9,7 +22,16 @@ LongTable gives researchers two public skills:
 - `$longtable` diagnoses the research problem, asks no more than three clarifying questions, and produces a versioned Research Brief.
 - `$longtable-research` turns that brief into a lawful, traceable, human-verified research package.
 
-The model provider supplies native agents and tools. LongTable supplies the research-specific contract they do not: durable state, access boundaries, evidence provenance, target-journal patterns, claim gates, editable visual contracts, human checkpoints, and reproducible package verification.
+LongTable is a **control-plane-first hybrid**:
+
+- Provider agents and scholarly services remain replaceable engines for
+  discovery, reading, extraction, drafting, and rendering.
+- LongTable owns when human judgment is required and how that judgment remains
+  linked to evidence and later work.
+- Its lawful reference runtime supplies an end-to-end path to a Verified
+  Research Package without making one model or search provider canonical.
+
+**Discovery and rendering engines are adapters. Research commitments are not.**
 
 > `0.2.0-beta.1` is published on npm under the `next` tag. The former `scholar-research`, `panel`, and expanded skill surfaces remain compatibility routes for one beta release; they are not the product’s primary interface.
 
@@ -74,6 +96,26 @@ Instead, Assurance selects research-risk lenses, normalizes evidence and disagre
 5. external action
 
 It interrupts only on a hard failure or unresolved material conflict. The canonical diagnostic CLI is `longtable assure`; `longtable panel` is a one-release compatibility alias. Existing v1 `PanelPlan` and `PanelResult` records remain readable.
+
+## Durable MCP checkpoints
+
+`@longtable/mcp` uses the MCP 2026 multi-round-trip `input_required` flow while
+serving 2025 stdio clients through the SDK compatibility shim.
+
+- The first tool call persists the checkpoint and returns immediately for a
+  modern client.
+- The accepted response re-enters the same handler and resolves the same
+  question ID.
+- Caller-supplied idempotency keys prevent duplicate questions and decisions.
+- Transport attempts are append-only, so presentation, explicit refusal, and
+  eventual acceptance remain auditable.
+- Decline, cancel, disconnect, and fallback do not silently become research
+  decisions.
+
+The legacy shim uses a 24-hour per-round watchdog by default, configurable with
+`LONGTABLE_MCP_LEGACY_ELICITATION_TIMEOUT_MS`. A host may still cancel its own
+UI or process; LongTable's guarantee is durable recovery of the checkpoint, not
+control over every provider UI lifecycle.
 
 ## Lawful full-text access
 

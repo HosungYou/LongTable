@@ -11,6 +11,7 @@
     "typecheck": "npm run typecheck --workspace @longtable/core && npm run typecheck --workspace @longtable/memory && npm run typecheck --workspace @longtable/checkpoints && npm run typecheck --workspace @longtable/setup && npm run typecheck --workspace @longtable/research && npm run typecheck --workspace @longtable/scholar-research && npm run typecheck --workspace @longtable/research-search && npm run typecheck --workspace @longtable/provider-codex && npm run typecheck --workspace @longtable/provider-claude && npm run typecheck --workspace @longtable/cli && npm run typecheck --workspace @longtable/mcp",
     "smoke:setup": "node scripts/smoke-setup-flow.mjs",
     "smoke:checkpoints": "node scripts/smoke-checkpoint-routing.mjs",
+    "smoke:mcp-elicitation": "node scripts/smoke-mcp-elicitation.mjs",
     "smoke:hooks": "node scripts/smoke-codex-hooks.mjs",
     "smoke:panel-handoff": "node scripts/smoke-panel-handoff.mjs",
     "smoke:panel-workers": "node scripts/smoke-panel-workers.mjs",
@@ -21,12 +22,12 @@
     "smoke:grilling-interview": "node scripts/e2e-grilling-interview-flow.mjs",
     "smoke:search": "node scripts/smoke-search.mjs",
     "smoke:scholar-research": "node scripts/smoke-scholar-research.mjs",
-    "test": "npm run build && npm run smoke:setup && npm run smoke:checkpoints && npm run smoke:hooks && npm run smoke:panel-handoff && npm run smoke:panel-workers && npm run smoke:research-spec-audit && npm run smoke:question-audit && npm run smoke:role-audit && npm run smoke:human-persona && npm run smoke:grilling-interview && npm run smoke:search && npm run smoke:scholar-research && npm run typecheck",
+    "test": "npm run build && npm run smoke:setup && npm run smoke:checkpoints && npm run smoke:mcp-elicitation && npm run smoke:hooks && npm run smoke:panel-handoff && npm run smoke:panel-workers && npm run smoke:research-spec-audit && npm run smoke:question-audit && npm run smoke:role-audit && npm run smoke:human-persona && npm run smoke:grilling-interview && npm run smoke:search && npm run smoke:scholar-research && npm run typecheck",
     "pack:check": "npm pack --workspaces --dry-run",
     "release:check": "npm run test && npm run pack:check"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "main": "index.js",
   "directories": {
@@ -132,6 +133,6 @@
   "devDependencies": {},
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs"
 }

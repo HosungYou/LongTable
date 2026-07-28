@@ -36,12 +36,19 @@ force. Treat them as different enforcement layers.
 | Generated skills | Bias the agent toward LongTable behavior | Override the provider's wrapper logic |
 | Hook context | Inject short state or warning context | Reliably carry long deliberation or philosophy |
 | Hook deny/block | Stop selected tool actions or prompt flows | Replace human judgment or provider runtime policy |
-| MCP elicitation | Create and render durable checkpoint questions | Guarantee the client accepts native UI |
+| MCP `input_required` | Return a durable checkpoint for client-side form fulfillment and retry | Guarantee the client keeps its UI or process alive |
 | CLI/state gates | Persist `QuestionRecord -> DecisionRecord` and block LongTable commands | Block every possible non-LongTable action |
 | File-backed artifacts | Preserve panel/interview records for later review | Make the record self-interpreting without quality rules |
 
 Therefore, `.md` changes are necessary but not sufficient. Hard or near-hard
 behavior belongs in hooks, MCP, CLI gates, and state transitions.
+
+Modern MCP elicitation is multi-round-trip: LongTable persists the
+`QuestionRecord`, returns `input_required`, and processes the accepted response
+when the client retries the tool handler. The server does not hold a 60-second
+push request open. Legacy 2025 stdio clients use the SDK shim with a long,
+configurable watchdog. In either era, transport failure leaves the research
+decision pending and resumable rather than manufacturing an answer.
 
 ## Must-Stop Research Commitments
 

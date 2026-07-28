@@ -4,9 +4,17 @@ import { createRequire } from "node:module";
 import { basename, resolve } from "node:path";
 import { cwd, exit } from "node:process";
 import { fileURLToPath } from "node:url";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import type { CallToolResult, ElicitRequestFormParams, ElicitResult } from "@modelcontextprotocol/sdk/types.js";
+import {
+  acceptedContent,
+  inputRequired,
+  inputResponse,
+  McpServer,
+  type CallToolResult,
+  type ElicitRequestFormParams,
+  type InputRequiredResult,
+  type InputResponses
+} from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
 import { classifyCheckpointTrigger } from "@longtable/checkpoints";
 import { renderQuestionRecordInput } from "@longtable/provider-claude";
@@ -27,7 +35,6 @@ import {
   answerWorkspaceQuestion,
   applyResearchSpecificationAuditUpdate,
   applyResearchSpecificationPatch,
-  clearWorkspaceQuestion,
   createOrUpdateProjectWorkspace,
   createWorkspaceQuestion,
   diffResearchSpecifications,
@@ -37,6 +44,7 @@ import {
   loadWorkspaceState,
   proposeResearchSpecificationPatch,
   readResearchSpecificationHistory,
+  recordWorkspaceQuestionTransport,
   syncCurrentWorkspaceView
 } from "@longtable/cli";
 import {
@@ -55,6 +63,14 @@ import {
 const SERVER_NAME = "longtable-state";
 const require = createRequire(import.meta.url);
 const SERVER_VERSION = String((require("../package.json") as { version?: unknown }).version ?? "0.0.0");
+const DEFAULT_LEGACY_ELICITATION_ROUND_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+
+function legacyElicitationRoundTimeoutMs(): number {
+  const configured = Number(process.env.LONGTABLE_MCP_LEGACY_ELICITATION_TIMEOUT_MS);
+  return Number.isFinite(configured) && configured > 0
+    ? configured
+    : DEFAULT_LEGACY_ELICITATION_ROUND_TIMEOUT_MS;
+}
 
 const TOOL_NAMES = [
   "read_project",
@@ -219,6 +235,16 @@ type AcceptedQuestionAnswer = string | string[] | {
   selectedValues?: string[];
   otherText?: string;
 };
+
+const acceptedQuestionContentSchema = z.object({
+  answer: z.union([
+    z.string().min(1),
+    z.array(z.string().min(1)).min(1)
+  ]),
+  otherText: z.string().optional()
+});
+
+const QUESTION_RESPONSE_PREFIX = "longtable-question:";
 
 const questionOptionSchema = z.object({
   value: z.string().min(1),
@@ -1050,29 +1076,23 @@ async function markQuestionTransport(
   context: Awaited<ReturnType<typeof requireContext>>,
   questionId: string,
   status: QuestionTransportStatus,
-  message?: string
+  message?: string,
+  options: {
+    attemptId?: string;
+    action?: "accept" | "decline" | "cancel";
+    provider?: ProviderKind;
+    retryable?: boolean;
+  } = {}
 ): Promise<QuestionRecord | null> {
-  const state = asInterviewState(await loadWorkspaceState(context));
-  let updatedQuestion: QuestionRecord | null = null;
-  state.questionLog = (state.questionLog ?? []).map((record: QuestionRecord) => {
-    if (record.id !== questionId) {
-      return record;
-    }
-    updatedQuestion = {
-      ...record,
-      updatedAt: new Date().toISOString(),
-      transportStatus: {
-        surface: "mcp_elicitation",
-        status,
-        updatedAt: new Date().toISOString(),
-        ...(message ? { message } : {})
-      }
-    };
-    return updatedQuestion;
+  const result = await recordWorkspaceQuestionTransport({
+    context,
+    questionId,
+    status,
+    surface: "mcp_elicitation",
+    ...(message ? { message } : {}),
+    ...options
   });
-  await writeFile(context.stateFilePath, JSON.stringify(state, null, 2), "utf8");
-  await syncCurrentWorkspaceView(context);
-  return updatedQuestion;
+  return result.question;
 }
 
 function buildElicitationParams(record: QuestionRecord): ElicitRequestFormParams {
@@ -1135,26 +1155,89 @@ function buildElicitationParams(record: QuestionRecord): ElicitRequestFormParams
   };
 }
 
-function acceptedAnswer(result: ElicitResult): { answer: AcceptedQuestionAnswer } | null {
-  if (result.action !== "accept") {
-    return null;
-  }
-  const content = result.content as Record<string, unknown> | undefined;
-  const answer = content?.answer ?? content?.answers ?? content?.selectedValues;
-  const otherText = typeof content?.otherText === "string" && content.otherText.trim().length > 0
+function acceptedAnswer(content: z.infer<typeof acceptedQuestionContentSchema>): { answer: AcceptedQuestionAnswer } {
+  const answer = content.answer;
+  const otherText = typeof content.otherText === "string" && content.otherText.trim().length > 0
     ? content.otherText.trim()
     : undefined;
-  if (typeof answer !== "string" || answer.length === 0) {
-    if (Array.isArray(answer) && answer.every((entry) => typeof entry === "string" && entry.length > 0)) {
-      return {
-        answer: otherText ? { selectedValues: answer, otherText } : answer
-      };
-    }
-    return null;
+  if (Array.isArray(answer)) {
+    return {
+      answer: otherText ? { selectedValues: answer, otherText } : answer
+    };
   }
   return {
     answer: otherText ? { selectedValue: answer, otherText } : answer
   };
+}
+
+function questionResponseKey(questionId: string): string {
+  return `${QUESTION_RESPONSE_PREFIX}${questionId}`;
+}
+
+function questionIdFromInputResponses(inputResponses: Record<string, unknown> | undefined): string | undefined {
+  const matches = Object.keys(inputResponses ?? {}).filter((key) => key.startsWith(QUESTION_RESPONSE_PREFIX));
+  if (matches.length > 1) {
+    throw new Error("LongTable received multiple checkpoint responses in one tool call.");
+  }
+  return matches[0]?.slice(QUESTION_RESPONSE_PREFIX.length);
+}
+
+async function resumedQuestionFromInputResponses(
+  context: Awaited<ReturnType<typeof requireContext>>,
+  inputResponses: Record<string, unknown> | undefined,
+  expected: {
+    checkpointKey?: string;
+    idempotencyKey?: string;
+    prompt?: string;
+  } = {}
+): Promise<QuestionRecord | undefined> {
+  const questionId = questionIdFromInputResponses(inputResponses);
+  if (!questionId) {
+    return undefined;
+  }
+  const state = await loadWorkspaceState(context);
+  const question = (state.questionLog ?? []).find((record: QuestionRecord) => record.id === questionId);
+  if (!question) {
+    throw new Error(`MCP input response references unknown LongTable question ${questionId}.`);
+  }
+  if (expected.checkpointKey && question.prompt.checkpointKey !== expected.checkpointKey) {
+    throw new Error(`MCP input response does not match checkpoint ${expected.checkpointKey}.`);
+  }
+  if (expected.idempotencyKey && question.idempotencyKey !== expected.idempotencyKey) {
+    throw new Error("MCP input response does not match the checkpoint idempotency key.");
+  }
+  if (expected.prompt && !question.prompt.rationale.includes(`Original prompt: ${expected.prompt}`)) {
+    throw new Error("MCP input response does not match the checkpoint prompt.");
+  }
+  return question;
+}
+
+function readQuestionInputResponse(
+  inputResponses: Record<string, unknown> | undefined,
+  question: QuestionRecord
+):
+  | { kind: "missing" }
+  | { kind: "refused"; action: "decline" | "cancel" }
+  | { kind: "accepted"; answer: AcceptedQuestionAnswer } {
+  const key = questionResponseKey(question.id);
+  const typedResponses = inputResponses as InputResponses | undefined;
+  const view = inputResponse(typedResponses, key);
+  if (view.kind === "elicit" && view.action !== "accept") {
+    return { kind: "refused", action: view.action };
+  }
+  const content = acceptedContent(typedResponses, key, acceptedQuestionContentSchema);
+  if (!content) {
+    return { kind: "missing" };
+  }
+  return { kind: "accepted", answer: acceptedAnswer(content).answer };
+}
+
+function requireQuestionInput(question: QuestionRecord): InputRequiredResult {
+  return inputRequired({
+    inputRequests: {
+      [questionResponseKey(question.id)]: inputRequired.elicit(buildElicitationParams(question))
+    }
+  });
 }
 
 function firstAcceptedAnswerValue(answer: AcceptedQuestionAnswer): string {
@@ -1408,17 +1491,6 @@ async function markAlreadyConfirmedResearchSpecification(
   };
 }
 
-function statusForElicitationError(error: unknown): QuestionTransportStatus {
-  const message = error instanceof Error ? error.message : String(error);
-  if (/timed?\s*out|timeout/i.test(message)) {
-    return "timeout";
-  }
-  if (/unsupported|not supported|unavailable|does not support/i.test(message)) {
-    return "unsupported";
-  }
-  return "error";
-}
-
 async function readAllowedProjectFiles(context: Awaited<ReturnType<typeof requireContext>>) {
   const current = existsSync(context.currentFilePath)
     ? await readFile(context.currentFilePath, "utf8")
@@ -1442,7 +1514,12 @@ export function createLongTableMcpServer(): McpServer {
     },
     {
       instructions:
-        "Use LongTable state tools to inspect .longtable workspaces, evaluate Researcher Checkpoints, write QuestionRecords, append DecisionRecords, and regenerate CURRENT.md. Treat .longtable as the source of truth."
+        "Use LongTable state tools to inspect .longtable workspaces, evaluate Researcher Checkpoints, write QuestionRecords, append DecisionRecords, and regenerate CURRENT.md. Treat .longtable as the source of truth.",
+      inputRequired: {
+        legacyShim: true,
+        maxRounds: 8,
+        roundTimeoutMs: legacyElicitationRoundTimeoutMs()
+      }
     }
   );
 
@@ -1923,7 +2000,7 @@ export function createLongTableMcpServer(): McpServer {
         fallbackOnly: z.boolean().default(false)
       })
     },
-    async ({ cwd: inputCwd, shape: inputShape, provider, fallbackOnly }) => {
+    async ({ cwd: inputCwd, shape: inputShape, provider, fallbackOnly }, ctx): Promise<CallToolResult | InputRequiredResult> => {
       try {
         const context = await requireContext(inputCwd);
         const state = asInterviewState(await loadWorkspaceState(context));
@@ -1940,17 +2017,30 @@ export function createLongTableMcpServer(): McpServer {
           });
         }
         const spec = buildFirstResearchShapeQuestion(shape);
-        const created = await createWorkspaceQuestion({
+        const shapeIdempotencyKey = `first-research-shape:${shape.sourceHookId ?? shape.handle}`;
+        const resumedQuestion = await resumedQuestionFromInputResponses(
           context,
-          prompt: spec.prompt,
-          title: spec.title,
-          question: spec.question,
-          checkpointKey: spec.checkpointKey,
-          questionOptions: spec.options,
-          displayReason: spec.displayReason,
-          provider: provider as ProviderKind,
-          required: true
-        });
+          ctx.mcpReq.inputResponses,
+          {
+            checkpointKey: spec.checkpointKey,
+            idempotencyKey: shapeIdempotencyKey,
+            prompt: spec.prompt
+          }
+        );
+        const created = resumedQuestion
+          ? { question: resumedQuestion }
+          : await createWorkspaceQuestion({
+              context,
+              prompt: spec.prompt,
+              title: spec.title,
+              question: spec.question,
+              checkpointKey: spec.checkpointKey,
+              questionOptions: spec.options,
+              displayReason: spec.displayReason,
+              provider: provider as ProviderKind,
+              required: true,
+              idempotencyKey: shapeIdempotencyKey
+            });
         const createdState = ensureFirstResearchShapeObligation(
           asInterviewState(await loadWorkspaceState(context)),
           shape,
@@ -1974,68 +2064,53 @@ export function createLongTableMcpServer(): McpServer {
           });
         }
 
-        try {
-          await markQuestionTransport(context, created.question.id, "attempted");
-          const elicited = await server.server.elicitInput(buildElicitationParams(created.question));
-          const accepted = acceptedAnswer(elicited);
-          if (!accepted) {
-            const status = elicited.action === "decline" || elicited.action === "cancel"
-              ? "declined"
-              : "fallback_rendered";
-            const marked = await markQuestionTransport(context, created.question.id, status, `MCP elicitation returned action: ${elicited.action}.`);
-            const cleared = status === "declined"
-              ? await clearWorkspaceQuestion({
-                  context,
-                  questionId: created.question.id,
-                  reason: `MCP elicitation returned action: ${elicited.action}; confirmation was deferred without a research-direction decision.`
-                })
-              : undefined;
-            return textResult({
-              question: cleared?.question ?? marked ?? created.question,
-              shape,
-              readiness: await currentResearchSpecificationReadiness(context),
-              elicitation: { attempted: true, action: elicited.action },
-              fallback
-            });
-          }
-          const decided = await answerWorkspaceQuestion({
-            context,
-            questionId: created.question.id,
-            answer: accepted.answer,
+        const elicited = readQuestionInputResponse(ctx.mcpReq.inputResponses, created.question);
+        if (elicited.kind === "missing") {
+          await markQuestionTransport(context, created.question.id, "attempted", undefined, {
             provider: provider as ProviderKind,
-            surface: "mcp_elicitation"
+            retryable: true
           });
-          const marked = await markQuestionTransport(context, created.question.id, "accepted");
-          const confirmation = await markFirstResearchShapeConfirmation(
+          return requireQuestionInput(created.question);
+        }
+        if (elicited.kind === "refused") {
+          const status = elicited.action === "cancel" ? "cancelled" : "declined";
+          const marked = await markQuestionTransport(
             context,
-            shape,
-            firstAcceptedAnswerValue(accepted.answer),
             created.question.id,
-            decided.decision.id
+            status,
+            `MCP elicitation returned action: ${elicited.action}. The checkpoint remains pending and resumable.`,
+            { action: elicited.action, provider: provider as ProviderKind, retryable: true }
           );
-          return textResult({
-            shape: confirmation.shape,
-            readiness: confirmation.readiness,
-            question: marked ? { ...decided.question, transportStatus: marked.transportStatus } : decided.question,
-            decision: decided.decision,
-            elicitation: { attempted: true, action: elicited.action }
-          });
-        } catch (elicitationError) {
-          const status = statusForElicitationError(elicitationError);
-          const message = elicitationError instanceof Error ? elicitationError.message : String(elicitationError);
-          const marked = await markQuestionTransport(context, created.question.id, status, message);
           return textResult({
             question: marked ?? created.question,
             shape,
             readiness: await currentResearchSpecificationReadiness(context),
-            elicitation: {
-              attempted: true,
-              supported: status !== "unsupported" ? undefined : false,
-              error: message
-            },
+            elicitation: { attempted: true, action: elicited.action, resumable: true },
             fallback
           });
         }
+        const decided = await answerWorkspaceQuestion({
+          context,
+          questionId: created.question.id,
+          answer: elicited.answer,
+          provider: provider as ProviderKind,
+          surface: "mcp_elicitation",
+          answerIdempotencyKey: `${created.question.id}:mcp-accept`
+        });
+        const confirmation = await markFirstResearchShapeConfirmation(
+          context,
+          shape,
+          firstAcceptedAnswerValue(elicited.answer),
+          created.question.id,
+          decided.decision.id
+        );
+        return textResult({
+          shape: confirmation.shape,
+          readiness: confirmation.readiness,
+          question: decided.question,
+          decision: decided.decision,
+          elicitation: { attempted: true, action: "accept" }
+        });
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
       }
@@ -2053,7 +2128,7 @@ export function createLongTableMcpServer(): McpServer {
         fallbackOnly: z.boolean().default(false)
       })
     },
-    async ({ cwd: inputCwd, specification: inputSpecification, provider, fallbackOnly }) => {
+    async ({ cwd: inputCwd, specification: inputSpecification, provider, fallbackOnly }, ctx): Promise<CallToolResult | InputRequiredResult> => {
       try {
         const context = await requireContext(inputCwd);
         const state = asInterviewState(await loadWorkspaceState(context));
@@ -2074,17 +2149,30 @@ export function createLongTableMcpServer(): McpServer {
           });
         }
         const spec = buildResearchSpecificationQuestion(specification);
-        const created = await createWorkspaceQuestion({
+        const specificationIdempotencyKey = `research-specification:${specification.sourceHookId ?? specification.createdAt ?? specification.title}`;
+        const resumedQuestion = await resumedQuestionFromInputResponses(
           context,
-          prompt: spec.prompt,
-          title: spec.title,
-          question: spec.question,
-          checkpointKey: spec.checkpointKey,
-          questionOptions: spec.options,
-          displayReason: spec.displayReason,
-          provider: provider as ProviderKind,
-          required: true
-        });
+          ctx.mcpReq.inputResponses,
+          {
+            checkpointKey: spec.checkpointKey,
+            idempotencyKey: specificationIdempotencyKey,
+            prompt: spec.prompt
+          }
+        );
+        const created = resumedQuestion
+          ? { question: resumedQuestion }
+          : await createWorkspaceQuestion({
+              context,
+              prompt: spec.prompt,
+              title: spec.title,
+              question: spec.question,
+              checkpointKey: spec.checkpointKey,
+              questionOptions: spec.options,
+              displayReason: spec.displayReason,
+              provider: provider as ProviderKind,
+              required: true,
+              idempotencyKey: specificationIdempotencyKey
+            });
         const fallback = renderQuestionFallback(created.question, provider as ProviderKind);
         if (fallbackOnly) {
           const marked = await markQuestionTransport(context, created.question.id, "fallback_rendered", "MCP elicitation skipped by fallbackOnly.");
@@ -2098,71 +2186,55 @@ export function createLongTableMcpServer(): McpServer {
           });
         }
 
-        try {
-          await markQuestionTransport(context, created.question.id, "attempted");
-          const elicited = await server.server.elicitInput(buildElicitationParams(created.question));
-          const accepted = acceptedAnswer(elicited);
-          if (!accepted) {
-            const status = elicited.action === "decline" || elicited.action === "cancel"
-              ? "declined"
-              : "fallback_rendered";
-            const marked = await markQuestionTransport(context, created.question.id, status, `MCP elicitation returned action: ${elicited.action}.`);
-            const cleared = status === "declined"
-              ? await clearWorkspaceQuestion({
-                  context,
-                  questionId: created.question.id,
-                  reason: `MCP elicitation returned action: ${elicited.action}; Research Specification confirmation was deferred.`
-                })
-              : undefined;
-            return textResult({
-              question: cleared?.question ?? marked ?? created.question,
-              specification,
-              preview: renderResearchSpecificationPreview(specification),
-              readiness: await currentResearchSpecificationReadiness(context, specification),
-              elicitation: { attempted: true, action: elicited.action },
-              fallback
-            });
-          }
-          const decided = await answerWorkspaceQuestion({
-            context,
-            questionId: created.question.id,
-            answer: accepted.answer,
+        const elicited = readQuestionInputResponse(ctx.mcpReq.inputResponses, created.question);
+        if (elicited.kind === "missing") {
+          await markQuestionTransport(context, created.question.id, "attempted", undefined, {
             provider: provider as ProviderKind,
-            surface: "mcp_elicitation"
+            retryable: true
           });
-          const marked = await markQuestionTransport(context, created.question.id, "accepted");
-          const confirmation = await markResearchSpecificationConfirmation(
+          return requireQuestionInput(created.question);
+        }
+        if (elicited.kind === "refused") {
+          const status = elicited.action === "cancel" ? "cancelled" : "declined";
+          const marked = await markQuestionTransport(
             context,
-            specification,
-            firstAcceptedAnswerValue(accepted.answer),
             created.question.id,
-            decided.decision.id
+            status,
+            `MCP elicitation returned action: ${elicited.action}. The checkpoint remains pending and resumable.`,
+            { action: elicited.action, provider: provider as ProviderKind, retryable: true }
           );
-          return textResult({
-            specification: confirmation.specification,
-            preview: renderResearchSpecificationPreview(confirmation.specification),
-            readiness: confirmation.readiness,
-            question: marked ? { ...decided.question, transportStatus: marked.transportStatus } : decided.question,
-            decision: decided.decision,
-            elicitation: { attempted: true, action: elicited.action }
-          });
-        } catch (elicitationError) {
-          const status = statusForElicitationError(elicitationError);
-          const message = elicitationError instanceof Error ? elicitationError.message : String(elicitationError);
-          const marked = await markQuestionTransport(context, created.question.id, status, message);
           return textResult({
             question: marked ?? created.question,
             specification,
             preview: renderResearchSpecificationPreview(specification),
             readiness: await currentResearchSpecificationReadiness(context, specification),
-            elicitation: {
-              attempted: true,
-              supported: status !== "unsupported" ? undefined : false,
-              error: message
-            },
+            elicitation: { attempted: true, action: elicited.action, resumable: true },
             fallback
           });
         }
+        const decided = await answerWorkspaceQuestion({
+          context,
+          questionId: created.question.id,
+          answer: elicited.answer,
+          provider: provider as ProviderKind,
+          surface: "mcp_elicitation",
+          answerIdempotencyKey: `${created.question.id}:mcp-accept`
+        });
+        const confirmation = await markResearchSpecificationConfirmation(
+          context,
+          specification,
+          firstAcceptedAnswerValue(elicited.answer),
+          created.question.id,
+          decided.decision.id
+        );
+        return textResult({
+          specification: confirmation.specification,
+          preview: renderResearchSpecificationPreview(confirmation.specification),
+          readiness: confirmation.readiness,
+          question: decided.question,
+          decision: decided.decision,
+          elicitation: { attempted: true, action: "accept" }
+        });
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
       }
@@ -2288,28 +2360,50 @@ export function createLongTableMcpServer(): McpServer {
         required: z.boolean().optional(),
         commitmentFamily: commitmentFamilySchema.optional(),
         epistemicBasis: epistemicBasisSchema.optional(),
+        idempotencyKey: z.string().min(1).optional().describe("Stable caller key for retrying the same checkpoint without creating a duplicate."),
         fallbackOnly: z.boolean().default(false).describe("Create and render the checkpoint without calling MCP elicitation.")
       })
     },
-    async ({ cwd: inputCwd, prompt, title, question, type, checkpointKey, options, allowOther, otherLabel, displayReason, provider, required, commitmentFamily, epistemicBasis, fallbackOnly }) => {
+    async ({ cwd: inputCwd, prompt, title, question, type, checkpointKey, options, allowOther, otherLabel, displayReason, provider, required, commitmentFamily, epistemicBasis, idempotencyKey, fallbackOnly }, ctx): Promise<CallToolResult | InputRequiredResult> => {
       try {
         const context = await requireContext(inputCwd);
-        const created = await createWorkspaceQuestion({
+        const resumedQuestion = await resumedQuestionFromInputResponses(
           context,
-          prompt,
-          title,
-          question,
-          type: type as QuestionPromptType | undefined,
-          checkpointKey,
-          questionOptions: options as QuestionOption[] | undefined,
-          allowOther,
-          otherLabel,
-          displayReason,
-          provider,
-          required,
-          commitmentFamily: commitmentFamily as QuestionCommitmentFamily | undefined,
-          epistemicBasis: epistemicBasis as QuestionEpistemicBasis | undefined
-        });
+          ctx.mcpReq.inputResponses,
+          { checkpointKey, idempotencyKey, prompt }
+        );
+        const created = resumedQuestion
+          ? { question: resumedQuestion }
+          : await createWorkspaceQuestion({
+              context,
+              prompt,
+              title,
+              question,
+              type: type as QuestionPromptType | undefined,
+              checkpointKey,
+              questionOptions: options as QuestionOption[] | undefined,
+              allowOther,
+              otherLabel,
+              displayReason,
+              provider,
+              required,
+              commitmentFamily: commitmentFamily as QuestionCommitmentFamily | undefined,
+              epistemicBasis: epistemicBasis as QuestionEpistemicBasis | undefined,
+              idempotencyKey
+            });
+        if (created.question.status === "answered" && created.question.decisionRecordId) {
+          const currentState = await loadWorkspaceState(context);
+          const decision = currentState.decisionLog.find(
+            (record) => record.id === created.question.decisionRecordId
+          );
+          if (decision) {
+            return textResult({
+              question: created.question,
+              decision,
+              elicitation: { attempted: false, reason: "idempotent_replay" }
+            });
+          }
+        }
         const fallback = renderQuestionFallback(created.question, provider as ProviderKind);
         if (fallbackOnly) {
           const marked = await markQuestionTransport(context, created.question.id, "fallback_rendered", "MCP elicitation skipped by fallbackOnly.");
@@ -2321,50 +2415,43 @@ export function createLongTableMcpServer(): McpServer {
           });
         }
 
-        try {
-          await markQuestionTransport(context, created.question.id, "attempted");
-          const elicited = await server.server.elicitInput(buildElicitationParams(created.question));
-          const accepted = acceptedAnswer(elicited);
-          if (!accepted) {
-            const status = elicited.action === "decline" || elicited.action === "cancel"
-              ? "declined"
-              : "fallback_rendered";
-            const marked = await markQuestionTransport(context, created.question.id, status, `MCP elicitation returned action: ${elicited.action}.`);
-            return textResult({
-              question: marked ?? created.question,
-              elicitation: { attempted: true, action: elicited.action },
-              fallback,
-              nextAction: `longtable decide --question ${created.question.id} --answer <value>`
-            });
-          }
-          const decided = await answerWorkspaceQuestion({
-            context,
-            questionId: created.question.id,
-            answer: accepted.answer,
+        const elicited = readQuestionInputResponse(ctx.mcpReq.inputResponses, created.question);
+        if (elicited.kind === "missing") {
+          await markQuestionTransport(context, created.question.id, "attempted", undefined, {
             provider: provider as ProviderKind,
-            surface: "mcp_elicitation"
+            retryable: true
           });
-          const marked = await markQuestionTransport(context, created.question.id, "accepted");
-          return textResult({
-            question: marked ? { ...decided.question, transportStatus: marked.transportStatus } : decided.question,
-            decision: decided.decision,
-            elicitation: { attempted: true, action: elicited.action }
-          });
-        } catch (elicitationError) {
-          const status = statusForElicitationError(elicitationError);
-          const message = elicitationError instanceof Error ? elicitationError.message : String(elicitationError);
-          const marked = await markQuestionTransport(context, created.question.id, status, message);
+          return requireQuestionInput(created.question);
+        }
+        if (elicited.kind === "refused") {
+          const status = elicited.action === "cancel" ? "cancelled" : "declined";
+          const marked = await markQuestionTransport(
+            context,
+            created.question.id,
+            status,
+            `MCP elicitation returned action: ${elicited.action}. The checkpoint remains pending and resumable.`,
+            { action: elicited.action, provider: provider as ProviderKind, retryable: true }
+          );
           return textResult({
             question: marked ?? created.question,
-            elicitation: {
-              attempted: true,
-              supported: status !== "unsupported" ? undefined : false,
-              error: message
-            },
+            elicitation: { attempted: true, action: elicited.action, resumable: true },
             fallback,
             nextAction: `longtable decide --question ${created.question.id} --answer <value>`
           });
         }
+        const decided = await answerWorkspaceQuestion({
+          context,
+          questionId: created.question.id,
+          answer: elicited.answer,
+          provider: provider as ProviderKind,
+          surface: "mcp_elicitation",
+          answerIdempotencyKey: `${created.question.id}:mcp-accept`
+        });
+        return textResult({
+          question: decided.question,
+          decision: decided.decision,
+          elicitation: { attempted: true, action: "accept" }
+        });
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
       }
@@ -2451,10 +2538,13 @@ export function createLongTableMcpServer(): McpServer {
   return server;
 }
 
-export async function runStdioServer(): Promise<void> {
-  const server = createLongTableMcpServer();
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+export function runStdioServer(): void {
+  serveStdio(() => createLongTableMcpServer(), {
+    legacy: "serve",
+    onerror: (error) => {
+      console.error(`${SERVER_NAME} MCP transport error: ${error.message}`);
+    }
+  });
   console.error(`${SERVER_NAME} MCP server running on stdio`);
 }
 
@@ -2464,7 +2554,7 @@ export async function runLongTableMcpCli(argv = process.argv): Promise<void> {
     return;
   }
 
-  await runStdioServer();
+  runStdioServer();
 }
 
 function isDirectRun(): boolean {
