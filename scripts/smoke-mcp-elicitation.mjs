@@ -10,6 +10,13 @@ const delayMs = Number(process.env.LONGTABLE_MCP_TEST_DELAY_MS ?? 0);
 const workspace = await mkdtemp(join(tmpdir(), "longtable-mcp-elicitation-"));
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const serverEntry = join(repoRoot, "packages", "longtable-mcp", "dist", "server.js");
+const setupFixture = join(
+  repoRoot,
+  "packages",
+  "longtable-setup",
+  "examples",
+  "codex-setup-output.json"
+);
 let action = "accept";
 let remainingDelayMs = delayMs;
 
@@ -87,14 +94,18 @@ const acceptedArgs = {
 
 let connection = await openConnection();
 try {
-  await connection.client.callTool({
+  const workspaceResult = await connection.client.callTool({
     name: "create_workspace",
     arguments: {
       cwd: workspace,
       projectName: "MCP elicitation smoke",
-      seedGoal: "Verify durable Researcher Checkpoints."
+      seedGoal: "Verify durable Researcher Checkpoints.",
+      setupPath: setupFixture
     }
   });
+  if (workspaceResult.isError) {
+    throw new Error(`MCP workspace setup failed: ${JSON.stringify(workspaceResult)}`);
+  }
 
   const accepted = await connection.client.callTool({
     name: "elicit_question",
