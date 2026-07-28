@@ -455,6 +455,8 @@ export interface DecisionRecord {
   rationale?: string;
   explicitStateUpdates?: Record<string, unknown>;
   studyContractId?: string;
+  sourceQuestionId?: string;
+  idempotencyKey?: string;
 }
 
 export type EvidenceSourceKind =
@@ -650,6 +652,7 @@ export interface QuestionAnswer {
   rationale?: string;
   provider?: ProviderKind;
   surface: QuestionSurface;
+  idempotencyKey?: string;
 }
 
 export type QuestionRecordStatus = "pending" | "answered" | "cleared" | "error";
@@ -659,6 +662,7 @@ export type QuestionTransportStatus =
   | "attempted"
   | "accepted"
   | "declined"
+  | "cancelled"
   | "unsupported"
   | "timeout"
   | "error"
@@ -671,6 +675,21 @@ export interface QuestionTransportState {
   message?: string;
 }
 
+export interface QuestionTransportAttempt {
+  id: string;
+  attemptId: string;
+  sequence: number;
+  surface: QuestionSurface;
+  status: QuestionTransportStatus;
+  recordedAt: string;
+  provider?: ProviderKind;
+  parentAttemptId?: string;
+  requestId?: string;
+  action?: "accept" | "decline" | "cancel";
+  message?: string;
+  retryable?: boolean;
+}
+
 export interface QuestionRecord {
   id: string;
   createdAt: string;
@@ -680,8 +699,10 @@ export interface QuestionRecord {
   hardStopScope?: HardStopScope;
   commitmentFamily?: QuestionCommitmentFamily;
   epistemicBasis?: QuestionEpistemicBasis;
+  idempotencyKey?: string;
   prompt: QuestionPrompt;
   transportStatus?: QuestionTransportState;
+  transportAttempts?: QuestionTransportAttempt[];
   answer?: QuestionAnswer;
   error?: string;
   clearedReason?: string;

@@ -1,0 +1,47 @@
+{
+  "name": "@longtable/research",
+  "version": "0.2.0-beta.1",
+  "private": false,
+  "description": "LongTable Research: journal-grounded evidence, verified synthesis, and reproducible research packages",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "typescript": "^5.6.0"
+  },
+  "keywords": [
+    "longtable",
+    "research",
+    "scholarly",
+    "evidence",
+    "citation"
+  ],
+  "author": "Hosung You",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HosungYou/LongTable.git"
+  },
+  "homepage": "https://github.com/HosungYou/LongTable#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

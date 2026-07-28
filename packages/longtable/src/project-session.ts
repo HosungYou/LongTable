@@ -28,6 +28,8 @@ import type {
   QuestionSurface,
   QuestionPromptType,
   QuestionRecord,
+  QuestionTransportAttempt,
+  QuestionTransportStatus,
   ResearchSpecificationChange,
   ResearchSpecificationPatch,
   ResearchSpecificationPatchSource,
@@ -3713,11 +3715,27 @@ export async function createWorkspaceQuestion(options: {
   hardStopScope?: HardStopScope;
   commitmentFamily?: QuestionCommitmentFamily;
   epistemicBasis?: QuestionEpistemicBasis;
+  idempotencyKey?: string;
 }): Promise<{
   question: QuestionRecord;
   state: ResearchState;
+  created: boolean;
+  replayed: boolean;
 }> {
   const state = await loadResearchState(options.context.stateFilePath);
+  if (options.idempotencyKey) {
+    const existing = (state.questionLog ?? []).find(
+      (record) => record.idempotencyKey === options.idempotencyKey
+    );
+    if (existing) {
+      return {
+        question: existing,
+        state,
+        created: false,
+        replayed: true
+      };
+    }
+  }
   const trigger = classifyCheckpointTrigger(options.prompt, {
     unresolvedTensions: state.openTensions ?? [],
     studyContract: state.studyContract
@@ -3749,6 +3767,7 @@ export async function createWorkspaceQuestion(options: {
     updatedAt: createdAt,
     status: "pending",
     ...metadata,
+    ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
     ...(typeof options.hardStop === "boolean" ? { hardStop: options.hardStop } : {}),
     ...(options.hardStopScope ? { hardStopScope: options.hardStopScope } : {}),
     prompt: {
@@ -3775,7 +3794,81 @@ export async function createWorkspaceQuestion(options: {
   await writeFile(options.context.stateFilePath, JSON.stringify(withObligation, null, 2), "utf8");
   await syncCurrentWorkspaceView(options.context);
 
-  return { question, state: withObligation };
+  return { question, state: withObligation, created: true, replayed: false };
+}
+
+export async function recordWorkspaceQuestionTransport(options: {
+  context: LongTableProjectContext;
+  questionId: string;
+  status: QuestionTransportStatus;
+  surface?: QuestionSurface;
+  provider?: ProviderKind;
+  attemptId?: string;
+  parentAttemptId?: string;
+  requestId?: string;
+  action?: "accept" | "decline" | "cancel";
+  message?: string;
+  retryable?: boolean;
+}): Promise<{
+  question: QuestionRecord;
+  state: ResearchState;
+}> {
+  const state = await loadResearchState(options.context.stateFilePath);
+  const question = (state.questionLog ?? []).find((record) => record.id === options.questionId);
+  if (!question) {
+    throw new Error(`No LongTable question found for ${options.questionId}.`);
+  }
+  const recordedAt = nowIso();
+  const surface = options.surface ?? "mcp_elicitation";
+  const previous = question.transportAttempts?.at(-1);
+  const attemptId = options.attemptId
+    ?? (previous?.status === "attempted" ? previous.attemptId : createId("question_transport_attempt"));
+  const isExactReplay = Boolean(
+    previous
+    && previous.attemptId === attemptId
+    && previous.surface === surface
+    && previous.status === options.status
+    && previous.message === options.message
+  );
+  const transportAttempts = isExactReplay
+    ? (question.transportAttempts ?? [])
+    : [
+        ...(question.transportAttempts ?? []),
+        {
+          id: createId("question_transport_event"),
+          attemptId,
+          sequence: (question.transportAttempts?.length ?? 0) + 1,
+          surface,
+          status: options.status,
+          recordedAt,
+          ...(options.provider ? { provider: options.provider } : {}),
+          ...(options.parentAttemptId ? { parentAttemptId: options.parentAttemptId } : {}),
+          ...(options.requestId ? { requestId: options.requestId } : {}),
+          ...(options.action ? { action: options.action } : {}),
+          ...(options.message ? { message: options.message } : {}),
+          ...(typeof options.retryable === "boolean" ? { retryable: options.retryable } : {})
+        } satisfies QuestionTransportAttempt
+      ];
+  const updatedQuestion: QuestionRecord = {
+    ...question,
+    updatedAt: recordedAt,
+    transportAttempts,
+    transportStatus: {
+      surface,
+      status: options.status,
+      updatedAt: recordedAt,
+      ...(options.message ? { message: options.message } : {})
+    }
+  };
+  const updated: ResearchState = {
+    ...state,
+    questionLog: (state.questionLog ?? []).map((record) =>
+      record.id === question.id ? updatedQuestion : record
+    )
+  };
+  await writeFile(options.context.stateFilePath, JSON.stringify(updated, null, 2), "utf8");
+  await syncCurrentWorkspaceView(options.context);
+  return { question: updatedQuestion, state: updated };
 }
 
 function updateInvocationWithDecision(
@@ -4055,12 +4148,34 @@ export async function answerWorkspaceQuestion(options: {
   rationale?: string;
   provider?: "codex" | "claude";
   surface?: QuestionSurface;
+  answerIdempotencyKey?: string;
 }): Promise<{
   question: QuestionRecord;
   decision: DecisionRecord;
   state: ResearchState;
 }> {
   const state = await loadResearchState(options.context.stateFilePath);
+  const existingQuestion = options.questionId
+    ? (state.questionLog ?? []).find((record) => record.id === options.questionId)
+    : undefined;
+  if (existingQuestion?.status === "answered" && existingQuestion.answer && existingQuestion.decisionRecordId) {
+    const normalizedReplay = normalizeQuestionAnswerSelection(existingQuestion, options.answer);
+    const sameAnswer = JSON.stringify(normalizedReplay.selectedValues) === JSON.stringify(existingQuestion.answer.selectedValues)
+      && (normalizedReplay.otherText ?? "") === (existingQuestion.answer.otherText ?? "");
+    const sameKey = !options.answerIdempotencyKey
+      || options.answerIdempotencyKey === existingQuestion.answer.idempotencyKey;
+    const existingDecision = state.decisionLog.find(
+      (record) => record.id === existingQuestion.decisionRecordId
+    );
+    if (sameAnswer && sameKey && existingDecision) {
+      return {
+        question: existingQuestion,
+        decision: existingDecision,
+        state
+      };
+    }
+    throw new Error(`LongTable question ${existingQuestion.id} was already answered with a different response.`);
+  }
   const question = findQuestionForDecision(state, options.questionId);
   if (!question) {
     throw new Error(options.questionId ? `No pending LongTable question found for ${options.questionId}.` : "No pending LongTable question was found.");
@@ -4077,7 +4192,8 @@ export async function answerWorkspaceQuestion(options: {
     ...(normalized.otherText ? { otherText: normalized.otherText } : {}),
     ...(rationale ? { rationale } : {}),
     ...(options.provider ? { provider: options.provider } : {}),
-    surface: options.surface ?? (options.provider === "claude" ? "native_structured" : "numbered")
+    surface: options.surface ?? (options.provider === "claude" ? "native_structured" : "numbered"),
+    ...(options.answerIdempotencyKey ? { idempotencyKey: options.answerIdempotencyKey } : {})
   };
 
   const timestamp = nowIso();
@@ -4092,15 +4208,30 @@ export async function answerWorkspaceQuestion(options: {
     ...(question.epistemicBasis ? { epistemicBasis: question.epistemicBasis } : {}),
     selectedOption: answer.selectedValues[0],
     selectedOptions: answer.selectedValues,
-    ...(rationale ? { rationale } : {})
+    ...(rationale ? { rationale } : {}),
+    sourceQuestionId: question.id,
+    ...(options.answerIdempotencyKey ? { idempotencyKey: options.answerIdempotencyKey } : {})
   };
 
+  const acceptedAttemptId = question.transportAttempts?.at(-1)?.attemptId
+    ?? createId("question_transport_attempt");
+  const acceptedAttempt: QuestionTransportAttempt = {
+    id: createId("question_transport_event"),
+    attemptId: acceptedAttemptId,
+    sequence: (question.transportAttempts?.length ?? 0) + 1,
+    surface: answer.surface,
+    status: "accepted",
+    recordedAt: timestamp,
+    ...(options.provider ? { provider: options.provider } : {}),
+    action: "accept"
+  };
   const answeredQuestion: QuestionRecord = {
     ...question,
     updatedAt: timestamp,
     status: "answered",
     answer,
     decisionRecordId: decision.id,
+    transportAttempts: [...(question.transportAttempts ?? []), acceptedAttempt],
     transportStatus: {
       surface: answer.surface,
       status: "accepted",

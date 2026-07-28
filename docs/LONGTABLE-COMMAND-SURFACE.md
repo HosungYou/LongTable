@@ -5,9 +5,9 @@
 LongTable should expose a small researcher-facing workflow:
 
 1. `longtable setup`
-2. `$longtable-start`
-3. `$longtable-interview` for grilling-style pressure interviews
-4. natural in-session directives such as `lt explore:`, `lt review:`, and
+2. `$longtable` for workspace, start/interview, governance, role, and panel routing
+3. `$longtable-research` for the durable scholarly-evidence workflow
+4. natural in-session directives through `$longtable`, such as `lt explore:`, `lt review:`, and
    `lt panel:`
 
 The CLI remains available for setup, diagnostics, scripted workspace creation,
@@ -15,6 +15,43 @@ state inspection, search, and tests. The main research conversation happens
 inside the provider runtime.
 
 ## Primary Surfaces
+
+### `longtable research run|resume|validate-visual-contract`
+
+Recovery and audit subcommands include provider patch recording, independent
+extraction and synthesis verification, human citation and synthesis review,
+read-only Visual Evidence Contract validation, allowlisted rendering, final
+human render review, Paper B replay, and evaluation observation/report
+recording. `trial-create|start|finish|status` provides a resumable prospective
+crossover runner. These commands are intentionally not the default
+conversational journey.
+
+`register-visual-portfolio` freezes a manuscript-level set of Figure, Table,
+and Diagram contracts. No visual-contract or final-render stage completes until
+all declared items pass their respective human gates.
+
+Durable scholarly-research automation:
+
+- `run` creates a versioned `ResearchBundle` and append-only event log
+- `resume` continues at the first non-terminal stage without repeating an
+  unchanged completed stage
+- `status` reads the durable bundle, `explain` scopes state and events to one
+  stage, and `verify` independently reads hashes, provenance, storage
+  isolation, visual QA, portfolio completion, and handoff evidence
+- the stage order and five allowed blocking event classes are defined in
+  `LONGTABLE-RESEARCH-RUNTIME.md`
+- stage-level commands are diagnostic/recovery surfaces, not the normal journey
+- legal access and strict evidence depth remain visible; metadata or abstract
+  records never become full-text verified
+- collected public-OA HTTPS routes are acquired automatically unless
+  `--no-auto-oa` is set; redirects, network destination, byte limits, PDF
+  signature, hash, and parser result are validated without credentials
+- prospective trials freeze question, journal, model/version, corpus cutoff,
+  permissions, and stage profiles before execution
+- legal access, source-version provenance, and quality hard gates are protected
+  controls, never ablation candidates
+- no default stage may be removed before three complete matched crossover pairs
+  with human effort and trust ratings
 
 ### `longtable setup`
 
@@ -28,7 +65,7 @@ Permission and runtime setup:
 
 `longtable init` remains a deprecated compatibility alias.
 
-### `$longtable-start`
+### `$longtable` start route
 
 Provider-native research start:
 
@@ -44,7 +81,7 @@ Provider-native research start:
 - use structured option UI only for final specification confirmation,
   short-handle stop points, or true checkpoint boundaries
 
-### `$longtable-interview`
+### `$longtable` pressure-interview route
 
 LongTable grilling interview:
 
@@ -70,7 +107,7 @@ Automation fallback:
 - can create a workspace from explicit flags
 - should not be presented as the primary research-start experience
 
-### `longtable panel`
+### `longtable assure` (Research Assurance)
 
 Structured multi-role review:
 
@@ -94,23 +131,23 @@ Structured multi-role review:
 Examples:
 
 ```bash
-longtable panel --prompt "review this methods section" --json
-longtable panel --prompt "review this measurement plan" --role editor,measurement_auditor --json
-longtable panel --provider codex --native-workers --wait 30000 --prompt "review this methods section" --json
-longtable panel --provider codex --native-subagents --prompt "legacy native subagent request" --json
-longtable panel --visibility always_visible --prompt "keep unresolved disagreement visible" --json
+longtable assure --prompt "review this methods section" --json
+longtable assure --prompt "review this measurement plan" --role editor,measurement_auditor --json
+longtable assure --provider codex --native-workers --wait 30000 --prompt "review this methods section" --json
+longtable assure --provider codex --native-subagents --prompt "legacy native subagent request" --json
+longtable assure --visibility always_visible --prompt "keep unresolved disagreement visible" --json
 ```
 
 When a native worker run reaches a terminal `completed` or `blocked` state
-through `longtable panel --native-workers --wait`, `longtable panel status
---wait`, or `longtable panel resume --wait`, LongTable records the normalized
+through `longtable assure --native-workers --wait`, `longtable assure status
+--wait`, or `longtable assure resume --wait`, LongTable records the normalized
 `PanelResult` into workspace evidence without collapsing blocked role outputs
 into completion. When a provider or external worker returns a result file
 outside that lifecycle, record the structured result before asking LongTable for
 a handoff or Research Specification patch:
 
 ```bash
-longtable panel record --invocation <invocation_record_id> --result-file panel-result.json
+longtable assure record --invocation <invocation_record_id> --result-file panel-result.json
 ```
 
 Native worker-produced files live inside each worker git worktree under
@@ -119,7 +156,7 @@ summaries, claims, objections, open questions, and evidence references before
 aggregation. They must not contain hidden reasoning, raw tool traces, or tmux
 logs.
 
-Team-style requests route through panel. Explicit debate-language requests route
+Team-style requests route through Research Assurance. Explicit debate-language requests route
 to panel debate records under `.longtable/panel/`. `longtable team` is not a
 public command surface. Historical `.longtable/team/` records remain readable
 only as older workspace state.
@@ -191,8 +228,12 @@ longtable question --prompt "<decision context>"
 longtable decide --question <id> --answer <value>
 longtable spec read --cwd "<project-path>"
 longtable search --query "<topic>"
-longtable panel --prompt "<collaboration context>"
-longtable panel record --invocation <id> --result-file panel-result.json
+longtable research run --query "<topic>" --allow-partial \
+  --pdf-dir "<legitimate-pdf-folder>" --pdf-access manual_legitimate_access
+longtable research resume --run-id "<run-id>" \
+  --pdf-dir "<legitimate-pdf-folder>" --pdf-access private
+longtable assure --prompt "<collaboration context>"
+longtable assure record --invocation <id> --result-file panel-result.json
 longtable handoff --cwd "<project-path>"
 longtable codex install-skills
 longtable claude install-skills

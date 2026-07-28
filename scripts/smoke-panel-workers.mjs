@@ -193,9 +193,9 @@ function assertThrowsSync(fn, expectedMessage, label) {
 }
 
 const help = runCli(["--help"]);
-assertIncludes(help, "longtable panel status --run", "help includes panel status");
-assertIncludes(help, "longtable panel stop --run", "help includes panel stop");
-assertIncludes(help, "longtable panel resume --run", "help includes panel resume");
+assertIncludes(help, "longtable assure status --run", "help includes assurance status");
+assertIncludes(help, "longtable assure stop --run", "help includes assurance stop");
+assertIncludes(help, "longtable assure resume --run", "help includes assurance resume");
 assertIncludes(help, "--wait [ms]", "help includes bounded wait option");
 assert(!help.includes("longtable team"), "help must not advertise public longtable team");
 

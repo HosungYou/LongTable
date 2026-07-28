@@ -39,11 +39,23 @@ properties:
   summary:
     type: string
     minLength: 1
+  commitmentFamily:
+    type: string
+  epistemicBasis:
+    type: string
   selectedOption:
     type: string
+  selectedOptions:
+    type: array
+    items:
+      type: string
   rationale:
     type: string
   explicitStateUpdates:
     type: object
   studyContractId:
+    type: string
+  sourceQuestionId:
+    type: string
+  idempotencyKey:
     type: string

@@ -60,7 +60,10 @@ LongTable adopts that pattern but narrows it for research:
 Research risk detected
   -> Researcher Checkpoint generated
   -> QuestionRecord written
-  -> provider renders structured/native/numbered question
+  -> transport attempt appended
+  -> provider renders MCP input_required / structured / native / numbered question
+  -> client interruption leaves the same QuestionRecord pending
+  -> retry resumes the same question id
   -> researcher answers
   -> DecisionRecord appended
   -> linked invocation/panel/evidence updated
@@ -91,6 +94,11 @@ them conservatively.
 
 The technical name may stay `QuestionRecord`. The product name should be
 Researcher Checkpoint.
+
+`transportStatus` remains a compatibility projection of the latest transport
+event. `transportAttempts` is the append-only audit trail. An explicit
+`idempotencyKey` lets transport retries reuse one checkpoint; accepting the same
+response again returns the linked decision rather than appending another.
 
 ## Trigger Policy
 
@@ -206,5 +214,8 @@ are true:
 - `other` is visible when `allowOther` is true
 - the reason for asking is visible
 - pending questions survive session restart
+- transport retries reuse the same question and do not duplicate the decision
+- decline, cancel, and fallback remain visible in transport history; a lost
+  client transport never clears the pending question
 - the answer becomes a decision record
 - panel/evidence outputs can link back to the decision

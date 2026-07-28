@@ -56,8 +56,8 @@ if (setupJson.setup.initialState.explicitState.installScope !== "none") {
 if (setupJson.setup.initialState.explicitState.runtimeSurfaces !== "cli_only") {
   throw new Error("Setup did not record runtime surface.");
 }
-if (setupJson.setup.initialState.explicitState.officialStartSurface !== "$longtable-start") {
-  throw new Error("Setup should point researchers to $longtable-start.");
+if (setupJson.setup.initialState.explicitState.officialStartSurface !== "$longtable") {
+  throw new Error("Setup should point researchers to the consolidated $longtable router.");
 }
 if (["t", "muxMode"].join("") in setupJson.setup.initialState.explicitState) {
   throw new Error("Setup should not record a console-specific mode.");
@@ -140,8 +140,8 @@ const movedStart = runCli([
 ], {
   stdio: ["ignore", "pipe", "pipe"]
 });
-if (!movedStart.includes("$longtable-start")) {
-  throw new Error("Interactive longtable start should direct researchers to $longtable-start.");
+if (!movedStart.includes("$longtable")) {
+  throw new Error("Interactive longtable start should direct researchers to the $longtable router.");
 }
 
 const skillsDir = join(tmp, "codex-skills");
@@ -149,72 +149,31 @@ const staleCriticalInterviewDir = join(skillsDir, "critical-interview");
 mkdirSync(staleCriticalInterviewDir, { recursive: true });
 writeFileSync(join(staleCriticalInterviewDir, "SKILL.md"), "stale critical-interview alias", "utf8");
 const installOutput = runCli(["codex", "install-skills", "--dir", skillsDir]);
-if (!installOutput.includes("longtable-start")) {
-  throw new Error("Codex skill install should include longtable-start.");
+if (!installOutput.includes("longtable") || !installOutput.includes("longtable-research")) {
+  throw new Error("Compact Codex skill install should include the two consolidated surfaces.");
 }
-if (!installOutput.includes("longtable-interview")) {
-  throw new Error("Codex skill install should include longtable-interview.");
+for (const removed of ["longtable-start", "longtable-interview", "longtable-panel", "longtable-methods", "longtable-measure"]) {
+  if (installOutput.includes(removed) || existsSync(join(skillsDir, removed))) {
+    throw new Error(`Compact Codex skill install should not expose ${removed}.`);
+  }
 }
-if (!installOutput.includes("longtable-methods") || !installOutput.includes("longtable-measure")) {
-  throw new Error("Compact Codex skill install should include short role shortcuts.");
+const compactRouter = readFileSync(join(skillsDir, "longtable", "SKILL.md"), "utf8");
+if (!compactRouter.includes("exposes exactly `$longtable` and `$longtable-research`")) {
+  throw new Error("Compact LongTable router should document the consolidated surface.");
 }
-if (!installOutput.includes("longtable-panel")) {
-  throw new Error("Compact Codex skill install should include the primary panel shortcut.");
+const fullSkillsDir = join(tmp, "codex-skills-full");
+const fullInstallOutput = runCli(["codex", "install-skills", "--surface", "full", "--dir", fullSkillsDir]);
+if (!fullInstallOutput.includes("longtable-research")) {
+  throw new Error("Deprecated full install option should resolve to the two-skill surface.");
 }
-if (installOutput.includes("longtable-methods-critic")) {
-  throw new Error("Compact Codex skill install should not expose full role shortcuts by default.");
+for (const removed of ["scholar-research", "longtable-start", "longtable-interview", "longtable-panel", "longtable-methods-critic"]) {
+  if (existsSync(join(fullSkillsDir, removed))) {
+    throw new Error(`Full compatibility option must prune legacy skill ${removed}.`);
+  }
 }
-const startSkill = readFileSync(join(skillsDir, "longtable-start", "SKILL.md"), "utf8");
-const interviewSkill = readFileSync(join(skillsDir, "longtable-interview", "SKILL.md"), "utf8");
-if (!startSkill.includes("First Research Shape")) {
-  throw new Error("longtable-start skill should document First Research Shape.");
-}
-if (!startSkill.includes("Research Specification") || !startSkill.includes("confirm_research_specification")) {
-  throw new Error("longtable-start skill should document Research Specification confirmation.");
-}
-if (!startSkill.includes("must not be treated as the default endpoint")) {
-  throw new Error("longtable-start skill should demote First Research Shape from the default endpoint.");
-}
-if (!startSkill.includes("Do not begin with reader/reviewer")) {
-  throw new Error("longtable-start skill should forbid early reader/reviewer prompts.");
-}
-if (!startSkill.includes("Closure Readiness") || !startSkill.includes("never stop merely because a fixed number of turns has passed")) {
-  throw new Error("longtable-start skill should document content-based closure readiness.");
-}
-if (!startSkill.includes("append_interview_turn") || !startSkill.includes("readyToSummarize")) {
-  throw new Error("longtable-start skill should document durable turn recording and readiness signals.");
-}
-if (!startSkill.includes("summarize_research_specification")) {
-  throw new Error("longtable-start skill should store the Research Specification through MCP.");
-}
-if (!startSkill.includes("one main uncertainty") || !startSkill.includes("mini-questionnaire")) {
-  throw new Error("longtable-start skill should softly document one-question-at-a-time behavior.");
-}
-if (interviewSkill.includes("option-first") || interviewSkill.includes("ordinary follow-up")) {
-  throw new Error("longtable-interview skill should not keep the old ordinary option-first mode.");
-}
-if (interviewSkill.includes("route to `$longtable-start` immediately")) {
-  throw new Error("longtable-interview skill should no longer route grilling interviews away from itself.");
-}
-if (
-  !interviewSkill.includes("LongTable grilling interview") ||
-  !interviewSkill.includes("Tension:") ||
-  !interviewSkill.includes("Pressure question:") ||
-  !interviewSkill.includes("Ask exactly one question per turn") ||
-  !interviewSkill.includes("Wait for the researcher's direct answer")
-) {
-  throw new Error("longtable-interview skill should be a simple pressure-question grilling loop.");
-}
-if (
-  interviewSkill.includes("recommended answer") ||
-  interviewSkill.includes("accept, revise, or reject") ||
-  interviewSkill.includes("No option menus") ||
-  interviewSkill.includes("approval prompts")
-) {
-  throw new Error("longtable-interview skill should not use the old recommended-answer approval frame.");
-}
-if (!interviewSkill.includes("remaining questions repeat the same tension without producing a new decision")) {
-  throw new Error("longtable-interview skill should preserve the grilling stop rule.");
+const fullRouter = readFileSync(join(fullSkillsDir, "longtable", "SKILL.md"), "utf8");
+if (!fullRouter.includes("Ask at most three clarifying questions") || !fullRouter.includes("Research Brief")) {
+  throw new Error("LongTable router should enforce the bounded Research Brief contract.");
 }
 if (installOutput.includes("critical-interview")) {
   throw new Error("Codex skill install should not include critical-interview.");
@@ -227,8 +186,12 @@ const staleClaudeCriticalInterviewDir = join(claudeSkillsDir, "critical-intervie
 mkdirSync(staleClaudeCriticalInterviewDir, { recursive: true });
 writeFileSync(join(staleClaudeCriticalInterviewDir, "SKILL.md"), "stale critical-interview alias", "utf8");
 const claudeInstallOutput = runCli(["claude", "install-skills", "--dir", claudeSkillsDir]);
-if (!claudeInstallOutput.includes("longtable-interview")) {
-  throw new Error("Claude skill install should include longtable-interview.");
+if (!claudeInstallOutput.includes("longtable") || !claudeInstallOutput.includes("longtable-research")) {
+  throw new Error("Compact Claude skill install should include the two consolidated surfaces.");
+}
+if (claudeInstallOutput.includes("longtable-interview") ||
+    existsSync(join(claudeSkillsDir, "longtable-interview"))) {
+  throw new Error("Compact Claude skill install should not expose longtable-interview.");
 }
 if (claudeInstallOutput.includes("critical-interview")) {
   throw new Error("Claude skill install should not include critical-interview.");
@@ -253,10 +216,4 @@ if (!codexMcpContent.includes("[mcp_servers.longtable-state.tools.summarize_rese
 if (!codexMcpContent.includes("[mcp_servers.longtable-state.tools.confirm_research_specification]")) {
   throw new Error("MCP install snippet should approve confirm_research_specification.");
 }
-const fullSkillsDir = join(tmp, "codex-skills-full");
-const fullInstallOutput = runCli(["codex", "install-skills", "--surface", "full", "--dir", fullSkillsDir]);
-if (!fullInstallOutput.includes("longtable-methods-critic") || !fullInstallOutput.includes("longtable-panel")) {
-  throw new Error("Full Codex skill install should preserve the full skill surface.");
-}
-
 console.log("setup/start smoke passed");

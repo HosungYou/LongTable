@@ -33,16 +33,46 @@ import {
   buildResearchSearchIntent,
   buildScholarResearchSmokeFixture,
   parsePublisherTarget,
+  parseFullTextAccessClass,
   probePublisherAccess,
   publisherConfigs,
   runResearchSearch,
+  runScholarResearchWorkflow,
+  readResearchBundle,
+  findLatestScholarResearchRunId,
+  explainScholarResearchStage,
+  verifyScholarResearchRun,
+  recordScholarResearchProviderPatch,
+  recordScholarResearchVerification,
+  recordScholarResearchHumanCitationReview,
+  recordScholarResearchHumanSynthesisReview,
+  recordScholarResearchHumanVisualReview,
+  registerScholarResearchVisualPortfolio,
+  recordScholarResearchHumanRenderedVisualReview,
+  recordScholarResearchVisualRender,
+  runPaperBReplay,
+  recordScholarResearchSynthesisVerification,
+  recordTargetJournalProfile,
+  readResearchBrief,
+  resumeScholarResearchWorkflow,
   SEARCH_SOURCES,
+  validateVisualEvidenceContract,
   writeScholarResearchRunScaffold,
+  writeScholarResearchEvaluationPlan,
+  recordScholarResearchEvaluationObservation,
+  writeScholarResearchEvaluationReport,
+  createProspectiveTrialProtocol,
+  startProspectiveTrialSession,
+  finishProspectiveTrialSession,
+  readProspectiveTrialStatus,
   summarizeConfiguredPublisherAccess,
   type EvidenceRun,
   type PublisherAccessRecord,
   type SearchSource,
-  type SearchSourceCapability
+  type SearchSourceCapability,
+  type VisualEvidenceContract,
+  type TargetJournalProfile,
+  type ScholarResearchStage
 } from "./search/index.js";
 import {
   buildProviderChoices,
@@ -377,7 +407,7 @@ function renderInterviewLaunchSteps(provider: ProviderKind): string {
     "Next:",
     "1. cd \"<research-folder>\"",
     `2. run \`${command}\``,
-    "3. invoke `$longtable-start`",
+    "3. invoke `$longtable` and ask to start or resume the research interview",
     "",
     "The start interview will create or resume `.longtable/`, may store a short First Research Shape handle, and uses option UI for the final Research Specification confirmation."
   ]);
@@ -393,7 +423,7 @@ function usage(): string {
   return [
     "Usage:",
     "  Run `longtable ...` in your terminal, not inside the Codex chat box.",
-    "  LongTable research starts inside Codex or Claude with `$longtable-start` after setup.",
+    "  LongTable research starts inside Codex or Claude through the `$longtable` router after setup.",
     "",
     "  longtable setup [--provider codex|claude] [--install-scope user|project|none] [--surfaces cli_only|skills|skills_mcp|skills_mcp_sentinel] [--intervention advisory|balanced|strong] [--checkpoint-ui off|interactive|strong] [--workspace create|later] [--project-dir <path>] [--json] [--dir <path>] [--skills-dir <path>] [--runtime-path <file>] [--setup-path <file>]",
     "  longtable init [deprecated alias for setup; full legacy flags still supported for automation]",
@@ -412,20 +442,44 @@ function usage(): string {
     "  longtable access doctor [--doi <doi>] [--publisher auto|elsevier|springer_nature|wiley|taylor_francis|all] [--json]",
     "  longtable access probe --doi <doi> [--publisher auto|elsevier|springer_nature|wiley|taylor_francis] [--json]",
     "  longtable search --query <text> [--intent literature|theory|measurement|citation|metadata|venue] [--field <text>] [--source all|crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj] [--must <term[,term]>] [--exclude <term[,term]>] [--limit <n>] [--allow-partial] [--publisher-access] [--record] [--cwd <path>] [--json]",
-    "  longtable scholar-research doctor [--json]",
-    "  longtable scholar-research scaffold [--cwd <path>] [--run-id <id>] [--json]",
-    "  longtable scholar-research smoke-fixture [--json]",
+    "  longtable research run (--query <text> | --brief <research-brief.json>) [--target-journal <name>] [--field <text>] [--source <sources>] [--must <terms>] [--exclude <terms>] [--limit <n>] [--allow-partial] [--publisher-access] [--no-auto-oa] [--pdf-dir <path>] [--pdf-access public_oa|manual_legitimate_access|licensed_tdm|private] [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research resume [--cwd <path>] [--run-id <id>] [--pdf-dir <path>] [--pdf-access public_oa|manual_legitimate_access|licensed_tdm|private] [--json]",
+    "  longtable research status [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research explain --stage <stage> [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research verify [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research eval-scaffold [--cwd <path>] [--plan-id <id>] [--replay-thread <id>] [--json]",
+    "  longtable research eval-record --plan-id <id> --observation <file> [--cwd <path>] [--json]",
+    "  longtable research eval-report --plan-id <id> [--cwd <path>] [--json]",
+    "  longtable research trial-create --config <file> [--cwd <path>] [--json]",
+    "  longtable research trial-start --plan-id <id> --trial-id <id> --condition-index <0|1> [--cwd <path>] [--json]",
+    "  longtable research trial-finish --plan-id <id> --trial-id <id> --condition-index <0|1> --result <file> [--cwd <path>] [--json]",
+    "  longtable research trial-status --plan-id <id> --trial-id <id> [--cwd <path>] [--json]",
+    "  longtable research record-patch --packet <file> --patch <file> --provider <name> [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research record-verification --verification <file> [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research record-human-review --review <file> [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research record-synthesis-verification --verification <file> [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research record-synthesis-review --review <file> [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research record-journal-profile --profile <file> [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research register-visual-portfolio --plan <file> [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research record-visual-review --contract <file> --review <file> [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research render-visual --contract-id <id> --request <file> [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research record-render-review --review <file> [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research replay-paper-b --source-root <path> --output-dir <path> [--exemplar-manifest <file>] [--human-review <file>] [--json]",
+    "  longtable research validate-visual-contract --contract <file> [--json]",
+    "  longtable research doctor [--json]",
+    "  longtable research scaffold [--cwd <path>] [--run-id <id>] [--json]",
+    "  longtable research smoke-fixture [--json]",
     "  longtable sentinel --prompt <text> [--cwd <path>] [--json] [--record]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable clarify --prompt <task-context> [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json] [--force]",
     "  longtable question (--prompt <decision-context> | --question <id>) [--title <text>] [--text <question>] [--provider codex|claude] [--required|--advisory] [--surface tmux_popup|terminal_selector|numbered] [--print] [--cwd <path>] [--json]",
     "  longtable clear-question --question <id> --reason <text> [--cwd <path>] [--json]",
-    "  longtable panel [--prompt <text>] [--role <role[,role]>] [--mode review|critique|draft|commit] [--visibility synthesis_only|show_on_conflict|always_visible] [--provider codex|claude] [--native-workers|--native-subagents] [--wait [ms]] [--print] [--json] [--setup <path>] [--cwd <path>]",
-    "  longtable panel status --run <panel_run_id> [--wait [ms]] [--cwd <path>] [--json]",
-    "  longtable panel stop --run <panel_run_id> [--cwd <path>] [--json]",
-    "  longtable panel shutdown --run <panel_run_id> [--cwd <path>] [--json]",
-    "  longtable panel resume --run <panel_run_id> [--wait [ms]] [--cwd <path>] [--json]",
-    "  longtable panel record [--invocation <id>] --result-file <json> [--surface sequential_fallback|native_subagents|native_workers] [--cwd <path>] [--json]",
+    "  longtable assure [--prompt <text>] [--role <role[,role]>] [--mode review|critique|draft|commit] [--visibility synthesis_only|show_on_conflict|always_visible] [--provider codex|claude] [--native-workers|--native-subagents] [--wait [ms]] [--print] [--json] [--setup <path>] [--cwd <path>]",
+    "  longtable assure status --run <panel_run_id> [--wait [ms]] [--cwd <path>] [--json]",
+    "  longtable assure stop --run <panel_run_id> [--cwd <path>] [--json]",
+    "  longtable assure shutdown --run <panel_run_id> [--cwd <path>] [--json]",
+    "  longtable assure resume --run <panel_run_id> [--wait [ms]] [--cwd <path>] [--json]",
+    "  longtable assure record [--invocation <id>] --result-file <json> [--surface sequential_fallback|native_subagents|native_workers] [--cwd <path>] [--json]",
     "  longtable handoff [--cwd <path>] [--output <file>] [--print] [--json]",
     "  longtable decide [--question <id>] --answer <value-or-text> [--rationale <text>] [--provider codex|claude] [--surface tmux_popup|mcp_elicitation|terminal_selector|numbered] [--cwd <path>] [--json]",
     "  longtable explore|review|critique|draft|commit|submit [--prompt <text>] [--role <role[,role]>] [--panel] [--show-conflicts] [--show-deliberation] [--print] [--json] [--stage <stage>] [--setup <path>] [--cwd <path>]",
@@ -447,7 +501,7 @@ function usage(): string {
     "Examples:",
     "  longtable setup --provider codex",
     "  cd \"<research-folder>\" && codex",
-    "  $longtable-start",
+    "  $longtable",
     "  longtable start --no-interview --path ~/Research/My-Project --name \"AI Adoption Meta-Analysis\" --goal \"Narrow the review question\"",
     "  longtable doctor",
     "  longtable roles",
@@ -465,7 +519,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "handoff", "decide", "sentinel", "access", "search", "scholar-research", "spec"].includes(command);
+    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "assure", "panel", "handoff", "decide", "sentinel", "access", "search", "research", "scholar-research", "spec"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -473,7 +527,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     startIndex = 1;
   } else if (command === "codex" || command === "claude" || command === "mcp") {
     startIndex = 2;
-  } else if ((command === "access" || command === "search" || command === "scholar-research" || command === "spec" || command === "panel") && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
+  } else if ((command === "access" || command === "search" || command === "research" || command === "scholar-research" || command === "spec" || command === "assure" || command === "panel") && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
     subcommand = maybeSubcommand;
     startIndex = 2;
   } else if (command === "audit" && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
@@ -886,12 +940,12 @@ function buildPermissionSetupChoices(): {
       {
         id: "create",
         label: "Show interview launch steps",
-        description: "Why: research should start inside the provider. What you get: setup finishes with Codex/Claude + $longtable-start steps. Tradeoff: workspace creation waits for the in-provider interview."
+        description: "Why: research should start inside the provider. What you get: setup finishes with Codex/Claude + $longtable router steps. Tradeoff: workspace creation waits for the in-provider interview."
       },
       {
         id: "later",
         label: "No, prepare runtime only",
-        description: "Why: keeps setup short. What you get: runtime support without project state. Tradeoff: no durable research memory until `$longtable-start` creates or resumes a workspace."
+        description: "Why: keeps setup short. What you get: runtime support without project state. Tradeoff: no durable research memory until `$longtable` creates or resumes a workspace."
       }
     ]
   };
@@ -1068,7 +1122,7 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
     interventionPosture: effectiveIntervention,
     checkpointUiMode: checkpointUi,
     workspaceCreationPreference: workspacePreference,
-    officialStartSurface: "$longtable-start",
+    officialStartSurface: "$longtable",
     setupPosture: "permission_first",
     teamMode: "panel"
   };
@@ -1123,9 +1177,9 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
       mcpInstall,
       workspacePreference,
       nextStep: {
-        surface: "$longtable-start",
+        surface: "$longtable",
         command: provider === "codex" ? "codex" : "claude",
-        description: "Open the provider in the research folder and invoke `$longtable-start`."
+        description: "Open the provider in the research folder and invoke `$longtable` to start or resume the research interview."
       }
     }, null, 2));
     return;
@@ -1159,7 +1213,7 @@ async function runSetup(args: Record<string, string | boolean>): Promise<void> {
   console.log(renderInterviewLaunchSteps(provider));
   if (workspacePreference === "create") {
     console.log("");
-    console.log("Workspace launch requested. Open the provider in your research folder and run `$longtable-start`; the interview will create `.longtable/` there.");
+    console.log("Workspace launch requested. Open the provider in your research folder and invoke `$longtable` to start the interview; it will create `.longtable/` there.");
   }
 }
 
@@ -2768,6 +2822,7 @@ function runRoleAudit(): RoleAuditResult {
     "longtable-panel",
     "longtable-explore",
     "longtable-review",
+    "longtable-research",
     "scholar-research"
   ]);
   const roles: RoleAuditEntry[] = [
@@ -3272,10 +3327,10 @@ function panelWorkerNextCommands(context: LongTableProjectContext, runId: string
 } {
   const cwdFlag = `--cwd "${context.project.projectPath}"`;
   return {
-    status: `longtable panel status ${cwdFlag} --run ${runId}`,
-    stop: `longtable panel stop ${cwdFlag} --run ${runId}`,
-    shutdown: `longtable panel shutdown ${cwdFlag} --run ${runId}`,
-    resume: `longtable panel resume ${cwdFlag} --run ${runId}`
+    status: `longtable assure status ${cwdFlag} --run ${runId}`,
+    stop: `longtable assure stop ${cwdFlag} --run ${runId}`,
+    shutdown: `longtable assure shutdown ${cwdFlag} --run ${runId}`,
+    resume: `longtable assure resume ${cwdFlag} --run ${runId}`
   };
 }
 
@@ -3810,6 +3865,17 @@ function parseLimit(value: string | boolean | undefined): number | undefined {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) {
     throw new Error(`Invalid search limit: ${value}`);
+  }
+  return parsed;
+}
+
+function parseConditionIndex(value: string | boolean | undefined): number {
+  if (typeof value !== "string") {
+    throw new Error("condition-index must be 0 or 1.");
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || (parsed !== 0 && parsed !== 1)) {
+    throw new Error("condition-index must be 0 or 1.");
   }
   return parsed;
 }
@@ -4372,13 +4438,520 @@ async function runScholarResearch(
   args: Record<string, string | boolean>
 ): Promise<void> {
   const json = args.json === true;
+  if (subcommand === "run") {
+    const query = typeof args.query === "string" ? args.query : "";
+    const researchBrief = typeof args.brief === "string"
+      ? await readResearchBrief(resolve(args.brief))
+      : undefined;
+    const bundle = await runScholarResearchWorkflow({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      query,
+      ...(researchBrief ? { researchBrief } : {}),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      ...(typeof args["target-journal"] === "string" ? { targetJournal: args["target-journal"] } : {}),
+      ...(typeof args.field === "string" ? { field: args.field } : {}),
+      ...(typeof args.must === "string" ? { must: args.must } : {}),
+      ...(typeof args.exclude === "string" ? { exclude: args.exclude } : {}),
+      ...(typeof args.source === "string" ? { sources: args.source } : {}),
+      ...(parseLimit(args.limit) ? { limit: parseLimit(args.limit) } : {}),
+      ...(typeof args["pdf-dir"] === "string" ? { pdfDirectory: args["pdf-dir"] } : {}),
+      ...(parseFullTextAccessClass(args["pdf-access"]) ? { pdfAccessClass: parseFullTextAccessClass(args["pdf-access"]) } : {}),
+      allowPartial: args["allow-partial"] === true,
+      publisherAccess: args["publisher-access"] === true,
+      autoAcquireOpenAccess: args["no-auto-oa"] !== true,
+      env
+    });
+    if (json) {
+      console.log(JSON.stringify(bundle, null, 2));
+      return;
+    }
+    console.log("LongTable Research run");
+    console.log(`- run: ${bundle.runId}`);
+    console.log(`- status: ${bundle.status}`);
+    console.log(`- next: ${bundle.pendingCheckpoint?.stage ?? Object.values(bundle.stages).find((stage) => stage.status !== "completed")?.stage ?? "complete"}`);
+    console.log(`- bundle: ${join(bundle.runDir, "research-bundle.json")}`);
+    return;
+  }
+
+  if (subcommand === "resume") {
+    const bundle = await resumeScholarResearchWorkflow({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      ...(typeof args["pdf-dir"] === "string" ? { pdfDirectory: args["pdf-dir"] } : {}),
+      ...(parseFullTextAccessClass(args["pdf-access"]) ? { pdfAccessClass: parseFullTextAccessClass(args["pdf-access"]) } : {}),
+      env
+    });
+    if (json) {
+      console.log(JSON.stringify(bundle, null, 2));
+      return;
+    }
+    console.log("LongTable Research resume");
+    console.log(`- run: ${bundle.runId}`);
+    console.log(`- status: ${bundle.status}`);
+    console.log(`- next: ${bundle.pendingCheckpoint?.stage ?? Object.values(bundle.stages).find((stage) => stage.status !== "completed")?.stage ?? "complete"}`);
+    return;
+  }
+
+  if (subcommand === "status") {
+    const projectCwd = typeof args.cwd === "string" ? args.cwd : cwd();
+    const runId = typeof args["run-id"] === "string"
+      ? args["run-id"]
+      : await findLatestScholarResearchRunId(projectCwd);
+    if (!runId) throw new Error("No scholar-research run was found.");
+    const bundle = await readResearchBundle(projectCwd, runId);
+    if (json) {
+      console.log(JSON.stringify(bundle, null, 2));
+      return;
+    }
+    console.log("LongTable Research status");
+    console.log(`- run: ${bundle.runId}`);
+    console.log(`- status: ${bundle.status}`);
+    console.log(`- updated: ${bundle.updatedAt}`);
+    for (const stage of Object.values(bundle.stages)) {
+      console.log(`- ${stage.stage}: ${stage.status}`);
+    }
+    return;
+  }
+
+  if (subcommand === "explain") {
+    if (typeof args.stage !== "string") {
+      throw new Error("explain requires --stage <stage>.");
+    }
+    const explanation = await explainScholarResearchStage({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      stage: args.stage as ScholarResearchStage
+    });
+    if (json) {
+      console.log(JSON.stringify(explanation, null, 2));
+      return;
+    }
+    console.log("LongTable Research stage explanation");
+    console.log(`- run: ${explanation.runId}`);
+    console.log(`- stage: ${explanation.stage}`);
+    console.log(`- status: ${explanation.state.status}`);
+    console.log(`- events: ${explanation.events.length}`);
+    if (explanation.pendingCheckpoint) {
+      console.log(`- checkpoint: ${explanation.pendingCheckpoint.reason}`);
+    }
+    if (explanation.pauseReason) console.log(`- pause: ${explanation.pauseReason}`);
+    return;
+  }
+
+  if (subcommand === "verify") {
+    const verification = await verifyScholarResearchRun({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {})
+    });
+    if (json) {
+      console.log(JSON.stringify(verification, null, 2));
+      return;
+    }
+    console.log("LongTable Research run verification");
+    console.log(`- run: ${verification.runId}`);
+    console.log(`- passed: ${verification.passed ? "yes" : "no"}`);
+    console.log(`- checks: ${verification.checks.length}`);
+    console.log(`- hard failures: ${verification.hardFailures.length}`);
+    for (const failure of verification.hardFailures) console.log(`  - ${failure}`);
+    return;
+  }
+
+  if (subcommand === "eval-scaffold") {
+    const result = await writeScholarResearchEvaluationPlan({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["plan-id"] === "string" ? { planId: args["plan-id"] } : {}),
+      ...(typeof args["replay-thread"] === "string" ? { replayThreadId: args["replay-thread"] } : {})
+    });
+    if (json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    console.log("LongTable Research evaluation scaffold");
+    console.log(`- plan: ${result.plan.planId}`);
+    console.log(`- path: ${result.path}`);
+    return;
+  }
+
+  if (subcommand === "eval-record") {
+    if (typeof args["plan-id"] !== "string" || typeof args.observation !== "string") {
+      throw new Error("eval-record requires --plan-id <id> --observation <file>.");
+    }
+    const recorded = await recordScholarResearchEvaluationObservation({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      planId: args["plan-id"],
+      observationPath: args.observation
+    });
+    if (json) {
+      console.log(JSON.stringify(recorded, null, 2));
+      return;
+    }
+    console.log("LongTable Research evaluation observation recorded");
+    console.log(`- observation: ${recorded.observation.observationId}`);
+    console.log(`- path: ${recorded.path}`);
+    return;
+  }
+
+  if (subcommand === "eval-report") {
+    if (typeof args["plan-id"] !== "string") {
+      throw new Error("eval-report requires --plan-id <id>.");
+    }
+    const report = await writeScholarResearchEvaluationReport({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      planId: args["plan-id"]
+    });
+    if (json) {
+      console.log(JSON.stringify(report, null, 2));
+      return;
+    }
+    console.log("LongTable Research evaluation report");
+    console.log(`- observations: ${report.report.observationCount}`);
+    console.log(`- prospective: ${report.report.prospectiveCount}`);
+    console.log(`- matched crossover pairs: ${report.report.matchedProspectivePairs}`);
+    console.log(`- promotion eligible: ${report.report.promotionEligible ? "yes" : "no"}`);
+    console.log(`- path: ${report.path}`);
+    return;
+  }
+
+  if (subcommand === "trial-create") {
+    if (typeof args.config !== "string") {
+      throw new Error("trial-create requires --config <file>.");
+    }
+    const result = await createProspectiveTrialProtocol({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      configPath: args.config
+    });
+    if (json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    console.log("LongTable Research prospective trial created");
+    console.log(`- trial: ${result.protocol.trialId}`);
+    console.log(`- first condition: ${result.protocol.conditionOrder[0].condition}`);
+    console.log(`- path: ${result.path}`);
+    return;
+  }
+
+  if (subcommand === "trial-start") {
+    if (typeof args["plan-id"] !== "string" || typeof args["trial-id"] !== "string") {
+      throw new Error("trial-start requires --plan-id <id> --trial-id <id> --condition-index <0|1>.");
+    }
+    const result = await startProspectiveTrialSession({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      planId: args["plan-id"],
+      trialId: args["trial-id"],
+      conditionIndex: parseConditionIndex(args["condition-index"])
+    });
+    if (json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    console.log("LongTable Research prospective trial session started");
+    console.log(`- session: ${result.session.sessionId}`);
+    console.log(`- condition: ${result.session.condition}`);
+    console.log(`- task capsule: ${result.taskCapsulePath}`);
+    return;
+  }
+
+  if (subcommand === "trial-finish") {
+    if (typeof args["plan-id"] !== "string" ||
+        typeof args["trial-id"] !== "string" ||
+        typeof args.result !== "string") {
+      throw new Error("trial-finish requires --plan-id <id> --trial-id <id> --condition-index <0|1> --result <file>.");
+    }
+    const result = await finishProspectiveTrialSession({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      planId: args["plan-id"],
+      trialId: args["trial-id"],
+      conditionIndex: parseConditionIndex(args["condition-index"]),
+      resultPath: args.result
+    });
+    if (json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    console.log("LongTable Research prospective trial session completed");
+    console.log(`- session: ${result.session.sessionId}`);
+    console.log(`- observation: ${result.observation.observationId}`);
+    console.log(`- ledger: ${result.observationsPath}`);
+    return;
+  }
+
+  if (subcommand === "trial-status") {
+    if (typeof args["plan-id"] !== "string" || typeof args["trial-id"] !== "string") {
+      throw new Error("trial-status requires --plan-id <id> --trial-id <id>.");
+    }
+    const result = await readProspectiveTrialStatus({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      planId: args["plan-id"],
+      trialId: args["trial-id"]
+    });
+    if (json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    console.log("LongTable Research prospective trial status");
+    console.log(`- trial: ${result.protocol.trialId}`);
+    console.log(`- sessions completed: ${result.sessions.filter((session) => session?.status === "completed").length}/2`);
+    console.log(`- next condition index: ${result.nextConditionIndex ?? "complete"}`);
+    return;
+  }
+
+  if (subcommand === "record-patch") {
+    if (typeof args.packet !== "string" || typeof args.patch !== "string" || typeof args.provider !== "string") {
+      throw new Error("record-patch requires --packet <file> --patch <file> --provider <name>.");
+    }
+    const result = await recordScholarResearchProviderPatch({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      packetPath: args.packet,
+      patchPath: args.patch,
+      provider: args.provider
+    });
+    if (json) {
+      console.log(JSON.stringify(result.record, null, 2));
+      return;
+    }
+    console.log("LongTable Research provider patch recorded");
+    console.log(`- packet: ${result.record.packetId}`);
+    console.log(`- provider: ${result.record.provider}`);
+    console.log(`- path: ${result.record.path}`);
+    return;
+  }
+
+  if (subcommand === "record-verification") {
+    if (typeof args.verification !== "string") {
+      throw new Error("record-verification requires --verification <file>.");
+    }
+    const result = await recordScholarResearchVerification({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      verificationPath: args.verification
+    });
+    if (json) {
+      console.log(JSON.stringify({
+        verificationPath: result.verificationPath,
+        adjudicationPaths: result.adjudicationPaths
+      }, null, 2));
+      return;
+    }
+    console.log("LongTable Research independent verification recorded");
+    console.log(`- verification: ${result.verificationPath}`);
+    console.log(`- adjudications: ${result.adjudicationPaths.length}`);
+    return;
+  }
+
+  if (subcommand === "record-human-review") {
+    if (typeof args.review !== "string") {
+      throw new Error("record-human-review requires --review <file>.");
+    }
+    const result = await recordScholarResearchHumanCitationReview({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      reviewPath: args.review
+    });
+    if (json) {
+      console.log(JSON.stringify({ path: result.path, citationSlots: result.citationSlots }, null, 2));
+      return;
+    }
+    console.log("LongTable Research human citation review recorded");
+    console.log(`- citation slots: ${result.citationSlots.length}`);
+    console.log(`- path: ${result.path}`);
+    return;
+  }
+
+  if (subcommand === "record-synthesis-verification") {
+    if (typeof args.verification !== "string") {
+      throw new Error("record-synthesis-verification requires --verification <file>.");
+    }
+    const result = await recordScholarResearchSynthesisVerification({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      verificationPath: args.verification
+    });
+    if (json) {
+      console.log(JSON.stringify({ path: result.path }, null, 2));
+      return;
+    }
+    console.log("LongTable Research synthesis verification recorded");
+    console.log(`- path: ${result.path}`);
+    return;
+  }
+
+  if (subcommand === "record-synthesis-review") {
+    if (typeof args.review !== "string") {
+      throw new Error("record-synthesis-review requires --review <file>.");
+    }
+    const result = await recordScholarResearchHumanSynthesisReview({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      reviewPath: args.review
+    });
+    if (json) {
+      console.log(JSON.stringify({ path: result.path, claims: result.claims }, null, 2));
+      return;
+    }
+    console.log("LongTable Research human synthesis review recorded");
+    console.log(`- claims: ${result.claims.length}`);
+    console.log(`- path: ${result.path}`);
+    return;
+  }
+
+  if (subcommand === "record-journal-profile") {
+    if (typeof args.profile !== "string") {
+      throw new Error("record-journal-profile requires --profile <file>.");
+    }
+    const profile = JSON.parse(await readFile(resolve(args.profile), "utf8")) as TargetJournalProfile;
+    const result = await recordTargetJournalProfile({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      profile
+    });
+    if (json) {
+      console.log(JSON.stringify({ path: result.path, bundle: result.bundle }, null, 2));
+      return;
+    }
+    console.log("LongTable Research target-journal profile recorded");
+    console.log(`- journal: ${result.profile.targetJournal}`);
+    console.log(`- path: ${result.path}`);
+    return;
+  }
+
+  if (subcommand === "register-visual-portfolio") {
+    if (typeof args.plan !== "string") {
+      throw new Error("register-visual-portfolio requires --plan <file>.");
+    }
+    const result = await registerScholarResearchVisualPortfolio({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      planPath: args.plan
+    });
+    if (json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    console.log("LongTable Research visual portfolio registered");
+    console.log(`- portfolio: ${result.plan.portfolioId}`);
+    console.log(`- contracts: ${result.plan.contractIds.length}`);
+    console.log(`- path: ${result.path}`);
+    return;
+  }
+
+  if (subcommand === "validate-visual-contract") {
+    if (typeof args.contract !== "string") {
+      throw new Error("validate-visual-contract requires --contract <file>.");
+    }
+    const contractPath = resolve(args.contract);
+    const contract = JSON.parse(await readFile(contractPath, "utf8")) as VisualEvidenceContract;
+    const result = validateVisualEvidenceContract(contract);
+    if (json) {
+      console.log(JSON.stringify({ contractPath, ...result }, null, 2));
+      return;
+    }
+    console.log("LongTable Research visual contract validation");
+    console.log(`- contract: ${contractPath}`);
+    console.log(`- valid: ${result.valid ? "yes" : "no"}`);
+    for (const failure of result.hardFailures) console.log(`- hard failure: ${failure}`);
+    for (const warning of result.warnings) console.log(`- warning: ${warning}`);
+    if (!result.valid) process.exitCode = 1;
+    return;
+  }
+
+  if (subcommand === "record-visual-review") {
+    if (typeof args.contract !== "string" || typeof args.review !== "string") {
+      throw new Error("record-visual-review requires --contract <file> --review <file>.");
+    }
+    const result = await recordScholarResearchHumanVisualReview({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      contractPath: args.contract,
+      reviewPath: args.review
+    });
+    if (json) {
+      console.log(JSON.stringify({ path: result.path, contract: result.contract }, null, 2));
+      return;
+    }
+    console.log("LongTable Research human visual review recorded");
+    console.log(`- decision: ${result.contract.status}`);
+    console.log(`- path: ${result.path}`);
+    return;
+  }
+
+  if (subcommand === "render-visual") {
+    if (typeof args["contract-id"] !== "string" || typeof args.request !== "string") {
+      throw new Error("render-visual requires --contract-id <id> --request <file>.");
+    }
+    const result = await recordScholarResearchVisualRender({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      contractId: args["contract-id"],
+      requestPath: args.request
+    });
+    if (json) {
+      console.log(JSON.stringify({
+        manifestPath: result.manifestPath,
+        qaPath: result.qaPath,
+        qa: result.qa
+      }, null, 2));
+      return;
+    }
+    console.log("LongTable Research visual rendered");
+    console.log(`- editable source: ${result.manifest.editableSourcePath}`);
+    console.log(`- mechanical QA: ${result.qa.passed ? "passed" : "failed"}`);
+    console.log(`- manifest: ${result.manifestPath}`);
+    return;
+  }
+
+  if (subcommand === "record-render-review") {
+    if (typeof args.review !== "string") {
+      throw new Error("record-render-review requires --review <file>.");
+    }
+    const result = await recordScholarResearchHumanRenderedVisualReview({
+      cwd: typeof args.cwd === "string" ? args.cwd : cwd(),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      reviewPath: args.review
+    });
+    if (json) {
+      console.log(JSON.stringify({ path: result.path, review: result.review }, null, 2));
+      return;
+    }
+    console.log("LongTable Research rendered visual review recorded");
+    console.log(`- decision: ${result.review.decision}`);
+    console.log(`- path: ${result.path}`);
+    return;
+  }
+
+  if (subcommand === "replay-paper-b") {
+    if (typeof args["source-root"] !== "string" || typeof args["output-dir"] !== "string") {
+      throw new Error("replay-paper-b requires --source-root <path> --output-dir <path>.");
+    }
+    const replay = await runPaperBReplay({
+      sourceRoot: args["source-root"],
+      outputDirectory: args["output-dir"],
+      ...(typeof args["exemplar-manifest"] === "string"
+        ? { exemplarManifestPath: args["exemplar-manifest"] }
+        : {}),
+      ...(typeof args["human-review"] === "string"
+        ? { humanReviewPath: args["human-review"] }
+        : {})
+    });
+    if (json) {
+      console.log(JSON.stringify(replay, null, 2));
+      return;
+    }
+    console.log("LongTable Research Paper B replay");
+    console.log(`- quality gate: ${replay.result.qualityGatePassed ? "passed" : "failed"}`);
+    console.log(`- posture: ${replay.result.posture}`);
+    console.log(`- result: ${replay.resultPath}`);
+    return;
+  }
+
   if (subcommand === "doctor" || subcommand === "status" || !subcommand) {
     const readiness = assessScholarResearchReadiness(env);
     if (json) {
       console.log(JSON.stringify(readiness, null, 2));
       return;
     }
-    console.log("LongTable scholar-research doctor");
+    console.log("LongTable Research doctor");
     for (const connector of readiness.connectors) {
       const missing = connector.missingEnv.length > 0 ? ` (missing ${connector.missingEnv.join(", ")})` : "";
       console.log(`- ${connector.name}: ${connector.status}${missing}`);
@@ -4398,7 +4971,7 @@ async function runScholarResearch(
       console.log(JSON.stringify(scaffold, null, 2));
       return;
     }
-    console.log("LongTable scholar-research scaffold");
+    console.log("LongTable Research scaffold");
     console.log(`- run: ${scaffold.runId}`);
     console.log(`- dir: ${scaffold.runDir}`);
     return;
@@ -4410,14 +4983,14 @@ async function runScholarResearch(
       console.log(JSON.stringify({ fixture }, null, 2));
       return;
     }
-    console.log("LongTable scholar-research smoke fixture");
+    console.log("LongTable Research smoke fixture");
     for (const item of fixture) {
       console.log(`- ${item.id}: ${item.category} - ${item.label}`);
     }
     return;
   }
 
-  throw new Error(`Unknown scholar-research subcommand: ${subcommand}`);
+  throw new Error(`Unknown LongTable Research subcommand: ${subcommand}`);
 }
 
 async function requireWorkspaceContext(args: Record<string, string | boolean>): Promise<LongTableProjectContext> {
@@ -5350,7 +5923,7 @@ async function runStart(args: Record<string, string | boolean>): Promise<void> {
       "1. longtable setup --provider codex",
       "2. cd \"<research-folder>\"",
       "3. codex",
-      "4. $longtable-start",
+      "4. $longtable",
       "",
       "For automation, pass `--no-interview --json` with `--name`, `--path`, and `--goal`."
     ]));
@@ -5471,7 +6044,7 @@ async function runCodexSubcommand(
     const installed = await installCodexSkills(roles, customDir, skillSurface);
     console.log(`Installed ${installed.length} LongTable Codex skills in ${resolveCodexSkillsDir(customDir)} (${skillSurface} surface)`);
     console.log("Use them inside Codex with natural-language triggers such as `lt explore: ...` or `lt panel: ...`.");
-    console.log("Use `$longtable` as the general router; compact installs expose `$longtable-panel` plus the most common role shortcuts.");
+    console.log("Use `$longtable` as the research front door; installs expose only `$longtable` and `$longtable-research`.");
     for (const skill of installed) {
       console.log(`- ${skill.name}`);
     }
@@ -5744,7 +6317,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (command === "scholar-research") {
+  if (command === "research" || command === "scholar-research") {
+    if (command === "scholar-research" && values.json !== true) {
+      console.warn("Deprecated: use `longtable research`; `longtable scholar-research` is retained for one compatibility release.");
+    }
     await runScholarResearch(subcommand, values);
     return;
   }
@@ -5779,7 +6355,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (command === "panel") {
+  if (command === "assure" || command === "panel") {
+    if (command === "panel" && values.json !== true) {
+      console.warn("Deprecated: use `longtable assure`; `longtable panel` is retained for one compatibility release.");
+    }
     if (subcommand === "record") {
       await runPanelRecordCommand(values);
       return;

@@ -16,7 +16,7 @@ longtable-state
 Run:
 
 ```bash
-npx -y @longtable/mcp@0.1.53
+npx -y @longtable/mcp@next
 ```
 
 Self-test:
@@ -31,8 +31,10 @@ Codex UI Researcher Checkpoints are opt-in from the CLI:
 longtable mcp install --provider codex --checkpoint-ui strong --write
 ```
 
-If MCP elicitation is unavailable or not approved, the server returns the same
-pending `QuestionRecord` as a numbered fallback.
+Modern MCP clients receive `input_required`; the server does not hold a
+60-second elicitation request open. The 2025 compatibility shim uses a 24-hour
+per-round watchdog by default. In either era, interruption leaves the same
+pending `QuestionRecord` resumable instead of creating a replacement.
 
 Provider guidance should use interview tools for `$longtable-start`.
 `$longtable-interview` is post-start and should route back to

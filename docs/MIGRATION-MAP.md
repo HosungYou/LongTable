@@ -45,6 +45,10 @@ The following are preserved as design history under `docs/archive/` rather than 
 
 ## Active Secondary Documents
 
+- `docs/LONGTABLE-RESEARCH-RUNTIME.md` — canonical durable LongTable Research
+  workflow, evidence contract, visual contract, and productivity removal rule
+- `docs/LONGTABLE-RESEARCH-NAMING-MIGRATION.md` — adopted public `research`
+  command and one-release compatibility migration
 - `docs/ONBOARDING.md`
 - `docs/RESEARCHER-PROFILE.md`
 - `docs/INTERACTION-MODES.md`

@@ -31,6 +31,11 @@ LongTable의 차별점은 "더 많은 자동화"가 아니라 다음 세 가지�
 - `researcher profile aware governance`
 - `traceable research state`
 
+제품 경계는 **control-plane-first hybrid**다. 외부 provider와 학술 서비스는
+검색·독해·추출·작성·렌더링 엔진으로 교체 가능해야 한다. LongTable은
+Research Brief, 인간 판단이 필요한 시점, 결정 ledger, 접근권·provenance,
+claim-evidence 연결, visual contract, package verification을 소유한다.
+
 ## Target Users
 
 ### Primary
@@ -68,6 +73,30 @@ LongTable의 차별점은 "더 많은 자동화"가 아니라 다음 세 가지�
 
 ## Key Capabilities
 
+### LongTable Research Runtime
+
+LongTable consolidates scholarly discovery, legal full-text recovery, evidence
+extraction, venue-pattern analysis, and verified visual production into one
+durable CLI workflow. Its stages, evidence gates, and evaluation/removal rule
+are defined in
+[`docs/LONGTABLE-RESEARCH-RUNTIME.md`](docs/LONGTABLE-RESEARCH-RUNTIME.md).
+
+The runtime optimizes for human-equivalent evidence decisions, not imitation of
+human prose. Legitimate disagreement is preserved, and hard quality or access
+failures cannot be traded for speed.
+
+The public product has exactly two provider skills:
+
+- `$longtable` produces a versioned Research Brief after at most three
+  clarifying questions.
+- `$longtable-research` produces a Verified Research Package and consumes the
+  brief without repeating the interview.
+
+Research Assurance is internal infrastructure, not a third skill. Provider
+agents perform bounded work; Assurance owns risk-lens selection, normalized
+evidence and disagreement, and human records at scope, access/corpus,
+claim-strength, visual-evidence, and external-action boundaries.
+
 ### 1. Researcher Profile
 
 - quick setup + progressive calibration
@@ -94,6 +123,8 @@ LongTable의 차별점은 "더 많은 자동화"가 아니라 다음 세 가지�
 - Claude adapter
 - Codex adapter
 - future web app adapter
+- MCP `input_required`와 provider-native 질문 UI는 transport이며,
+  Researcher Checkpoint의 의미·내구성·재개 상태는 LongTable이 소유한다.
 
 ## Product Modes
 
@@ -134,6 +165,9 @@ LongTable의 차별점은 "더 많은 자동화"가 아니라 다음 세 가지�
 - checkpoint 수용률과 override 필요성 감소
 - state restoration 성공률
 - 사용자 보고 신뢰도 상승
+- accepted artifact까지의 elapsed time과 active human time 감소
+- 반복 질문, interruption, context switch, rework, abandonment 감소
+- prospective E2E에서 marginal value가 없는 LongTable Research stage 제거
 
 ## Immediate Product Decision
 

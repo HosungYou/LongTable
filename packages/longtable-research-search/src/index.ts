@@ -1,1 +1,1 @@
-export * from "@longtable/scholar-research";
+export * from "@longtable/research";

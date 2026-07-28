@@ -1,7 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-export const SCHOLAR_RESEARCH_SKILL_NAME = "scholar-research";
+export const LONGTABLE_RESEARCH_SKILL_NAME = "longtable-research";
+/** @deprecated Use LONGTABLE_RESEARCH_SKILL_NAME. */
+export const SCHOLAR_RESEARCH_SKILL_NAME = LONGTABLE_RESEARCH_SKILL_NAME;
 
 export const SCHOLAR_RESEARCH_FAILURE_REASONS = [
   "not_found",

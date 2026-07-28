@@ -1,8 +1,8 @@
 {
   "name": "@longtable/scholar-research",
-  "version": "0.1.72",
+  "version": "0.2.0-beta.1",
   "private": false,
-  "description": "LongTable scholarly evidence recovery, citation-slot research, and legal full-text readiness",
+  "description": "Deprecated compatibility package for @longtable/research",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,16 +20,16 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "@longtable/research": "0.2.0-beta.1"
+  },
   "devDependencies": {
-    "@types/node": "^22.10.1",
     "typescript": "^5.6.0"
   },
   "keywords": [
     "longtable",
     "research",
-    "scholarly",
-    "evidence",
-    "citation"
+    "compatibility"
   ],
   "author": "Hosung You",
   "license": "MIT",
