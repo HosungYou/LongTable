@@ -100,7 +100,12 @@ try {
     name: "elicit_question",
     arguments: acceptedArgs
   });
-  assert.equal(accepted.isError, undefined);
+  if (accepted.isError) {
+    throw new Error(`MCP accept failed: ${JSON.stringify({
+      result: accepted,
+      state: await state()
+    })}`);
+  }
 
   const acceptedState = await state();
   assert.equal(acceptedState.questionLog.length, 1);
