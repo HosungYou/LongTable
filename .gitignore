@@ -4,6 +4,7 @@ dist/
 build/
 .omx/
 .longtable/team/
+.worktrees/
 .codex/
 .claude/
 .env
