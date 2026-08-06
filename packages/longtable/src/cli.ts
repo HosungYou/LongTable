@@ -38,6 +38,8 @@ import {
   runResearchSearch,
   SEARCH_SOURCES,
   buildResearchProjectLayout,
+  executeInstitutionalResearchCommand,
+  INSTITUTIONAL_RESEARCH_COMMANDS,
   readLatestProtocolRevision,
   writeResearchProjectScaffold,
   writeScholarResearchRunScaffold,
@@ -418,6 +420,14 @@ function usage(): string {
     "  longtable research doctor [--json]",
     "  longtable research init [--cwd <path>] [--json]",
     "  longtable research status [--cwd <path>] [--json]",
+    "  longtable research pilot --run-id <id> [--protocol-reference <id>] [--cwd <path>] [--json]",
+    "  longtable research freeze --protocol-file <json> [--cwd <path>] [--json]",
+    "  longtable research ingest-export --file <path> --database <id> --format csv|ris|nbib|json|spreadsheet_xml [--cwd <path>] [--json]",
+    "  longtable research screen --decisions-file <json> [--cwd <path>] [--json]",
+    "  longtable research acquire --candidate-path <pdf> --vault-root <path> --paper-id <id> --acquisition-method <method> --access-basis <basis> --version <label> --project-inclusion <state> --screening-state <state> [--cwd <path>] [--json]",
+    "  longtable research report --input-file <json> [--cwd <path>] [--json]",
+    "  longtable research package --input-file <json> --profile-file <json> [--output-path <docx>] [--cwd <path>] [--json]",
+    "  longtable research live-smoke --run-id <id> --record-count <5..20> --pdf-count <1..2> --researcher-approved --profile-approved --calibrated --replay-passed [--cwd <path>] [--json]",
     "  longtable scholar-research ... [deprecated compatibility alias]",
     "  longtable sentinel --prompt <text> [--cwd <path>] [--json] [--record]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
@@ -4385,8 +4395,12 @@ async function runLongTableResearch(
     if (subcommand === "status") {
       try {
         latestProtocolRevision = await readLatestProtocolRevision(layout);
-      } catch {
-        latestProtocolRevision = undefined;
+      } catch (error) {
+        if (error instanceof Error && error.message === "No frozen ProtocolRevision exists in this research project.") {
+          latestProtocolRevision = undefined;
+        } else {
+          throw error;
+        }
       }
     }
     const result = {
@@ -4451,6 +4465,49 @@ async function runLongTableResearch(
     for (const item of fixture) {
       console.log(`- ${item.id}: ${item.category} - ${item.label}`);
     }
+    return;
+  }
+
+  if (INSTITUTIONAL_RESEARCH_COMMANDS.includes(subcommand as typeof INSTITUTIONAL_RESEARCH_COMMANDS[number])) {
+    const commandArgs = {
+      ...args,
+      ...(typeof args.cwd === "string" ? { cwd: args.cwd } : {}),
+      ...(typeof args["run-id"] === "string" ? { runId: args["run-id"] } : {}),
+      ...(typeof args["protocol-reference"] === "string" ? { protocolReference: args["protocol-reference"] } : {}),
+      ...(typeof args["protocol-file"] === "string" ? { protocolFile: args["protocol-file"] } : {}),
+      ...(typeof args.file === "string" ? { file: args.file } : {}),
+      ...(typeof args.database === "string" ? { database: args.database } : {}),
+      ...(typeof args.format === "string" ? { format: args.format } : {}),
+      ...(typeof args["decisions-file"] === "string" ? { decisionsFile: args["decisions-file"] } : {}),
+      ...(typeof args["candidate-path"] === "string" ? { candidatePath: args["candidate-path"] } : {}),
+      ...(typeof args["vault-root"] === "string" ? { vaultRoot: args["vault-root"] } : {}),
+      ...(typeof args["paper-id"] === "string" ? { paperId: args["paper-id"] } : {}),
+      ...(typeof args["acquisition-method"] === "string" ? { acquisitionMethod: args["acquisition-method"] } : {}),
+      ...(typeof args["access-basis"] === "string" ? { accessBasis: args["access-basis"] } : {}),
+      ...(typeof args.version === "string" ? { version: args.version } : {}),
+      ...(typeof args["project-inclusion"] === "string" ? { projectInclusion: args["project-inclusion"] } : {}),
+      ...(typeof args["screening-state"] === "string" ? { screeningState: args["screening-state"] } : {}),
+      ...(typeof args["source-url"] === "string" ? { sourceUrl: args["source-url"] } : {}),
+      ...(typeof args["input-file"] === "string" ? { inputFile: args["input-file"] } : {}),
+      ...(typeof args["profile-file"] === "string" ? { profileFile: args["profile-file"] } : {}),
+      ...(typeof args["output-path"] === "string" ? { outputPath: args["output-path"] } : {}),
+      ...(typeof args["record-count"] === "string" ? { recordCount: args["record-count"] } : {}),
+      ...(typeof args["pdf-count"] === "string" ? { pdfCount: args["pdf-count"] } : {}),
+      ...(args["researcher-approved"] === true ? { researcherApproved: true } : {}),
+      ...(args["profile-approved"] === true ? { profileApproved: true } : {}),
+      ...(args.calibrated === true ? { calibrated: true } : {}),
+      ...(args["replay-passed"] === true ? { replayPassed: true } : {})
+    };
+    const result = await executeInstitutionalResearchCommand(
+      subcommand as typeof INSTITUTIONAL_RESEARCH_COMMANDS[number],
+      commandArgs
+    );
+    if (json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    console.log(`LongTable Research ${subcommand} completed`);
+    console.log(JSON.stringify(result, null, 2));
     return;
   }
 

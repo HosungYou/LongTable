@@ -147,6 +147,20 @@ longtable search --query "<topic>"
 longtable panel --prompt "review this measurement plan" --json
 ```
 
+## Institutional Research
+
+`longtable research` is the single surface for reproducible institutional-database work. It provides pilot and protocol checkpoints, immutable academic-database exports, append-only screening decisions, external Research PDF Vault intake, audited reports, and APA 7 or journal-profile Word packages.
+
+```bash
+longtable research init --cwd "<project-path>"
+longtable research pilot --run-id pilot-1 --protocol-reference draft-1 --cwd "<project-path>"
+longtable research freeze --protocol-file protocol.json --cwd "<project-path>"
+longtable research ingest-export --file export.ris --database scopus --format ris --cwd "<project-path>"
+longtable research status --cwd "<project-path>"
+```
+
+MCP is the preferred checkpoint transport and numbered text is the recorded fallback. Authentication, MFA, CAPTCHA, terms decisions, and ambiguous methods remain researcher-owned. Bulk production is unavailable until an approved institution profile passes a 5-20 record live smoke gate. See [the institutional research workflow](docs/INSTITUTIONAL-RESEARCH-WORKFLOW.md) for artifact locations, resume rules, reporting-to-manuscript mapping, PDF boundaries, and all commands.
+
 Provider skill installation is explicit:
 
 ```bash
