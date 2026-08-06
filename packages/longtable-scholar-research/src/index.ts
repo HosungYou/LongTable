@@ -12,3 +12,4 @@ export * from "./checkpoints.js";
 export * from "./export-parsers.js";
 export * from "./corpus.js";
 export * from "./invariants.js";
+export * from "./pdf-vault.js";
