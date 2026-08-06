@@ -1,0 +1,19 @@
+{
+  "id": "korean-journal-provisional",
+  "label": "General Korean journal working manuscript",
+  "version": 1,
+  "status": "provisional_until_journal_rules_verified",
+  "sourceBasis": "Generic Korean-language working profile; replace only after journal author instructions and sample articles are verified.",
+  "page": { "size": "A4", "marginInches": 1, "headerInches": 0.5, "footerInches": 0.5 },
+  "body": {
+    "latinFont": "Times New Roman",
+    "eastAsiaFont": "Batang",
+    "fontSizePt": 10.5,
+    "lineSpacing": 1.6,
+    "paragraphAfterPt": 0,
+    "firstLineIndentInches": 0.4
+  },
+  "references": { "hangingIndentInches": 0.4 },
+  "pageNumber": "bottom_center",
+  "titlePage": false
+}

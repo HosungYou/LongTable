@@ -14,6 +14,8 @@
   },
   "files": [
     "dist",
+    "resources",
+    "fixtures/render-profiles",
     "README.md"
   ],
   "scripts": {
@@ -46,5 +48,10 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "longtableDocumentRuntime": {
+    "library": "python-docx",
+    "version": "1.2.0",
+    "pythonModule": "docx"
   }
 }

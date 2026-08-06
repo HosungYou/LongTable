@@ -19,3 +19,7 @@ export * from "./browser-recipes.js";
 export * from "./screening.js";
 export * from "./prisma.js";
 export * from "./reporting.js";
+export * from "./references.js";
+export * from "./render-profiles.js";
+export * from "./manuscript.js";
+export * from "./word-renderer.js";
