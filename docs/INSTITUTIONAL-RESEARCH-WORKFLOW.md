@@ -89,7 +89,7 @@ Every stage advances only with a `StageReceipt`. A blocked run resumes only when
   references/
 ```
 
-The Research PDF Vault must be outside the project. The project retains only a manifest reference, SHA-256, access basis, acquisition method, version, and screening state. Placeholder, partial, corrupt, symbolic-link, or token-bearing PDF intake is rejected.
+The Research PDF Vault must be outside the project. The project retains only a Vault-relative manifest locator, SHA-256, access basis, acquisition method, version, and screening state; the approved institution storage profile resolves the external Vault root at runtime. Placeholder, partial, corrupt, symbolic-link, absolute-path, or token-bearing PDF intake is rejected.
 
 ## Final researcher report and paper mapping
 
@@ -140,4 +140,3 @@ Before manuscript submission, the researcher receives and reviews:
 7. artifact provenance map and security-audit result.
 
 This closeout is the final checkpoint. The automation prepares the evidence package; the researcher remains responsible for methodological interpretation, journal fit, and submission.
-

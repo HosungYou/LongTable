@@ -33,7 +33,7 @@ export type PdfAcquisitionMethod =
 export interface PdfManifestRecord {
   readonly paperId: string;
   readonly sha256: string;
-  readonly canonicalLocalPath: string;
+  readonly canonicalVaultPath: string;
   readonly acquisitionMethod: PdfAcquisitionMethod;
   readonly accessBasis: PdfAccessBasis;
   readonly sourceUrl?: string;
@@ -129,13 +129,13 @@ export async function inspectPdfCandidate(path: string): Promise<PdfInspection> 
 export function buildPdfManifestRecord(
   input: IntakeResearchPdfInput,
   inspection: Extract<PdfInspection, { valid: true }>,
-  canonicalLocalPath: string
+  canonicalVaultPath: string
 ): PdfManifestRecord {
   assertSafeSourceUrl(input.sourceUrl);
   return {
     paperId: requireText(input.paperId, "Paper ID"),
     sha256: inspection.sha256,
-    canonicalLocalPath: resolve(canonicalLocalPath),
+    canonicalVaultPath: requireText(canonicalVaultPath, "Canonical Vault-relative PDF path"),
     acquisitionMethod: input.acquisitionMethod,
     accessBasis: input.accessBasis,
     ...(input.sourceUrl ? { sourceUrl: input.sourceUrl } : {}),
@@ -193,7 +193,7 @@ export async function intakeResearchPdf(input: IntakeResearchPdfInput): Promise<
     throw new Error("Canonical PDF path escaped the configured Research PDF Vault.");
   }
   const created = await ensureCanonicalPdf(candidatePath, canonicalPath, inspection.sha256);
-  const manifest = buildPdfManifestRecord(input, inspection, canonicalPath);
+  const manifest = buildPdfManifestRecord(input, inspection, relative(vaultRoot, canonicalPath));
   const existingRecords = await readJsonlRecords(manifestPath) as unknown as PdfManifestRecord[];
   const alreadyRecorded = existingRecords.some((record) =>
     record.paperId === manifest.paperId &&
@@ -220,16 +220,21 @@ export async function verifyPdfManifest(
       continue;
     }
     seen.add(key);
-    if (!isAbsolute(record.canonicalLocalPath) || !isInside(resolvedVaultRoot, record.canonicalLocalPath)) {
+    if (isAbsolute(record.canonicalVaultPath)) {
+      issues.push(`PDF manifest contains an absolute path: ${record.paperId}.`);
+      continue;
+    }
+    const canonicalLocalPath = resolve(resolvedVaultRoot, record.canonicalVaultPath);
+    if (!isInside(resolvedVaultRoot, canonicalLocalPath)) {
       issues.push(`PDF path is outside the configured Research PDF Vault: ${record.paperId}.`);
       continue;
     }
-    if (basename(record.canonicalLocalPath) !== `${record.sha256}.pdf`) {
+    if (basename(canonicalLocalPath) !== `${record.sha256}.pdf`) {
       issues.push(`PDF filename does not match its SHA-256: ${record.paperId}.`);
       continue;
     }
     try {
-      const inspection = await inspectPdfCandidate(record.canonicalLocalPath);
+      const inspection = await inspectPdfCandidate(canonicalLocalPath);
       if (!inspection.valid) {
         issues.push(`Canonical PDF is invalid (${inspection.reason}): ${record.paperId}.`);
       } else if (inspection.sha256 !== record.sha256) {

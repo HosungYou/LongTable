@@ -56,6 +56,12 @@ async function walk(root) {
 
 async function auditRoots(repoRoot) {
   const candidateRoots = [
+    join(repoRoot, "protocol"),
+    join(repoRoot, "data"),
+    join(repoRoot, "corpus"),
+    join(repoRoot, "audit"),
+    join(repoRoot, "reports"),
+    join(repoRoot, "manuscript"),
     join(repoRoot, ".longtable", "research-projects"),
     join(repoRoot, ".longtable", "research-runs"),
     join(repoRoot, "packages", "longtable-scholar-research", "fixtures", "institutions"),
@@ -110,4 +116,3 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await main();
-

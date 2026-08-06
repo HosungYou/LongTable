@@ -339,7 +339,7 @@ PDFs are stored once in Research PDF Vault as canonical artifacts. Each research
 
 - `paperId`
 - SHA-256
-- canonical local path
+- canonical Vault-relative local path (resolved from the approved institution storage profile, without leaking a user-home absolute path)
 - acquisition method and access basis
 - version and source URL identifiers
 - project inclusion and screening state

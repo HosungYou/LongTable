@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 
 const repoRoot = resolve(new URL("..", import.meta.url).pathname);
 const research = await import(join(repoRoot, "packages", "longtable-scholar-research", "dist", "index.js"));
@@ -75,13 +75,13 @@ try {
   assert.equal(first.manifest.paperId, "paper-1");
   assert.equal(first.manifest.sha256, inspection.sha256);
   assert.equal(first.manifest.accessBasis, "institutional_subscription");
-  assert(isAbsolute(first.manifest.canonicalLocalPath));
-  assert(!relative(vaultRoot, first.manifest.canonicalLocalPath).startsWith(".."));
-  assert.deepEqual(await readFile(first.manifest.canonicalLocalPath), await readFile(candidatePath));
+  assert(!isAbsolute(first.manifest.canonicalVaultPath));
+  assert(!first.manifest.canonicalVaultPath.startsWith(".."));
+  assert.deepEqual(await readFile(join(vaultRoot, first.manifest.canonicalVaultPath)), await readFile(candidatePath));
 
   const second = await research.intakeResearchPdf(intakeInput);
   assert.equal(second.created, false);
-  assert.equal(second.manifest.canonicalLocalPath, first.manifest.canonicalLocalPath);
+  assert.equal(second.manifest.canonicalVaultPath, first.manifest.canonicalVaultPath);
   const manifestRecords = await research.readJsonlRecords(manifestPath);
   assert.equal(manifestRecords.length, 1);
 
@@ -90,7 +90,7 @@ try {
   assert.deepEqual(verification.issues, []);
   assert.deepEqual(await findPdfFiles(projectRoot), []);
 
-  const escaped = await research.verifyPdfManifest([{ ...first.manifest, canonicalLocalPath: join(tempRoot, "outside.pdf") }], vaultRoot);
+  const escaped = await research.verifyPdfManifest([{ ...first.manifest, canonicalVaultPath: "../outside.pdf" }], vaultRoot);
   assert.equal(escaped.passed, false);
   assert.match(escaped.issues[0], /outside/i);
 
