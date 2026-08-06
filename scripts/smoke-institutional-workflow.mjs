@@ -128,4 +128,92 @@ assert.deepEqual(research.INSTITUTIONAL_RESEARCH_CAPABILITIES, [
   "resume"
 ]);
 
+const run = research.createResearchRun({
+  id: "run-1",
+  createdAt: "2026-08-06T01:00:00.000Z",
+  stage: "PILOT",
+  protocolRevisionId: revision.id,
+  institutionProfileId: profile.id
+});
+assert.equal(run.status, "planned");
+assert(Object.isFrozen(run));
+
+const pilotReceipt = research.createStageReceipt({
+  id: "receipt-pilot",
+  runId: run.id,
+  stage: "PILOT",
+  protocolRevisionId: revision.id,
+  inputArtifactIds: ["pilot-input"],
+  outputArtifactIds: ["pilot-output"],
+  cursor: "wos:pilot:complete",
+  createdAt: "2026-08-06T01:05:00.000Z"
+});
+const checkpointRun = research.advanceResearchRun(run, pilotReceipt, "2026-08-06T01:05:00.000Z");
+assert.equal(checkpointRun.stage, "PROTOCOL_CHECKPOINT");
+assert.equal(checkpointRun.status, "running");
+assert.equal(checkpointRun.latestSafeCursor, "wos:pilot:complete");
+assert(Object.isFrozen(checkpointRun));
+
+assert.throws(() => research.advanceResearchRun(checkpointRun, pilotReceipt), /current stage/i);
+
+const blocked = research.blockResearchRun(checkpointRun, {
+  code: "QUERY_DRIFT_DETECTED",
+  questionRecordId: "question-1",
+  checkpointKey: "run-1:protocol-1:PROTOCOL_CHECKPOINT:QUERY_DRIFT_DETECTED",
+  safeCursor: "wos:pilot:complete",
+  blockedAt: "2026-08-06T01:06:00.000Z"
+});
+assert.equal(blocked.status, "blocked");
+assert.equal(blocked.blockingQuestionRecordId, "question-1");
+assert.equal(blocked.blockingCode, "QUERY_DRIFT_DETECTED");
+assert.equal(blocked.latestSafeCursor, "wos:pilot:complete");
+
+const repeatedBlock = research.blockResearchRun(blocked, {
+  code: "QUERY_DRIFT_DETECTED",
+  questionRecordId: "question-1",
+  checkpointKey: "run-1:protocol-1:PROTOCOL_CHECKPOINT:QUERY_DRIFT_DETECTED",
+  safeCursor: "wos:pilot:unexpected-later-cursor",
+  blockedAt: "2026-08-06T01:07:00.000Z"
+});
+assert.equal(repeatedBlock.latestSafeCursor, "wos:pilot:complete");
+
+assert.throws(() => research.resumeResearchRun(blocked, []), /DecisionRecord/i);
+assert.throws(() => research.resumeResearchRun(blocked, [{
+  id: "decision-unrelated",
+  checkpointKey: "another-checkpoint",
+  questionRecordId: "question-1"
+}]), /DecisionRecord/i);
+
+const resumed = research.resumeResearchRun(blocked, [{
+  id: "decision-resume",
+  checkpointKey: "run-1:protocol-1:PROTOCOL_CHECKPOINT:QUERY_DRIFT_DETECTED",
+  questionRecordId: "question-1"
+}], "2026-08-06T01:08:00.000Z");
+assert.equal(resumed.status, "running");
+assert.equal(resumed.stage, "PROTOCOL_CHECKPOINT");
+assert.equal(resumed.blockingQuestionRecordId, undefined);
+assert.equal(resumed.blockingCode, undefined);
+assert.equal(resumed.latestSafeCursor, "wos:pilot:complete");
+
+const terminalRun = research.createResearchRun({
+  id: "run-terminal",
+  createdAt: "2026-08-06T02:00:00.000Z",
+  stage: "MANUSCRIPT_PACKAGE",
+  protocolRevisionId: revision.id,
+  institutionProfileId: profile.id
+});
+const terminalReceipt = research.createStageReceipt({
+  id: "receipt-terminal",
+  runId: terminalRun.id,
+  stage: "MANUSCRIPT_PACKAGE",
+  protocolRevisionId: revision.id,
+  inputArtifactIds: ["manuscript-source"],
+  outputArtifactIds: ["manuscript-docx"],
+  cursor: "package:complete",
+  createdAt: "2026-08-06T02:05:00.000Z"
+});
+const completed = research.advanceResearchRun(terminalRun, terminalReceipt);
+assert.equal(completed.status, "completed");
+assert.equal(completed.stage, "MANUSCRIPT_PACKAGE");
+
 console.log("institutional workflow contracts smoke passed");

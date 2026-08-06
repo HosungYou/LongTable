@@ -97,6 +97,8 @@ export interface ResearchRun {
   readonly latestSafeCursor?: string;
   readonly blockingQuestionRecordId?: string;
   readonly blockingCode?: InstitutionalResearchHardStop;
+  readonly blockingCheckpointKey?: string;
+  readonly resumedByDecisionRecordId?: string;
 }
 
 export interface StageReceipt {
