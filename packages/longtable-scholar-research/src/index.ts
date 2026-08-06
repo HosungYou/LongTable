@@ -8,3 +8,4 @@ export * from "./protocol.js";
 export * from "./workflow-types.js";
 export * from "./workflow-state.js";
 export * from "./project-store.js";
+export * from "./checkpoints.js";
