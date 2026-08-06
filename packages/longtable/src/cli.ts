@@ -37,6 +37,9 @@ import {
   publisherConfigs,
   runResearchSearch,
   SEARCH_SOURCES,
+  buildResearchProjectLayout,
+  readLatestProtocolRevision,
+  writeResearchProjectScaffold,
   writeScholarResearchRunScaffold,
   summarizeConfiguredPublisherAccess,
   type EvidenceRun,
@@ -412,9 +415,10 @@ function usage(): string {
     "  longtable access doctor [--doi <doi>] [--publisher auto|elsevier|springer_nature|wiley|taylor_francis|all] [--json]",
     "  longtable access probe --doi <doi> [--publisher auto|elsevier|springer_nature|wiley|taylor_francis] [--json]",
     "  longtable search --query <text> [--intent literature|theory|measurement|citation|metadata|venue] [--field <text>] [--source all|crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj] [--must <term[,term]>] [--exclude <term[,term]>] [--limit <n>] [--allow-partial] [--publisher-access] [--record] [--cwd <path>] [--json]",
-    "  longtable scholar-research doctor [--json]",
-    "  longtable scholar-research scaffold [--cwd <path>] [--run-id <id>] [--json]",
-    "  longtable scholar-research smoke-fixture [--json]",
+    "  longtable research doctor [--json]",
+    "  longtable research init [--cwd <path>] [--json]",
+    "  longtable research status [--cwd <path>] [--json]",
+    "  longtable scholar-research ... [deprecated compatibility alias]",
     "  longtable sentinel --prompt <text> [--cwd <path>] [--json] [--record]",
     "  longtable ask [--prompt <text>] [--print] [--json] [--setup <path>] [--cwd <path>]",
     "  longtable clarify --prompt <task-context> [--provider codex|claude] [--required|--advisory] [--print] [--cwd <path>] [--json] [--force]",
@@ -465,7 +469,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "handoff", "decide", "sentinel", "access", "search", "scholar-research", "spec"].includes(command);
+    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "handoff", "decide", "sentinel", "access", "search", "research", "scholar-research", "spec"].includes(command);
 
   let startIndex = 1;
   if (modeCommand) {
@@ -473,7 +477,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     startIndex = 1;
   } else if (command === "codex" || command === "claude" || command === "mcp") {
     startIndex = 2;
-  } else if ((command === "access" || command === "search" || command === "scholar-research" || command === "spec" || command === "panel") && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
+  } else if ((command === "access" || command === "search" || command === "research" || command === "scholar-research" || command === "spec" || command === "panel") && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
     subcommand = maybeSubcommand;
     startIndex = 2;
   } else if (command === "audit" && maybeSubcommand && !maybeSubcommand.startsWith("--")) {
@@ -4367,18 +4371,38 @@ async function runSearch(subcommand: string | undefined, args: Record<string, st
   console.log(renderEvidenceRunSummary(run, recordedPath));
 }
 
-async function runScholarResearch(
+async function runLongTableResearch(
   subcommand: string | undefined,
-  args: Record<string, string | boolean>
+  args: Record<string, string | boolean>,
+  compatibilityAlias = false
 ): Promise<void> {
   const json = args.json === true;
   if (subcommand === "doctor" || subcommand === "status" || !subcommand) {
     const readiness = assessScholarResearchReadiness(env);
+    const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+    const layout = buildResearchProjectLayout(workingDirectory);
+    let latestProtocolRevision: Awaited<ReturnType<typeof readLatestProtocolRevision>> | undefined;
+    if (subcommand === "status") {
+      try {
+        latestProtocolRevision = await readLatestProtocolRevision(layout);
+      } catch {
+        latestProtocolRevision = undefined;
+      }
+    }
+    const result = {
+      ...readiness,
+      surface: "longtable-research",
+      ...(compatibilityAlias ? { compatibilityAlias: "scholar-research", deprecated: true } : {}),
+      ...(subcommand === "status" ? { layout, latestProtocolRevision } : {})
+    };
     if (json) {
-      console.log(JSON.stringify(readiness, null, 2));
+      console.log(JSON.stringify(result, null, 2));
       return;
     }
-    console.log("LongTable scholar-research doctor");
+    console.log("LongTable Research");
+    if (compatibilityAlias) {
+      console.log("- scholar-research is a deprecated compatibility alias");
+    }
     for (const connector of readiness.connectors) {
       const missing = connector.missingEnv.length > 0 ? ` (missing ${connector.missingEnv.join(", ")})` : "";
       console.log(`- ${connector.name}: ${connector.status}${missing}`);
@@ -4387,7 +4411,20 @@ async function runScholarResearch(
     return;
   }
 
-  if (subcommand === "scaffold") {
+  if (subcommand === "init" || (!compatibilityAlias && subcommand === "scaffold")) {
+    const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
+    const layout = await writeResearchProjectScaffold(workingDirectory);
+    const result = { surface: "longtable-research", layout };
+    if (json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    console.log("LongTable Research project initialized");
+    console.log(`- root: ${layout.root}`);
+    return;
+  }
+
+  if (compatibilityAlias && subcommand === "scaffold") {
     const workingDirectory = typeof args.cwd === "string" ? args.cwd : cwd();
     const runId = typeof args["run-id"] === "string" ? args["run-id"] : undefined;
     const scaffold = await writeScholarResearchRunScaffold({
@@ -4395,7 +4432,7 @@ async function runScholarResearch(
       ...(runId ? { runId } : {})
     });
     if (json) {
-      console.log(JSON.stringify(scaffold, null, 2));
+      console.log(JSON.stringify({ ...scaffold, surface: "longtable-research", compatibilityAlias: "scholar-research", deprecated: true }, null, 2));
       return;
     }
     console.log("LongTable scholar-research scaffold");
@@ -4417,7 +4454,7 @@ async function runScholarResearch(
     return;
   }
 
-  throw new Error(`Unknown scholar-research subcommand: ${subcommand}`);
+  throw new Error(`Unknown LongTable Research subcommand: ${subcommand}`);
 }
 
 async function requireWorkspaceContext(args: Record<string, string | boolean>): Promise<LongTableProjectContext> {
@@ -5744,8 +5781,13 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "research") {
+    await runLongTableResearch(subcommand, values);
+    return;
+  }
+
   if (command === "scholar-research") {
-    await runScholarResearch(subcommand, values);
+    await runLongTableResearch(subcommand, values, true);
     return;
   }
 

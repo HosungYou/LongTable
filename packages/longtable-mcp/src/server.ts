@@ -12,6 +12,7 @@ import { classifyCheckpointTrigger } from "@longtable/checkpoints";
 import { renderQuestionRecordInput } from "@longtable/provider-claude";
 import { renderQuestionRecordPrompt } from "@longtable/provider-codex";
 import type {
+  HardStopScope,
   ProviderKind,
   QuestionCommitmentFamily,
   QuestionEpistemicBasis,
@@ -257,6 +258,15 @@ const epistemicBasisSchema = z.enum([
   "external_evidence",
   "ai_inference",
   "mixed"
+]);
+
+const hardStopScopeSchema = z.enum([
+  "research_question",
+  "scope",
+  "construct",
+  "method",
+  "evidence",
+  "protected_decision"
 ]);
 
 const firstResearchShapeSchema = z.object({
@@ -2236,11 +2246,13 @@ export function createLongTableMcpServer(): McpServer {
         displayReason: z.string().optional(),
         provider: z.enum(["codex", "claude"]).optional(),
         required: z.boolean().optional(),
+        hardStop: z.boolean().optional(),
+        hardStopScope: hardStopScopeSchema.optional(),
         commitmentFamily: commitmentFamilySchema.optional(),
         epistemicBasis: epistemicBasisSchema.optional()
       })
     },
-    async ({ cwd: inputCwd, prompt, title, question, type, checkpointKey, options, allowOther, otherLabel, displayReason, provider, required, commitmentFamily, epistemicBasis }) => {
+    async ({ cwd: inputCwd, prompt, title, question, type, checkpointKey, options, allowOther, otherLabel, displayReason, provider, required, hardStop, hardStopScope, commitmentFamily, epistemicBasis }) => {
       try {
         const context = await requireContext(inputCwd);
         const result = await createWorkspaceQuestion({
@@ -2256,6 +2268,8 @@ export function createLongTableMcpServer(): McpServer {
           displayReason,
           provider,
           required,
+          hardStop,
+          hardStopScope: hardStopScope as HardStopScope | undefined,
           commitmentFamily: commitmentFamily as QuestionCommitmentFamily | undefined,
           epistemicBasis: epistemicBasis as QuestionEpistemicBasis | undefined
         });
@@ -2286,12 +2300,14 @@ export function createLongTableMcpServer(): McpServer {
         displayReason: z.string().optional(),
         provider: z.enum(["codex", "claude"]).default("codex"),
         required: z.boolean().optional(),
+        hardStop: z.boolean().optional(),
+        hardStopScope: hardStopScopeSchema.optional(),
         commitmentFamily: commitmentFamilySchema.optional(),
         epistemicBasis: epistemicBasisSchema.optional(),
         fallbackOnly: z.boolean().default(false).describe("Create and render the checkpoint without calling MCP elicitation.")
       })
     },
-    async ({ cwd: inputCwd, prompt, title, question, type, checkpointKey, options, allowOther, otherLabel, displayReason, provider, required, commitmentFamily, epistemicBasis, fallbackOnly }) => {
+    async ({ cwd: inputCwd, prompt, title, question, type, checkpointKey, options, allowOther, otherLabel, displayReason, provider, required, hardStop, hardStopScope, commitmentFamily, epistemicBasis, fallbackOnly }) => {
       try {
         const context = await requireContext(inputCwd);
         const created = await createWorkspaceQuestion({
@@ -2307,6 +2323,8 @@ export function createLongTableMcpServer(): McpServer {
           displayReason,
           provider,
           required,
+          hardStop,
+          hardStopScope: hardStopScope as HardStopScope | undefined,
           commitmentFamily: commitmentFamily as QuestionCommitmentFamily | undefined,
           epistemicBasis: epistemicBasis as QuestionEpistemicBasis | undefined
         });
@@ -2460,7 +2478,15 @@ export async function runStdioServer(): Promise<void> {
 
 export async function runLongTableMcpCli(argv = process.argv): Promise<void> {
   if (argv.includes("--self-test")) {
-    console.log(JSON.stringify({ name: SERVER_NAME, version: SERVER_VERSION, tools: TOOL_NAMES }, null, 2));
+    console.log(JSON.stringify({
+      name: SERVER_NAME,
+      version: SERVER_VERSION,
+      tools: TOOL_NAMES,
+      institutionalResearch: {
+        hardStopInputs: true,
+        fallbackSurfaces: ["mcp_elicitation", "numbered"]
+      }
+    }, null, 2));
     return;
   }
 

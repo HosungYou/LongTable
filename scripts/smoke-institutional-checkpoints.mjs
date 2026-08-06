@@ -1,8 +1,14 @@
 import { strict as assert } from "node:assert";
-import { resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const repoRoot = resolve(new URL("..", import.meta.url).pathname);
+const cliPath = join(repoRoot, "packages", "longtable", "dist", "cli.js");
+const mcpPath = join(repoRoot, "packages", "longtable-mcp", "dist", "server.js");
 const research = await import(resolve(repoRoot, "packages", "longtable-scholar-research", "dist", "index.js"));
+const longtable = await import(resolve(repoRoot, "packages", "longtable", "dist", "index.js"));
 
 function assertRequiredMcpCheckpoint(record, expected) {
   assert.equal(record.status, "pending");
@@ -98,6 +104,84 @@ const specialized = [
 for (const [record, scope, family] of specialized) {
   assertRequiredMcpCheckpoint(record, { scope, family });
   assert(record.prompt.options.length >= 2);
+}
+
+function runCli(args, cwd = repoRoot) {
+  return execFileSync("node", [cliPath, ...args], { cwd, encoding: "utf8" });
+}
+
+const canonicalDoctor = JSON.parse(runCli(["research", "doctor", "--json"]));
+const compatibilityDoctor = JSON.parse(runCli(["scholar-research", "doctor", "--json"]));
+assert.equal(canonicalDoctor.surface, "longtable-research");
+assert.equal(canonicalDoctor.compatibilityAlias, undefined);
+assert.equal(compatibilityDoctor.surface, "longtable-research");
+assert.equal(compatibilityDoctor.compatibilityAlias, "scholar-research");
+assert.equal(compatibilityDoctor.deprecated, true);
+assert.deepEqual(compatibilityDoctor.connectors, canonicalDoctor.connectors);
+
+const mcpSelfTest = JSON.parse(execFileSync("node", [mcpPath, "--self-test"], { cwd: repoRoot, encoding: "utf8" }));
+assert(mcpSelfTest.tools.includes("elicit_question"));
+assert.equal(mcpSelfTest.institutionalResearch.hardStopInputs, true);
+assert.deepEqual(mcpSelfTest.institutionalResearch.fallbackSurfaces, ["mcp_elicitation", "numbered"]);
+
+const workspaceRoot = mkdtempSync(join(tmpdir(), "longtable-institutional-checkpoint-"));
+try {
+  const initialized = JSON.parse(runCli(["research", "init", "--cwd", workspaceRoot, "--json"], workspaceRoot));
+  assert.equal(initialized.surface, "longtable-research");
+  assert.equal(initialized.layout.root, workspaceRoot);
+
+  const setupPath = join(workspaceRoot, "setup.json");
+  const runtimePath = join(workspaceRoot, "runtime.toml");
+  runCli([
+    "setup",
+    "--provider", "codex",
+    "--install-scope", "none",
+    "--surfaces", "cli_only",
+    "--intervention", "balanced",
+    "--workspace", "later",
+    "--setup-path", setupPath,
+    "--runtime-path", runtimePath,
+    "--json"
+  ], workspaceRoot);
+  runCli([
+    "start",
+    "--setup", setupPath,
+    "--path", workspaceRoot,
+    "--name", "Institutional Checkpoint Smoke",
+    "--goal", "Verify checkpoint reuse",
+    "--blocker", "Production requires a protocol decision",
+    "--research-object", "study_design",
+    "--gap-risk", "known_gap",
+    "--protected-decision", "method",
+    "--perspectives", "auto",
+    "--disagreement", "show_on_conflict",
+    "--no-interview",
+    "--json"
+  ], workspaceRoot);
+
+  const context = await longtable.loadProjectContextFromDirectory(workspaceRoot);
+  assert(context);
+  const questionInput = {
+    context,
+    prompt: "Freeze the institutional search protocol before production.",
+    title: "Pilot freeze",
+    question: "Freeze this protocol?",
+    type: "single_choice",
+    checkpointKey: "institutional:run-1:protocol-1:PROTOCOL_CHECKPOINT:PILOT_FREEZE",
+    questionOptions: [{ value: "freeze", label: "Freeze" }, { value: "revise", label: "Revise" }],
+    required: true,
+    hardStop: true,
+    hardStopScope: "method",
+    commitmentFamily: "method",
+    epistemicBasis: "mixed"
+  };
+  const first = await longtable.createWorkspaceQuestion(questionInput);
+  const fallbackRetry = await longtable.createWorkspaceQuestion(questionInput);
+  assert.equal(fallbackRetry.question.id, first.question.id);
+  const state = await longtable.loadWorkspaceState(context);
+  assert.equal(state.questionLog.filter((entry) => entry.prompt.checkpointKey === questionInput.checkpointKey).length, 1);
+} finally {
+  rmSync(workspaceRoot, { recursive: true, force: true });
 }
 
 console.log("institutional checkpoint contracts smoke passed");

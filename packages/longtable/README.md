@@ -81,8 +81,16 @@ longtable question --prompt "<decision context>"
 longtable decide --question <id> --answer <value>
 longtable spec read --cwd "<project-path>"
 longtable search --query "<topic>"
+longtable research doctor
+longtable research init --cwd "<review-project>"
+longtable research status --cwd "<review-project>"
 longtable panel --prompt "review this measurement plan" --json
 ```
+
+`longtable research` is the single public surface for institutional-database
+search, protocol freeze, corpus, PDF Vault, screening, reporting, and manuscript
+packaging. The older `longtable scholar-research` command remains a deprecated
+compatibility alias for existing automation.
 
 `longtable start` remains available for scripted workspace creation with
 `--no-interview --json`, but it is not the primary research-start surface.
