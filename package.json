@@ -27,7 +27,8 @@
     "smoke:corpus-pipeline": "node scripts/smoke-corpus-pipeline.mjs",
     "smoke:pdf-vault": "node scripts/smoke-pdf-vault.mjs",
     "smoke:institution-adapters": "node scripts/smoke-institution-adapters.mjs",
-    "test": "npm run build && npm run smoke:setup && npm run smoke:checkpoints && npm run smoke:hooks && npm run smoke:panel-handoff && npm run smoke:panel-workers && npm run smoke:research-spec-audit && npm run smoke:question-audit && npm run smoke:role-audit && npm run smoke:human-persona && npm run smoke:grilling-interview && npm run smoke:search && npm run smoke:scholar-research && npm run smoke:institutional-workflow && npm run smoke:institutional-checkpoints && npm run smoke:export-parsers && npm run smoke:corpus-pipeline && npm run smoke:pdf-vault && npm run smoke:institution-adapters && npm run typecheck",
+    "smoke:browser-recipes": "node scripts/smoke-browser-recipes.mjs",
+    "test": "npm run build && npm run smoke:setup && npm run smoke:checkpoints && npm run smoke:hooks && npm run smoke:panel-handoff && npm run smoke:panel-workers && npm run smoke:research-spec-audit && npm run smoke:question-audit && npm run smoke:role-audit && npm run smoke:human-persona && npm run smoke:grilling-interview && npm run smoke:search && npm run smoke:scholar-research && npm run smoke:institutional-workflow && npm run smoke:institutional-checkpoints && npm run smoke:export-parsers && npm run smoke:corpus-pipeline && npm run smoke:pdf-vault && npm run smoke:institution-adapters && npm run smoke:browser-recipes && npm run typecheck",
     "pack:check": "npm pack --workspaces --dry-run",
     "release:check": "npm run test && npm run pack:check"
   },

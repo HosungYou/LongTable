@@ -15,3 +15,4 @@ export * from "./invariants.js";
 export * from "./pdf-vault.js";
 export * from "./adapters.js";
 export * from "./institutions.js";
+export * from "./browser-recipes.js";

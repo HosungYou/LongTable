@@ -1,0 +1,22 @@
+{
+  "wos_results_v1": {
+    "databaseId": "wos",
+    "pageKind": "results",
+    "titlePattern": "Web of Science Results",
+    "requiredLandmarks": [
+      { "role": "heading", "name": "Search Results" },
+      { "role": "status", "name": "Result count" },
+      { "role": "button", "name": "Export" }
+    ]
+  },
+  "wos_export_v1": {
+    "databaseId": "wos",
+    "pageKind": "export_dialog",
+    "titlePattern": "Web of Science Export",
+    "requiredLandmarks": [
+      { "role": "dialog", "name": "Export records" },
+      { "role": "combobox", "name": "File format" },
+      { "role": "button", "name": "Export records" }
+    ]
+  }
+}
