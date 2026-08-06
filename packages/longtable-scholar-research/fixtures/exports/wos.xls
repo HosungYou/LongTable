@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Worksheet ss:Name="Savedrecs"><Table>
+    <Row><Cell><Data ss:Type="String">Title</Data></Cell><Cell><Data ss:Type="String">Authors</Data></Cell><Cell><Data ss:Type="String">Publication Year</Data></Cell><Cell><Data ss:Type="String">Abstract</Data></Cell><Cell><Data ss:Type="String">DOI</Data></Cell><Cell><Data ss:Type="String">Source Title</Data></Cell><Cell><Data ss:Type="String">Accession Number</Data></Cell></Row>
+    <Row><Cell><Data ss:Type="String">Innovation camps and employee capability</Data></Cell><Cell><Data ss:Type="String">Nguyen, Linh; Brown, Taylor</Data></Cell><Cell><Data ss:Type="Number">2020</Data></Cell><Cell><Data ss:Type="String">A longitudinal evaluation of an innovation camp.</Data></Cell><Cell><Data ss:Type="String">10.1000/CAMP.5</Data></Cell><Cell><Data ss:Type="String">Adult Education Quarterly</Data></Cell><Cell><Data ss:Type="String">WOS:0005</Data></Cell></Row>
+  </Table></Worksheet>
+</Workbook>
