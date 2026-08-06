@@ -1,4 +1,6 @@
 import { strict as assert } from "node:assert";
+import { mkdtemp, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
 const repoRoot = resolve(new URL("..", import.meta.url).pathname);
@@ -215,5 +217,63 @@ const terminalReceipt = research.createStageReceipt({
 const completed = research.advanceResearchRun(terminalRun, terminalReceipt);
 assert.equal(completed.status, "completed");
 assert.equal(completed.stage, "MANUSCRIPT_PACKAGE");
+
+const projectRoot = await mkdtemp(resolve(tmpdir(), "longtable-institutional-project-"));
+try {
+  const layout = research.buildResearchProjectLayout(projectRoot);
+  await research.writeResearchProjectScaffold(projectRoot);
+
+  const expectedDirectories = [
+    layout.protocol.root,
+    layout.protocol.databaseProfiles,
+    layout.protocol.amendments,
+    layout.data.rawExports,
+    layout.data.normalized,
+    layout.data.deduplicated,
+    layout.data.titleAbstractScreening,
+    layout.data.fulltextScreening,
+    layout.data.analysisReady,
+    layout.corpus.root,
+    layout.audit.root,
+    layout.reports,
+    layout.manuscript,
+    layout.analysis,
+    layout.references,
+    layout.researchRuns
+  ];
+  for (const directory of expectedDirectories) {
+    assert.equal((await stat(directory)).isDirectory(), true, `missing scaffold directory: ${directory}`);
+  }
+
+  await research.appendJsonlRecord(layout.audit.stageReceipts, pilotReceipt);
+  await research.appendJsonlRecord(layout.audit.stageReceipts, terminalReceipt);
+  const storedReceipts = await research.readJsonlRecords(layout.audit.stageReceipts);
+  assert.deepEqual(storedReceipts.map((entry) => entry.id), ["receipt-pilot", "receipt-terminal"]);
+
+  const revisionPath = await research.writeFrozenProtocolRevision(layout, revision);
+  assert.equal((await stat(revisionPath)).isFile(), true);
+  assert.equal(await research.writeFrozenProtocolRevision(layout, revision), revisionPath);
+  assert.equal((await research.readLatestProtocolRevision(layout)).protocolHash, revision.protocolHash);
+
+  const changedRevision = research.createProtocolRevision({
+    id: "protocol-1-changed",
+    revision: 1,
+    frozenAt: "2026-08-08T00:00:00.000Z",
+    decisionRecordId: "decision-changed",
+    databases: ["wos"],
+    queries: { wos: "TS=(hackathon AND capability)" },
+    filters: {
+      years: [2015, 2026],
+      languages: ["en", "ko"],
+      publicationTypes: ["article"]
+    }
+  });
+  await assert.rejects(
+    research.writeFrozenProtocolRevision(layout, changedRevision),
+    /immutable/i
+  );
+} finally {
+  await rm(projectRoot, { recursive: true, force: true });
+}
 
 console.log("institutional workflow contracts smoke passed");
