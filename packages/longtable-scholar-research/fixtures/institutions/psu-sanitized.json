@@ -1,0 +1,33 @@
+{
+  "id": "psu-sanitized",
+  "institutionName": "Pennsylvania State University",
+  "profileVersion": 1,
+  "calibrationStatus": "draft_fixture",
+  "approvedDecisionRecordId": "decision-profile-psu",
+  "databases": [
+    {
+      "databaseId": "wos",
+      "accessMode": "browser_sso",
+      "exportFormats": ["csv", "ris", "spreadsheet_xml"],
+      "resultCap": 100000,
+      "recipeId": "wos-accessibility-v1"
+    },
+    {
+      "databaseId": "scopus",
+      "accessMode": "browser_sso",
+      "exportFormats": ["csv", "ris"],
+      "resultCap": 20000,
+      "recipeId": "scopus-accessibility-v1"
+    }
+  ],
+  "resolverUrls": ["https://resolver.example.test/openurl"],
+  "storage": {
+    "pdfVaultRoot": "/configured/research-pdf-vault",
+    "exportRoot": "/configured/research-exports"
+  },
+  "checkpointPolicy": "mcp_first",
+  "permittedActions": ["search", "apply_filters", "export_metadata", "download_permitted_pdf"],
+  "prohibitedActions": ["persist_credentials", "persist_browser_session", "solve_captcha", "bypass_access_control"],
+  "calibratedAt": "2026-08-06T00:00:00.000Z",
+  "lastVerifiedAt": "2026-08-06T00:00:00.000Z"
+}

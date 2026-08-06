@@ -137,6 +137,10 @@ export interface InstitutionProfileInput {
   readonly calibratedAt: string;
   readonly lastVerifiedAt: string;
   readonly resolverUrls?: readonly string[];
+  readonly profileVersion?: number;
+  readonly calibrationStatus?: "draft_fixture" | "calibrating" | "approved";
+  readonly permittedActions?: readonly string[];
+  readonly prohibitedActions?: readonly string[];
 }
 
 export interface InstitutionProfile extends InstitutionProfileInput {}
