@@ -5,3 +5,4 @@ export * from "./rank.js";
 export * from "./run.js";
 export * from "./publisher-access.js";
 export * from "./protocol.js";
+export * from "./workflow-types.js";
