@@ -83,6 +83,12 @@ export interface AnalysisMethodCheckpointInput extends CheckpointIdentity {
   readonly rationale: string;
 }
 
+export interface ScreeningRuleAmbiguityCheckpointInput extends CheckpointIdentity {
+  readonly ruleVersion: string;
+  readonly ambiguity: string;
+  readonly affectedPaperIds: readonly string[];
+}
+
 interface RequiredCheckpointInput extends CheckpointIdentity {
   readonly stage: string;
   readonly code: string;
@@ -372,5 +378,28 @@ export function buildAnalysisMethodCheckpoint(input: AnalysisMethodCheckpointInp
     epistemicBasis: "mixed",
     displayReason: "Analysis-model selection is a protected researcher decision.",
     rationale: ["The renderer cannot claim an unapproved analysis."]
+  });
+}
+
+export function buildScreeningRuleAmbiguityCheckpoint(
+  input: ScreeningRuleAmbiguityCheckpointInput
+): QuestionRecord {
+  return buildRequiredCheckpoint({
+    ...input,
+    stage: "TITLE_ABSTRACT_SCREENING",
+    code: "SCREENING_RULE_AMBIGUOUS",
+    title: "Screening-rule ambiguity",
+    question: `Rule ${input.ruleVersion} is ambiguous: ${input.ambiguity}. Affected records: ${[...input.affectedPaperIds].sort().join(", ")}.`,
+    type: "single_choice",
+    options: [
+      { value: "clarify_rule", label: "Clarify rule", description: "Create a versioned rule clarification before screening affected records.", recommended: true },
+      { value: "open_record_review", label: "Review affected records", description: "Inspect the evidence without silently changing the rule." },
+      { value: "suspend", label: "Suspend", description: "Keep affected records pending." }
+    ],
+    scope: "construct",
+    family: "coding",
+    epistemicBasis: "mixed",
+    displayReason: "An ambiguous inclusion or exclusion rule can change the final corpus.",
+    rationale: ["Affected records remain pending until the researcher records a decision."]
   });
 }

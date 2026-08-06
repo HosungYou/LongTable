@@ -6,6 +6,7 @@ import {
   type ResearchRun,
   type StageReceipt
 } from "./workflow-types.js";
+import type { QuestionRecord } from "@longtable/core";
 
 export interface CreateResearchRunInput {
   readonly id: string;
@@ -168,5 +169,23 @@ export function resumeResearchRun(
     updatedAt: resumedAt,
     status: "running",
     resumedByDecisionRecordId: decision.id
+  });
+}
+
+export function blockResearchRunForQuestion(
+  run: ResearchRun,
+  code: InstitutionalResearchHardStop,
+  question: QuestionRecord,
+  safeCursor: string
+): ResearchRun {
+  if (question.status !== "pending" || question.hardStop !== true || !question.prompt.checkpointKey) {
+    throw new Error("A research run can be blocked only by a pending hard-stop QuestionRecord with a checkpoint key.");
+  }
+  return blockResearchRun(run, {
+    code,
+    questionRecordId: question.id,
+    checkpointKey: question.prompt.checkpointKey,
+    safeCursor,
+    blockedAt: question.createdAt
   });
 }

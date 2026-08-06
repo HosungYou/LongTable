@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import type { CapabilityResult, InstitutionalResearchHardStop } from "./workflow-types.js";
+import { buildScreeningConflictCheckpoint } from "./checkpoints.js";
 
 export type ScreeningStage = "title_abstract" | "fulltext";
 export type ScreeningDisposition = "include" | "exclude" | "pending" | "full_text_needed_for_screening";
@@ -18,6 +20,7 @@ export interface ScreeningDecisionInput {
   readonly promptVersion?: string;
   readonly evidenceArtifactIds: readonly string[];
   readonly decidedAt: string;
+  readonly adjudicatesDecisionIds?: readonly string[];
 }
 
 export interface ScreeningDecision extends ScreeningDecisionInput {
@@ -37,6 +40,40 @@ export interface TitleAbstractScreeningCounts {
   readonly fulltextCandidates: number;
   readonly excluded: number;
   readonly pending: number;
+}
+
+export interface HumanAiScreeningConflict {
+  readonly id: string;
+  readonly paperId: string;
+  readonly stage: ScreeningStage;
+  readonly humanDecisionId: string;
+  readonly aiDecisionId: string;
+  readonly decisionIds: readonly string[];
+  readonly humanDisposition: ScreeningDisposition;
+  readonly aiDisposition: ScreeningDisposition;
+}
+
+export interface ScreeningConflictAuditRecord {
+  readonly id: string;
+  readonly createdAt: string;
+  readonly code: "HUMAN_AI_SCREENING_CONFLICT";
+  readonly paperIds: readonly string[];
+  readonly conflictIds: readonly string[];
+  readonly decisionIds: readonly string[];
+  readonly basis: string;
+}
+
+export interface BundleScreeningConflictsInput {
+  readonly runId: string;
+  readonly protocolRevisionId: string;
+  readonly conflicts: readonly HumanAiScreeningConflict[];
+  readonly createdAt?: string;
+}
+
+export interface FulltextMissingThresholdInput {
+  readonly sought: number;
+  readonly retrieved: number;
+  readonly maximumMissingRate: number;
 }
 
 function stableValue(value: unknown): unknown {
@@ -178,4 +215,109 @@ export function buildScreeningCacheKey(input: ScreeningCacheKeyInput): string {
   requireText(input.promptVersion, "Screening prompt version");
   requireText(input.modelVersion, "Screening model version");
   return hash(input);
+}
+
+function latestByActor(
+  ledger: readonly ScreeningDecision[],
+  actor: "human" | "ai"
+): Map<string, ScreeningDecision> {
+  const latest = new Map<string, ScreeningDecision>();
+  for (const decision of ledger.filter((entry) => entry.actor === actor)) {
+    const key = `${decision.paperId}:${decision.stage}`;
+    const existing = latest.get(key);
+    latest.set(key, existing ? laterDecision(existing, decision) : decision);
+  }
+  return latest;
+}
+
+export function detectHumanAiScreeningConflicts(
+  ledger: readonly ScreeningDecision[]
+): HumanAiScreeningConflict[] {
+  const humans = latestByActor(ledger, "human");
+  const ais = latestByActor(ledger, "ai");
+  const conflicts: HumanAiScreeningConflict[] = [];
+  for (const [key, human] of humans) {
+    const ai = ais.get(key);
+    if (!ai || ai.decision === human.decision) continue;
+    const decisionIds = [human.id, ai.id].sort();
+    conflicts.push({
+      id: `screening_conflict_${hash({ key, decisionIds }).slice(0, 20)}`,
+      paperId: human.paperId,
+      stage: human.stage,
+      humanDecisionId: human.id,
+      aiDecisionId: ai.id,
+      decisionIds,
+      humanDisposition: human.decision,
+      aiDisposition: ai.decision
+    });
+  }
+  return conflicts.sort((left, right) => left.paperId.localeCompare(right.paperId) || left.stage.localeCompare(right.stage));
+}
+
+export function bundleScreeningConflicts(input: BundleScreeningConflictsInput): {
+  readonly auditRecord: ScreeningConflictAuditRecord;
+  readonly question: ReturnType<typeof buildScreeningConflictCheckpoint>;
+} {
+  if (input.conflicts.length === 0) throw new Error("At least one human–AI screening conflict is required.");
+  const createdAt = input.createdAt ?? new Date().toISOString();
+  const paperIds = [...new Set(input.conflicts.map((conflict) => conflict.paperId))].sort();
+  const conflictIds = input.conflicts.map((conflict) => conflict.id).sort();
+  const decisionIds = [...new Set(input.conflicts.flatMap((conflict) => conflict.decisionIds))].sort();
+  const auditRecord: ScreeningConflictAuditRecord = {
+    id: `screening_conflict_bundle_${hash({ input: input.runId, paperIds, conflictIds }).slice(0, 20)}`,
+    createdAt,
+    code: "HUMAN_AI_SCREENING_CONFLICT",
+    paperIds,
+    conflictIds,
+    decisionIds,
+    basis: "Latest human and AI screening dispositions disagree for the affected paper/stage pairs."
+  };
+  return {
+    auditRecord,
+    question: buildScreeningConflictCheckpoint({
+      runId: input.runId,
+      protocolRevisionId: input.protocolRevisionId,
+      paperIds,
+      conflict: `${input.conflicts.length} human–AI screening conflict(s) require adjudication`,
+      createdAt
+    })
+  };
+}
+
+export function applyScreeningAdjudication(
+  ledger: readonly ScreeningDecision[],
+  input: ScreeningDecisionInput & { readonly adjudicatesDecisionIds: readonly string[] }
+): ScreeningDecision[] {
+  if (input.actor !== "human") throw new Error("Screening adjudication must be recorded by a human actor.");
+  if (input.adjudicatesDecisionIds.length < 2) throw new Error("Screening adjudication must reference the conflicting decision IDs.");
+  const existingIds = new Set(ledger.map((decision) => decision.id));
+  const missingIds = input.adjudicatesDecisionIds.filter((id) => !existingIds.has(id));
+  if (missingIds.length > 0) throw new Error(`Screening adjudication references unknown decisions: ${missingIds.join(", ")}.`);
+  return appendScreeningDecision(ledger, createScreeningDecision({
+    ...input,
+    adjudicatesDecisionIds: [...new Set(input.adjudicatesDecisionIds)].sort()
+  }));
+}
+
+function thresholdHardStop(code: InstitutionalResearchHardStop, reason: string): Extract<CapabilityResult<never>, { status: "hard_stop" }> {
+  return { status: "hard_stop", code, reason };
+}
+
+export function evaluateFulltextMissingThreshold(
+  input: FulltextMissingThresholdInput
+): CapabilityResult<{ readonly missing: number; readonly missingRate: number }> {
+  if (!Number.isInteger(input.sought) || !Number.isInteger(input.retrieved) || input.sought < 0 || input.retrieved < 0 || input.retrieved > input.sought) {
+    throw new Error("Full-text sought and retrieved counts must be valid non-negative integers.");
+  }
+  if (input.maximumMissingRate < 0 || input.maximumMissingRate > 1) {
+    throw new Error("Maximum full-text missing rate must be between 0 and 1.");
+  }
+  const missing = input.sought - input.retrieved;
+  const missingRate = input.sought === 0 ? 0 : missing / input.sought;
+  return missingRate <= input.maximumMissingRate
+    ? { status: "supported", value: { missing, missingRate } }
+    : thresholdHardStop(
+      "FULLTEXT_MISSING_THRESHOLD_EXCEEDED",
+      `Full-text missing rate ${(missingRate * 100).toFixed(1)}% exceeds the approved ${(input.maximumMissingRate * 100).toFixed(1)}% threshold.`
+    );
 }
