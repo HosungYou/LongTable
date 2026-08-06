@@ -7,6 +7,7 @@ import type {
   QuestionPromptType,
   QuestionRecord
 } from "@longtable/core";
+import type { InstitutionalResearchHardStop, InstitutionalResearchStage } from "./workflow-types.js";
 
 interface CheckpointIdentity {
   readonly runId: string;
@@ -89,6 +90,13 @@ export interface ScreeningRuleAmbiguityCheckpointInput extends CheckpointIdentit
   readonly affectedPaperIds: readonly string[];
 }
 
+export interface OperationalHardStopCheckpointInput extends CheckpointIdentity {
+  readonly stage: InstitutionalResearchStage;
+  readonly code: InstitutionalResearchHardStop;
+  readonly issue: string;
+  readonly safeCursor: string;
+}
+
 interface RequiredCheckpointInput extends CheckpointIdentity {
   readonly stage: string;
   readonly code: string;
@@ -163,6 +171,30 @@ function buildRequiredCheckpoint(input: RequiredCheckpointInput): QuestionRecord
       updatedAt: createdAt
     }
   };
+}
+
+export function buildOperationalHardStopCheckpoint(input: OperationalHardStopCheckpointInput): QuestionRecord {
+  return buildRequiredCheckpoint({
+    ...input,
+    title: `Research hard stop: ${input.code}`,
+    question: [
+      `Issue: ${requiredText(input.issue, "Hard-stop issue")}`,
+      `Last safe cursor: ${requiredText(input.safeCursor, "Safe cursor")}`,
+      "No automated action will be taken. Which recorded resolution should authorize a resume?"
+    ].join("\n"),
+    type: "single_choice",
+    options: [
+      { value: "researcher_resolved", label: "Researcher resolved", description: "Record the researcher-owned resolution and resume from the safe cursor." },
+      { value: "amend_protocol", label: "Amend protocol", description: "Freeze a new protocol revision before resuming." },
+      { value: "exclude_route", label: "Exclude route", description: "Exclude the affected database, record, or acquisition route with rationale." },
+      { value: "cancel", label: "Keep blocked", description: "Preserve the checkpoint without an implicit decision." }
+    ],
+    scope: "protected_decision",
+    family: "evidence",
+    epistemicBasis: "mixed",
+    displayReason: "An institutional hard stop requires an explicit researcher resolution.",
+    rationale: ["The last safe cursor is preserved.", "A linked DecisionRecord is required before resume."]
+  });
 }
 
 function groupLine(label: string, values: readonly string[]): string {

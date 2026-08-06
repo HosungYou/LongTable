@@ -184,4 +184,38 @@ try {
   rmSync(workspaceRoot, { recursive: true, force: true });
 }
 
+for (const [index, code] of research.INSTITUTIONAL_RESEARCH_HARD_STOPS.entries()) {
+  const question = research.buildOperationalHardStopCheckpoint({
+    runId: `run-hard-stop-${index}`,
+    protocolRevisionId: "protocol-hard-stop-1",
+    stage: "SETUP",
+    code,
+    issue: `Synthetic audit issue for ${code}.`,
+    safeCursor: `cursor:${index}`,
+    createdAt: `2026-08-06T11:${String(index).padStart(2, "0")}:00.000Z`
+  });
+  assert.deepEqual(question.prompt.preferredSurfaces, ["mcp_elicitation", "numbered"]);
+  const fallback = research.deliverCheckpointWithFallback(question, {
+    status: "unsupported",
+    message: "Synthetic MCP transport unavailable.",
+    attemptedAt: `2026-08-06T11:${String(index).padStart(2, "0")}:01.000Z`,
+    fallbackAt: `2026-08-06T11:${String(index).padStart(2, "0")}:02.000Z`
+  });
+  assert.equal(fallback.delivery.attempts.at(-1).status, "fallback_rendered");
+  const run = research.createResearchRun({
+    id: `run-hard-stop-${index}`,
+    createdAt: `2026-08-06T11:${String(index).padStart(2, "0")}:00.000Z`,
+    protocolRevisionId: "protocol-hard-stop-1"
+  });
+  const blocked = research.blockResearchRunForQuestion(run, code, fallback.question, `cursor:${index}`);
+  assert.throws(() => research.resumeResearchRun(blocked, []), /DecisionRecord/i);
+  const resumed = research.resumeResearchRun(blocked, [{
+    id: `decision-hard-stop-${index}`,
+    checkpointKey: fallback.question.prompt.checkpointKey,
+    questionRecordId: fallback.question.id
+  }], `2026-08-06T11:${String(index).padStart(2, "0")}:03.000Z`);
+  assert.equal(resumed.status, "running");
+  assert.equal(resumed.resumedByDecisionRecordId, `decision-hard-stop-${index}`);
+}
+
 console.log("institutional checkpoint contracts smoke passed");

@@ -34,7 +34,7 @@ assert.equal(advisory.advisoryCount, 1);
 assert.match(advisory.message, /DELAYED_EXPORT_GENERATION × 2/);
 assert.match(advisory.message, /TRANSIENT_NETWORK_TIMEOUT × 1/);
 
-const mechanicalStages = ["EXPORT_AUDIT", "FULLTEXT_ACQUISITION", "RESEARCHER_REPORT", "MANUSCRIPT_PACKAGE"];
+const mechanicalStages = research.ZERO_MODEL_CALL_STAGES;
 for (const stage of mechanicalStages) {
   const budget = research.modelCallBudgetForStage(stage);
   assert.equal(budget.maximumCalls, 0);

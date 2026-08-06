@@ -13,6 +13,7 @@ Active supporting docs are:
 - `docs/superpowers/specs/2026-08-06-longtable-research-institutional-workflow-design.md`
 - `docs/superpowers/plans/2026-08-06-longtable-research-institutional-workflow.md`
 - `docs/INSTITUTIONAL-RESEARCH-WORKFLOW.md`
+- `docs/INSTITUTIONAL-RESEARCH-ACCEPTANCE-AUDIT.md`
 - `docs/ARCHITECTURE.md`
 - `docs/ACTIVE-DECISIONS.md`
 - `docs/CHECKPOINTING.md`

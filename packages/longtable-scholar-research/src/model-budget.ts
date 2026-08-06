@@ -15,6 +15,17 @@ export interface ModelCallCacheKeyInput {
   readonly modelVersion: string;
 }
 
+export const ZERO_MODEL_CALL_STAGES: readonly InstitutionalResearchStage[] = [
+  "SETUP",
+  "PRODUCTION_SEARCH",
+  "EXPORT_AUDIT",
+  "FULLTEXT_PLAN_CHECKPOINT",
+  "FULLTEXT_ACQUISITION",
+  "CORPUS_FREEZE_CHECKPOINT",
+  "RESEARCHER_REPORT",
+  "MANUSCRIPT_PACKAGE"
+];
+
 export function buildModelCallCacheKey(input: ModelCallCacheKeyInput): string {
   if (!/^[a-f0-9]{64}$/i.test(input.artifactSha256)) throw new Error("Model cache input requires an artifact SHA-256 hash.");
   return createHash("sha256").update(JSON.stringify({
@@ -52,4 +63,3 @@ export function assertModelCallBudget(budget: ModelCallBudget, observedCalls: nu
     throw new Error(`Model-call budget exceeded for ${budget.stage}/${budget.purpose}: observed ${observedCalls}, allowed ${budget.maximumCalls}.`);
   }
 }
-

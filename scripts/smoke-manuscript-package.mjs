@@ -85,6 +85,13 @@ assert.match(manuscript.sections.find((entry) => entry.id === "methods").content
 assert.match(manuscript.sections.find((entry) => entry.id === "results").content, /2편/);
 assert.match(manuscript.metaAnalysisReadinessMarkdown, /효과크기 산출 가능성/);
 assert(manuscript.provenanceMap.every((entry) => entry.inputArtifactIds.length > 0));
+for (const objectId of [
+  "title", "author-line-1", "author-line-2", "abstract-heading", "abstract-body", "keywords",
+  "introduction-heading", "introduction-body", "methods-heading", "methods-body", "results-heading", "results-body",
+  "discussion-heading", "discussion-body", "meta-analysis-readiness", "references-heading", "reference-1", "reference-2"
+]) {
+  assert(manuscript.provenanceMap.some((entry) => entry.objectId === objectId), `missing provenance for ${objectId}`);
+}
 assert.throws(() => research.buildApprovedManuscript({
   title: "Blocked", authorLines: [], language: "en", keywords: [], protocol: manuscript.protocol,
   counts, papers, inputArtifactIds: ["corpus-frozen-1"], generatedAt: "2026-08-06T08:00:00.000Z", generatorVersion: "0.1.72",

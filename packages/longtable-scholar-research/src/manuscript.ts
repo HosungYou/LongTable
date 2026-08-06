@@ -92,8 +92,17 @@ export function buildApprovedManuscript(input: BuildApprovedManuscriptInput): Ap
   const metaAnalysisReadinessMarkdown = readinessTable(input.papers, input.analysisPlan);
   const inputIds = [...input.inputArtifactIds].sort();
   const provenanceMap: ManuscriptProvenanceEntry[] = [
-    ...sections.map((section) => ({ objectId: section.id, objectType: "paragraph" as const, sha256: hash(section.content), inputArtifactIds: inputIds, protocolRevisionId: input.protocol.id })),
+    { objectId: "title", objectType: "paragraph", sha256: hash(input.title), inputArtifactIds: inputIds, protocolRevisionId: input.protocol.id },
+    ...input.authorLines.map((line, index) => ({ objectId: `author-line-${index + 1}`, objectType: "paragraph" as const, sha256: hash(line), inputArtifactIds: inputIds, protocolRevisionId: input.protocol.id })),
+    { objectId: "abstract-heading", objectType: "paragraph", sha256: hash(input.language === "ko" ? "초록" : "Abstract"), inputArtifactIds: inputIds, protocolRevisionId: input.protocol.id },
+    { objectId: "abstract-body", objectType: "paragraph", sha256: hash(input.abstract ?? "[초록은 승인된 연구 결과와 해석을 반영하여 작성해야 합니다.]"), inputArtifactIds: inputIds, protocolRevisionId: input.protocol.id },
+    { objectId: "keywords", objectType: "paragraph", sha256: hash(input.keywords.join("\n")), inputArtifactIds: inputIds, protocolRevisionId: input.protocol.id },
+    ...sections.flatMap((section) => [
+      { objectId: `${section.id}-heading`, objectType: "paragraph" as const, sha256: hash(section.heading), inputArtifactIds: inputIds, protocolRevisionId: input.protocol.id },
+      { objectId: `${section.id}-body`, objectType: "paragraph" as const, sha256: hash(section.content), inputArtifactIds: inputIds, protocolRevisionId: input.protocol.id }
+    ]),
     { objectId: "meta-analysis-readiness", objectType: "table", sha256: hash(metaAnalysisReadinessMarkdown), inputArtifactIds: inputIds, protocolRevisionId: input.protocol.id },
+    { objectId: "references-heading", objectType: "paragraph", sha256: hash(input.language === "ko" ? "참고문헌" : "References"), inputArtifactIds: inputIds, protocolRevisionId: input.protocol.id },
     ...references.apa7References.map((reference, index) => ({ objectId: `reference-${index + 1}`, objectType: "reference" as const, sha256: hash(reference), inputArtifactIds: inputIds, protocolRevisionId: input.protocol.id }))
   ];
   return {
@@ -112,4 +121,3 @@ export function buildApprovedManuscript(input: BuildApprovedManuscriptInput): Ap
     generatorVersion: input.generatorVersion
   };
 }
-
