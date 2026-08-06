@@ -10,6 +10,7 @@ Repository framing and migration boundary are defined in `README.md`, `RELATIONS
 
 Active supporting docs are:
 
+- `docs/superpowers/specs/2026-08-06-longtable-research-institutional-workflow-design.md`
 - `docs/ARCHITECTURE.md`
 - `docs/ACTIVE-DECISIONS.md`
 - `docs/CHECKPOINTING.md`
