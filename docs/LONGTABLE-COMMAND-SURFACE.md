@@ -180,6 +180,24 @@ Tmux is not a LongTable core requirement. If an OMX-style Codex popup transport
 is added, it must be documented as optional, attached-tmux-only, and backed by
 the standard fallback path.
 
+## LongTable Research Surface
+
+`longtable research` is the single public command surface for the integrated
+institutional-database workflow. It owns project initialization, readiness,
+protocol checkpoints, corpus processing, Research PDF Vault references,
+screening, reports, and manuscript packaging behind one capability tree.
+
+```bash
+longtable research doctor --json
+longtable research init --cwd "<review-project>" --json
+longtable research status --cwd "<review-project>" --json
+```
+
+`longtable scholar-research` is retained only as a deprecated compatibility
+alias. Required decisions use MCP elicitation first and numbered fallback
+second. A fallback reuses the same pending QuestionRecord by checkpoint key;
+it never creates an implicit answer.
+
 ## Supporting Commands
 
 ```bash

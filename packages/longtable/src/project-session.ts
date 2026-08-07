@@ -3723,6 +3723,12 @@ export async function createWorkspaceQuestion(options: {
     studyContract: state.studyContract
   });
   const checkpointKey = options.checkpointKey ?? trigger.signal.checkpointKey;
+  const existingPending = (state.questionLog ?? []).find((record) =>
+    record.status === "pending" && record.prompt.checkpointKey === checkpointKey
+  );
+  if (existingPending) {
+    return { question: existingPending, state };
+  }
   const promptType = options.type ?? "single_choice";
   const createdAt = nowIso();
   const title = options.title ?? questionTitleForCheckpoint(trigger.family, checkpointKey);

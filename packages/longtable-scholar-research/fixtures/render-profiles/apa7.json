@@ -1,0 +1,19 @@
+{
+  "id": "apa7-memory",
+  "label": "APA 7 working manuscript (memory/template tokens)",
+  "version": 1,
+  "status": "verified",
+  "sourceBasis": "User-requested APA 7 memory format; exact journal rules remain external to this profile.",
+  "page": { "size": "Letter", "marginInches": 1, "headerInches": 0.5, "footerInches": 0.5 },
+  "body": {
+    "latinFont": "Times New Roman",
+    "eastAsiaFont": "Times New Roman",
+    "fontSizePt": 12,
+    "lineSpacing": 2,
+    "paragraphAfterPt": 0,
+    "firstLineIndentInches": 0.5
+  },
+  "references": { "hangingIndentInches": 0.5 },
+  "pageNumber": "top_right",
+  "titlePage": true
+}

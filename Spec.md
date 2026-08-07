@@ -10,6 +10,10 @@ Repository framing and migration boundary are defined in `README.md`, `RELATIONS
 
 Active supporting docs are:
 
+- `docs/superpowers/specs/2026-08-06-longtable-research-institutional-workflow-design.md`
+- `docs/superpowers/plans/2026-08-06-longtable-research-institutional-workflow.md`
+- `docs/INSTITUTIONAL-RESEARCH-WORKFLOW.md`
+- `docs/INSTITUTIONAL-RESEARCH-ACCEPTANCE-AUDIT.md`
 - `docs/ARCHITECTURE.md`
 - `docs/ACTIVE-DECISIONS.md`
 - `docs/CHECKPOINTING.md`
@@ -94,6 +98,8 @@ Current code-level scaffolds now cover:
 - question runtime contracts now separate shared checkpoint judgment from Claude/Codex-specific presentation surfaces
 - panel orchestration is now scoped as provider-neutral `InvocationIntent` and `PanelPlan` semantics with provider-specific execution surfaces and sequential fallback
 - `@longtable/mcp` now exposes `longtable-state` as optional structured transport over `.longtable/` state, not as a replacement source of truth
+- `@longtable/scholar-research` now exposes one receipt-backed institutional workflow for protocol freezing, export intake, screening, Research PDF Vault manifests, audited reporting, and declarative Word render profiles
+- institutional production eligibility requires profile approval, deterministic replay, a researcher-approved 5-20 record live smoke run, and one or two permitted PDF intakes
 
 ## Core Domain Objects
 

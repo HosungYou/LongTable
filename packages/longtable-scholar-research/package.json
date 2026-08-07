@@ -14,11 +14,16 @@
   },
   "files": [
     "dist",
+    "resources",
+    "fixtures/render-profiles",
     "README.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@longtable/core": "0.1.72"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",
@@ -43,5 +48,10 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "longtableDocumentRuntime": {
+    "library": "python-docx",
+    "version": "1.2.0",
+    "pythonModule": "docx"
   }
 }

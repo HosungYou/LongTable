@@ -1,0 +1,17 @@
+{
+  "message": {
+    "items": [
+      {
+        "DOI": "10.1000/CHALLENGE.4",
+        "title": ["Challenge weeks as accelerated workplace learning"],
+        "author": [
+          { "given": "Sora", "family": "Choi" }
+        ],
+        "published": { "date-parts": [[2021, 6, 1]] },
+        "abstract": "<jats:p>An evaluation of a challenge-week protocol.</jats:p>",
+        "container-title": ["Studies in Continuing Education"],
+        "URL": "https://doi.org/10.1000/CHALLENGE.4"
+      }
+    ]
+  }
+}
