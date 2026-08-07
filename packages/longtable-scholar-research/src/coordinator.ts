@@ -19,10 +19,24 @@ import { renderResearchOutputs, type ResearchReportInput } from "./reporting.js"
 import { buildApprovedManuscript, type BuildApprovedManuscriptInput } from "./manuscript.js";
 import { validateRenderProfile } from "./render-profiles.js";
 import { renderWordManuscript } from "./word-renderer.js";
+import {
+  adjudicateExtractionConflict,
+  createExtractionProfile,
+  detectExtractionConflicts,
+  freezeExtractedDataset,
+  validateExtractionRecord,
+  type ExtractedDatasetFreezeInput,
+  type ExtractionAdjudication,
+  type ExtractionAdjudicationInput,
+  type ExtractionConflict,
+  type ExtractionProfile,
+  type ExtractionProfileInput,
+  type ExtractionRecord
+} from "./extraction.js";
 
-export type InstitutionalResearchCommand = "pilot" | "freeze" | "ingest-export" | "screen" | "acquire" | "report" | "package" | "live-smoke";
+export type InstitutionalResearchCommand = "pilot" | "freeze" | "ingest-export" | "screen" | "acquire" | "freeze-extraction" | "extract" | "adjudicate-extraction" | "freeze-data" | "report" | "package" | "live-smoke";
 export const INSTITUTIONAL_RESEARCH_COMMANDS: readonly InstitutionalResearchCommand[] = [
-  "pilot", "freeze", "ingest-export", "screen", "acquire", "report", "package", "live-smoke"
+  "pilot", "freeze", "ingest-export", "screen", "acquire", "freeze-extraction", "extract", "adjudicate-extraction", "freeze-data", "report", "package", "live-smoke"
 ];
 export type InstitutionalResearchCommandArgs = Readonly<Record<string, string | boolean | undefined>>;
 
@@ -44,6 +58,24 @@ async function jsonFile<T>(path: string): Promise<T> {
 async function writeJson(path: string, value: unknown): Promise<void> {
   await mkdir(resolve(path, ".."), { recursive: true });
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+async function writeJsonl(path: string, values: readonly object[]): Promise<void> {
+  await mkdir(resolve(path, ".."), { recursive: true });
+  await writeFile(path, values.length ? `${values.map((value) => JSON.stringify(value)).join("\n")}\n` : "", "utf8");
+}
+
+async function writeImmutableJson(path: string, value: unknown): Promise<boolean> {
+  const content = `${JSON.stringify(value, null, 2)}\n`;
+  await mkdir(resolve(path, ".."), { recursive: true });
+  try {
+    await writeFile(path, content, { encoding: "utf8", flag: "wx" });
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    if (await readFile(path, "utf8") !== content) throw new Error(`Immutable extraction-profile collision at ${path}.`);
+    return false;
+  }
 }
 
 function projectRoot(args: InstitutionalResearchCommandArgs): string {
@@ -156,6 +188,88 @@ async function acquire(args: InstitutionalResearchCommandArgs) {
   });
 }
 
+async function freezeExtraction(args: InstitutionalResearchCommandArgs) {
+  const layout = await writeResearchProjectScaffold(projectRoot(args));
+  const profile = createExtractionProfile(await jsonFile<ExtractionProfileInput>(text(args, "profileFile")));
+  const path = join(layout.protocol.extractionProfiles, `${profile.id}.json`);
+  const created = await writeImmutableJson(path, profile);
+  return { profile, path, created };
+}
+
+async function loadExtractionProfile(args: InstitutionalResearchCommandArgs): Promise<ExtractionProfile> {
+  const input = await jsonFile<ExtractionProfileInput | ExtractionProfile>(text(args, "profileFile"));
+  return createExtractionProfile(input);
+}
+
+async function extract(args: InstitutionalResearchCommandArgs) {
+  const layout = await writeResearchProjectScaffold(projectRoot(args));
+  const profile = await loadExtractionProfile(args);
+  const inputs = await jsonFile<ExtractionRecord[]>(text(args, "recordsFile"));
+  const existing = await readJsonlRecords(layout.corpus.extractionRecords) as unknown as ExtractionRecord[];
+  const byId = new Map(existing.map((record) => [record.id, validateExtractionRecord(profile, record)]));
+  let appended = 0;
+  for (const input of inputs) {
+    const record = validateExtractionRecord(profile, input);
+    const current = byId.get(record.id);
+    if (current && JSON.stringify(current) !== JSON.stringify(record)) throw new Error(`Immutable extraction-record collision: ${record.id}.`);
+    if (!current) {
+      byId.set(record.id, record);
+      appended += 1;
+    }
+  }
+  const records = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+  const conflicts = detectExtractionConflicts(profile, records);
+  await Promise.all([
+    writeJsonl(layout.corpus.extractionRecords, records),
+    writeJsonl(layout.corpus.extractionConflicts, conflicts)
+  ]);
+  return { appended, total: records.length, conflicts: conflicts.length };
+}
+
+type AdjudicationFileEntry = ExtractionAdjudicationInput & { readonly conflictId: string };
+
+async function adjudicateExtraction(args: InstitutionalResearchCommandArgs) {
+  const layout = await writeResearchProjectScaffold(projectRoot(args));
+  const profile = await loadExtractionProfile(args);
+  const inputs = await jsonFile<AdjudicationFileEntry[]>(text(args, "adjudicationsFile"));
+  const conflicts = await readJsonlRecords(layout.corpus.extractionConflicts) as unknown as ExtractionConflict[];
+  const existing = await readJsonlRecords(layout.corpus.extractionAdjudications) as unknown as ExtractionAdjudication[];
+  const byId = new Map(existing.map((item) => [item.id, item]));
+  let appended = 0;
+  for (const { conflictId, ...input } of inputs) {
+    const conflict = conflicts.find((item) => item.id === conflictId);
+    if (!conflict) throw new Error(`Unknown extraction conflict: ${conflictId}.`);
+    const adjudication = adjudicateExtractionConflict(profile, conflict, input);
+    const current = byId.get(adjudication.id);
+    if (current && JSON.stringify(current) !== JSON.stringify(adjudication)) throw new Error(`Immutable extraction-adjudication collision: ${adjudication.id}.`);
+    if (!current) {
+      byId.set(adjudication.id, adjudication);
+      appended += 1;
+    }
+  }
+  const adjudications = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+  await writeJsonl(layout.corpus.extractionAdjudications, adjudications);
+  return { appended, total: adjudications.length };
+}
+
+type FreezeDataFile = Pick<ExtractedDatasetFreezeInput, "id" | "decisionRecordId" | "frozenAt">;
+
+async function freezeData(args: InstitutionalResearchCommandArgs) {
+  const layout = await writeResearchProjectScaffold(projectRoot(args));
+  const profile = await loadExtractionProfile(args);
+  const metadata = await jsonFile<FreezeDataFile>(text(args, "freezeFile"));
+  const records = await readJsonlRecords(layout.corpus.extractionRecords) as unknown as ExtractionRecord[];
+  const conflicts = await readJsonlRecords(layout.corpus.extractionConflicts) as unknown as ExtractionConflict[];
+  const adjudications = await readJsonlRecords(layout.corpus.extractionAdjudications) as unknown as ExtractionAdjudication[];
+  const freeze = freezeExtractedDataset({ ...metadata, profile, records, conflicts, adjudications });
+  const existing = await readJsonlRecords(layout.audit.extractedDataFreezes) as unknown as { id: string; datasetHash: string }[];
+  const current = existing.find((item) => item.id === freeze.id);
+  if (current && current.datasetHash !== freeze.datasetHash) throw new Error(`Immutable extracted-data freeze collision: ${freeze.id}.`);
+  if (!current) await appendJsonlRecord(layout.audit.extractedDataFreezes, freeze);
+  await writeJson(join(layout.data.analysisReady, `${freeze.datasetHash}.json`), { profile, records, adjudications, freeze });
+  return { freeze, created: !current };
+}
+
 async function report(args: InstitutionalResearchCommandArgs) {
   const root = projectRoot(args);
   const layout = await writeResearchProjectScaffold(root);
@@ -218,6 +332,10 @@ export async function executeInstitutionalResearchCommand(command: Institutional
   if (command === "ingest-export") return ingestExport(args);
   if (command === "screen") return screen(args);
   if (command === "acquire") return acquire(args);
+  if (command === "freeze-extraction") return freezeExtraction(args);
+  if (command === "extract") return extract(args);
+  if (command === "adjudicate-extraction") return adjudicateExtraction(args);
+  if (command === "freeze-data") return freezeData(args);
   if (command === "report") return report(args);
   if (command === "package") return packageManuscript(args);
   if (command === "live-smoke") return liveSmoke(args);

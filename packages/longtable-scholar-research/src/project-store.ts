@@ -19,6 +19,7 @@ export interface ResearchProjectLayout {
     readonly searchProtocol: string;
     readonly inclusionExclusion: string;
     readonly databaseProfiles: string;
+    readonly extractionProfiles: string;
     readonly amendments: string;
   };
   readonly data: {
@@ -28,6 +29,9 @@ export interface ResearchProjectLayout {
     readonly deduplicated: string;
     readonly titleAbstractScreening: string;
     readonly fulltextScreening: string;
+    readonly extractionPilot: string;
+    readonly extracted: string;
+    readonly adjudicated: string;
     readonly analysisReady: string;
   };
   readonly corpus: {
@@ -36,6 +40,9 @@ export interface ResearchProjectLayout {
     readonly acquisitionLedger: string;
     readonly pdfManifest: string;
     readonly screeningDecisions: string;
+    readonly extractionRecords: string;
+    readonly extractionConflicts: string;
+    readonly extractionAdjudications: string;
     readonly manualActionQueue: string;
   };
   readonly audit: {
@@ -46,6 +53,7 @@ export interface ResearchProjectLayout {
     readonly exclusions: string;
     readonly deviations: string;
     readonly failures: string;
+    readonly extractedDataFreezes: string;
   };
   readonly reports: string;
   readonly manuscript: string;
@@ -58,7 +66,10 @@ const JSONL_FILES = [
   "papers",
   "acquisitionLedger",
   "pdfManifest",
-  "screeningDecisions"
+  "screeningDecisions",
+  "extractionRecords",
+  "extractionConflicts",
+  "extractionAdjudications"
 ] as const;
 
 const AUDIT_JSONL_FILES = [
@@ -67,7 +78,8 @@ const AUDIT_JSONL_FILES = [
   "decisions",
   "exclusions",
   "deviations",
-  "failures"
+  "failures",
+  "extractedDataFreezes"
 ] as const;
 
 export function buildResearchProjectLayout(projectRoot: string): ResearchProjectLayout {
@@ -84,6 +96,7 @@ export function buildResearchProjectLayout(projectRoot: string): ResearchProject
       searchProtocol: join(protocolRoot, "search-protocol.yaml"),
       inclusionExclusion: join(protocolRoot, "inclusion-exclusion.yaml"),
       databaseProfiles: join(protocolRoot, "database-profiles"),
+      extractionProfiles: join(protocolRoot, "extraction-profiles"),
       amendments: join(protocolRoot, "amendments")
     },
     data: {
@@ -93,7 +106,10 @@ export function buildResearchProjectLayout(projectRoot: string): ResearchProject
       deduplicated: join(dataRoot, "02_deduplicated"),
       titleAbstractScreening: join(dataRoot, "03_title-abstract-screening"),
       fulltextScreening: join(dataRoot, "04_fulltext-screening"),
-      analysisReady: join(dataRoot, "05_analysis-ready")
+      extractionPilot: join(dataRoot, "05_extraction-pilot"),
+      extracted: join(dataRoot, "06_extracted"),
+      adjudicated: join(dataRoot, "07_adjudicated"),
+      analysisReady: join(dataRoot, "08_analysis-ready")
     },
     corpus: {
       root: corpusRoot,
@@ -101,6 +117,9 @@ export function buildResearchProjectLayout(projectRoot: string): ResearchProject
       acquisitionLedger: join(corpusRoot, "acquisition-ledger.jsonl"),
       pdfManifest: join(corpusRoot, "pdf-manifest.jsonl"),
       screeningDecisions: join(corpusRoot, "screening-decisions.jsonl"),
+      extractionRecords: join(corpusRoot, "extraction-records.jsonl"),
+      extractionConflicts: join(corpusRoot, "extraction-conflicts.jsonl"),
+      extractionAdjudications: join(corpusRoot, "extraction-adjudications.jsonl"),
       manualActionQueue: join(corpusRoot, "manual-action-queue.csv")
     },
     audit: {
@@ -110,7 +129,8 @@ export function buildResearchProjectLayout(projectRoot: string): ResearchProject
       decisions: join(auditRoot, "decisions.jsonl"),
       exclusions: join(auditRoot, "exclusions.jsonl"),
       deviations: join(auditRoot, "deviations.jsonl"),
-      failures: join(auditRoot, "failures.jsonl")
+      failures: join(auditRoot, "failures.jsonl"),
+      extractedDataFreezes: join(auditRoot, "extracted-data-freezes.jsonl")
     },
     reports: join(root, "reports"),
     manuscript: join(root, "manuscript"),
@@ -138,12 +158,16 @@ export async function writeResearchProjectScaffold(projectRoot: string): Promise
   const directories = [
     layout.protocol.root,
     layout.protocol.databaseProfiles,
+    layout.protocol.extractionProfiles,
     layout.protocol.amendments,
     layout.data.rawExports,
     layout.data.normalized,
     layout.data.deduplicated,
     layout.data.titleAbstractScreening,
     layout.data.fulltextScreening,
+    layout.data.extractionPilot,
+    layout.data.extracted,
+    layout.data.adjudicated,
     layout.data.analysisReady,
     layout.corpus.root,
     layout.audit.root,

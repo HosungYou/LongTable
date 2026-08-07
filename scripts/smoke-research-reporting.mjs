@@ -55,6 +55,12 @@ const input = {
   unresolvedIssues: [],
   deviations: [{ id: "deviation-1", description: "One export was regenerated.", decisionRecordId: "decision-export-1" }],
   analysisReadiness: "ready",
+  extraction: {
+    profileId: "extraction-v1", profileHash: "b".repeat(64), corpusType: "scholarly_study", unitOfAnalysis: "included study",
+    doubleExtractionRequired: true, recordCount: 4, unitCount: 2, reliabilityStatistic: "cohens_kappa",
+    reliabilityThreshold: 0.8, reliabilityObserved: 0.9, conflictCount: 1, adjudicatedCount: 1,
+    missingRequiredValueCount: 0, datasetFreezeId: "freeze-v1", datasetHash: "c".repeat(64)
+  },
   requiredActions: ["Archive the frozen corpus with the manuscript package."],
   generatedArtifacts: ["corpus/frozen-corpus.jsonl"],
   inputArtifactIds: ["corpus-frozen-1", "screening-ledger-1"],
@@ -72,6 +78,8 @@ assert.match(first.researcherReportMarkdown, /## Failures and recoveries/);
 assert.match(first.researcherReportMarkdown, /## Unresolved issues/);
 assert.match(first.researcherReportMarkdown, /## Deviations/);
 assert.match(first.researcherReportMarkdown, /## Analysis readiness/);
+assert.match(first.researcherReportMarkdown, /## Research-data extraction/);
+assert.match(first.systematicReviewMarkdown, /extraction-v1/);
 assert.match(first.researcherReportMarkdown, /## Required researcher actions/);
 assert.match(first.researcherReportMarkdown, /## Generated artifacts/);
 assert.match(first.prismaCountTableMarkdown, /Identified records.*12/);

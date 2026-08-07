@@ -3,6 +3,7 @@ import type { CorpusCounts } from "./invariants.js";
 import { verifyCorpusInvariants } from "./invariants.js";
 import { renderPrismaCountTable, renderPrismaFlowSvg } from "./prisma.js";
 import type { ArtifactProvenance, ProtocolRevision, ResearchRun } from "./workflow-types.js";
+import type { ExtractionAuditSummary } from "./extraction.js";
 
 export interface DatabaseYield {
   readonly databaseId: string;
@@ -32,6 +33,7 @@ export interface ResearchReportInput {
   readonly unresolvedIssues: readonly string[];
   readonly deviations: readonly ProtocolDeviation[];
   readonly analysisReadiness: string;
+  readonly extraction: ExtractionAuditSummary;
   readonly requiredActions: readonly string[];
   readonly generatedArtifacts: readonly string[];
   readonly inputArtifactIds: readonly string[];
@@ -124,6 +126,16 @@ function renderResearcherReport(input: ResearchReportInput): string {
     "",
     `- ${input.analysisReadiness}`,
     "",
+    "## Research-data extraction",
+    "",
+    `- Profile: ${input.extraction.profileId} (${input.extraction.profileHash})`,
+    `- Unit of analysis: ${input.extraction.unitOfAnalysis}; ${input.extraction.unitCount} unit(s), ${input.extraction.recordCount} extraction record(s)`,
+    `- Double extraction: ${input.extraction.doubleExtractionRequired ? "required" : "not required"}`,
+    `- Reliability: ${input.extraction.reliabilityStatistic} = ${input.extraction.reliabilityObserved}; threshold ${input.extraction.reliabilityThreshold}`,
+    `- Conflicts/adjudications: ${input.extraction.conflictCount}/${input.extraction.adjudicatedCount}`,
+    `- Missing required values: ${input.extraction.missingRequiredValueCount}`,
+    `- Extracted-data freeze: ${input.extraction.datasetFreezeId} (${input.extraction.datasetHash})`,
+    "",
     "## Required researcher actions",
     "",
     bullets(input.requiredActions, "None."),
@@ -158,7 +170,8 @@ export function renderResearchOutputs(input: ResearchReportInput): ResearchOutpu
   const prismaCountTableMarkdown = renderPrismaCountTable(input.counts);
   const prismaFlowSvg = renderPrismaFlowSvg(input.counts);
   const narrative = renderSystematicReviewNarrative({ status: "completed", protocol: input.protocol, counts: input.counts });
-  const systematicReviewMarkdown = [narrative.methodsMarkdown, narrative.resultsMarkdown].filter(Boolean).join("\n\n");
+  const extractionMethods = `${narrative.methodsMarkdown} Research variables were coded with extraction profile ${input.extraction.profileId} (${input.extraction.profileHash}); reliability was ${input.extraction.reliabilityObserved} against a ${input.extraction.reliabilityThreshold} threshold, ${input.extraction.conflictCount} conflict(s) were adjudicated, and the extracted dataset was frozen as ${input.extraction.datasetFreezeId}.`;
+  const systematicReviewMarkdown = [extractionMethods, narrative.resultsMarkdown].filter(Boolean).join("\n\n");
   const contents = [
     ["researcher-report", researcherReportMarkdown],
     ["review-flow-table", prismaCountTableMarkdown],
@@ -173,4 +186,3 @@ export function renderResearchOutputs(input: ResearchReportInput): ResearchOutpu
     artifactProvenance: contents.map(([kind, content]) => provenance(input, kind, content))
   };
 }
-

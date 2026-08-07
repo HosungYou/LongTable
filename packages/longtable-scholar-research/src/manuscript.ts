@@ -4,6 +4,7 @@ import type { CorpusCounts } from "./invariants.js";
 import { verifyCorpusInvariants } from "./invariants.js";
 import { renderReferenceFormats } from "./references.js";
 import type { ProtocolRevision } from "./workflow-types.js";
+import type { ExtractionAuditSummary } from "./extraction.js";
 
 export interface ManuscriptSection {
   readonly id: string;
@@ -51,8 +52,10 @@ export interface BuildApprovedManuscriptInput {
     readonly databasesExecuted: boolean;
     readonly fulltextAvailabilityVerified: boolean;
     readonly analysisApproved: boolean;
+    readonly extractedDataFrozen: boolean;
   };
   readonly analysisPlan: string;
+  readonly extraction: ExtractionAuditSummary;
 }
 
 function hash(value: string): string {
@@ -75,17 +78,18 @@ export function buildApprovedManuscript(input: BuildApprovedManuscriptInput): Ap
   if (!input.approvals.databasesExecuted) throw new Error("Cannot render a manuscript that claims an unexecuted database search.");
   if (!input.approvals.fulltextAvailabilityVerified) throw new Error("Cannot render a manuscript before full-text availability is verified.");
   if (!input.approvals.analysisApproved) throw new Error("Cannot render an unapproved analysis.");
+  if (!input.approvals.extractedDataFrozen || !input.extraction.datasetHash) throw new Error("Cannot render a manuscript before the extracted research dataset is frozen.");
   if (!verifyCorpusInvariants(input.counts).passed) throw new Error("Cannot render a manuscript because corpus count invariants failed.");
   const references = renderReferenceFormats(input.papers);
   const databases = input.protocol.databases.join(", ");
   const sections: ManuscriptSection[] = input.language === "ko" ? [
     { id: "introduction", heading: "서론", content: "본 연구는 해커톤형 집중 프로그램과 직무역량 개발을 수요-공급 불일치의 관점에서 검토한다. 연구문제와 개념적 틀은 동결 프로토콜의 범위 안에서 해석한다." },
-    { id: "methods", heading: "연구방법", content: `${databases}를 동결된 데이터베이스별 검색식과 포함·배제 기준으로 검색하였다. 메타데이터 내보내기, 정규화, 중복 연결, 제목·초록 선별, 전문 확보 및 전문 선별의 모든 판정을 append-only ledger에 기록하였다.` },
+    { id: "methods", heading: "연구방법", content: `${databases}를 동결된 데이터베이스별 검색식과 포함·배제 기준으로 검색하였다. 메타데이터 내보내기, 정규화, 중복 연결, 제목·초록 선별, 전문 확보 및 전문 선별의 모든 판정을 append-only ledger에 기록하였다. 연구변수는 추출 프로파일 ${input.extraction.profileId}로 이중 추출하고 신뢰도(${input.extraction.reliabilityStatistic}=${input.extraction.reliabilityObserved})를 검증한 뒤 충돌을 합의 판정하여 데이터셋 ${input.extraction.datasetFreezeId}로 동결하였다.` },
     { id: "results", heading: "결과", content: `총 ${input.counts.identified}건을 식별하였고, 중복 연결 후 ${input.counts.unique}건을 선별하였다. 전문 ${input.counts.fulltextAssessed}건을 평가하여 최종 ${input.counts.finalIncluded}편을 포함하였다.` },
     { id: "discussion", heading: "논의", content: "결과 해석은 동결 코퍼스와 승인된 분석계획에 한정한다. 직무역량 수요와 교육 공급의 불일치는 후속 문서 코딩 및 개념 매핑을 통해 검증한다." }
   ] : [
     { id: "introduction", heading: "Introduction", content: "This review examines hackathon-like intensive protocols and workplace competency development through a demand-supply mismatch lens." },
-    { id: "methods", heading: "Method", content: `${databases} were searched using frozen database-specific queries and eligibility criteria. Export, normalization, duplicate linkage, screening, full-text acquisition, and synthesis decisions were retained in append-only ledgers.` },
+    { id: "methods", heading: "Method", content: `${databases} were searched using frozen database-specific queries and eligibility criteria. Export, normalization, duplicate linkage, screening, and full-text acquisition decisions were retained in append-only ledgers. Research variables were independently extracted with profile ${input.extraction.profileId}, reliability was verified (${input.extraction.reliabilityStatistic}=${input.extraction.reliabilityObserved}), conflicts were adjudicated, and dataset ${input.extraction.datasetFreezeId} was frozen before analysis.` },
     { id: "results", heading: "Results", content: `${input.counts.identified} records were identified; ${input.counts.unique} unique records were screened, ${input.counts.fulltextAssessed} reports were assessed in full text, and ${input.counts.finalIncluded} studies were included.` },
     { id: "discussion", heading: "Discussion", content: "Interpretation is limited to the frozen corpus and approved analysis plan. Demand-supply mismatch requires explicit document coding and construct mapping." }
   ];

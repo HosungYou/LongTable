@@ -17,6 +17,11 @@ const expectedStages = [
   "FULLTEXT_ACQUISITION",
   "FULLTEXT_SCREENING",
   "CORPUS_FREEZE_CHECKPOINT",
+  "DATA_EXTRACTION_PLAN_CHECKPOINT",
+  "DATA_EXTRACTION_PILOT",
+  "DATA_EXTRACTION",
+  "DATA_EXTRACTION_ADJUDICATION",
+  "EXTRACTED_DATA_FREEZE_CHECKPOINT",
   "ANALYSIS",
   "SYNTHESIS",
   "RESEARCHER_REPORT",
@@ -37,7 +42,12 @@ const expectedHardStops = [
   "HUMAN_AI_SCREENING_CONFLICT",
   "FULLTEXT_MISSING_THRESHOLD_EXCEEDED",
   "ANALYSIS_METHOD_CHANGE",
-  "CORPUS_FREEZE_REQUIRED"
+  "CORPUS_FREEZE_REQUIRED",
+  "EXTRACTION_SCHEMA_UNFROZEN",
+  "EXTRACTION_RULE_AMBIGUOUS",
+  "EXTRACTION_RELIABILITY_BELOW_THRESHOLD",
+  "DOUBLE_EXTRACTION_CONFLICT",
+  "EXTRACTED_DATA_FREEZE_REQUIRED"
 ];
 
 const expectedRetryableEvents = [
@@ -226,12 +236,16 @@ try {
   const expectedDirectories = [
     layout.protocol.root,
     layout.protocol.databaseProfiles,
+    layout.protocol.extractionProfiles,
     layout.protocol.amendments,
     layout.data.rawExports,
     layout.data.normalized,
     layout.data.deduplicated,
     layout.data.titleAbstractScreening,
     layout.data.fulltextScreening,
+    layout.data.extractionPilot,
+    layout.data.extracted,
+    layout.data.adjudicated,
     layout.data.analysisReady,
     layout.corpus.root,
     layout.audit.root,

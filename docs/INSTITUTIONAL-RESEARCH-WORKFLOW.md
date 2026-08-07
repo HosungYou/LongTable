@@ -11,7 +11,7 @@ Use two related but distinct evidence streams for a demand-supply mismatch study
 
 The two streams meet only after each has its own stable unit of analysis and codebook. A conceptual framework may then map demanded competencies and problem types to supplied curricula, learning protocols, and measured competency outcomes. This separation prevents procurement demand from being mistaken for scholarly evidence and prevents course availability from being mistaken for effectiveness.
 
-## One surface, eight commands
+## One research surface
 
 Initialize the canonical folders before the pilot:
 
@@ -32,12 +32,19 @@ longtable research acquire --candidate-path paper.pdf --vault-root "<external-va
   --acquisition-method researcher_manual_upload --access-basis researcher_provided \
   --version accepted-manuscript --project-inclusion included --screening-state fulltext_included \
   --cwd "<project>"
+longtable research freeze-extraction --profile-file extraction-profile.json --cwd "<project>"
+longtable research extract --profile-file extraction-profile.json --records-file extraction-records.json --cwd "<project>"
+longtable research adjudicate-extraction --profile-file extraction-profile.json \
+  --adjudications-file adjudications.json --cwd "<project>"
+longtable research freeze-data --profile-file extraction-profile.json --freeze-file data-freeze.json --cwd "<project>"
 longtable research report --input-file report-input.json --cwd "<project>"
 longtable research package --input-file manuscript-input.json --profile-file apa7.json \
   --output-path manuscript/review.docx --cwd "<project>"
 ```
 
 `freeze` writes immutable, numbered revisions. The same revision and content is idempotent; different content cannot overwrite an existing revision number. `ingest-export` stores the original export under its SHA-256, then produces normalized and deduplicated derivatives. Re-ingesting identical bytes does not create a second raw artifact. `screen` appends versioned decisions and ignores an identical decision ID on replay.
+
+Metadata identifies research units; it is not the coded research dataset. `freeze-extraction` locks the unit of analysis, variables, value types, evidence requirements, double-extraction rule, and reliability threshold. `extract` validates independent records and detects field-level conflicts. `adjudicate-extraction` records a human resolution with evidence. `freeze-data` refuses unresolved conflict, incomplete double extraction, below-threshold reliability, or missing required evidence, then writes a deterministic analysis-ready dataset hash.
 
 ## Mandatory checkpoints and resume rule
 
@@ -50,6 +57,10 @@ longtable research package --input-file manuscript-input.json --profile-file apa
 | Missing full-text threshold exceeded | Stop full-text screening | Revised acquisition plan or approved limitation |
 | Analysis method changes | Stop synthesis | Approved analysis-method DecisionRecord |
 | Corpus freeze is absent | Refuse analysis | Frozen corpus receipt |
+| Extraction profile is unfrozen or a coding rule is ambiguous | Stop extraction | Approved profile or rule revision linked to a DecisionRecord |
+| Pilot reliability is below threshold | Stop production extraction | Revised pilot/codebook or approved threshold decision |
+| Double extraction conflicts remain | Preserve both records | Evidence-backed adjudication |
+| Extracted-data freeze is absent | Refuse analysis and manuscript rendering | Deterministic dataset freeze linked to a DecisionRecord |
 
 Every stage advances only with a `StageReceipt`. A blocked run resumes only when the DecisionRecord references both the blocking checkpoint key and QuestionRecord ID. Replaying resume from the same blocked state with the same timestamp and decision produces the same state.
 
@@ -62,6 +73,7 @@ Every stage advances only with a `StageReceipt`. A blocked run resumes only when
     search-protocol.yaml
     inclusion-exclusion.yaml
     database-profiles/
+    extraction-profiles/
     amendments/protocol-revision-0001.json
   data/
     00_raw-exports/
@@ -69,12 +81,18 @@ Every stage advances only with a `StageReceipt`. A blocked run resumes only when
     02_deduplicated/
     03_title-abstract-screening/
     04_fulltext-screening/
-    05_analysis-ready/
+    05_extraction-pilot/
+    06_extracted/
+    07_adjudicated/
+    08_analysis-ready/
   corpus/
     papers.jsonl
     acquisition-ledger.jsonl
     pdf-manifest.jsonl
     screening-decisions.jsonl
+    extraction-records.jsonl
+    extraction-conflicts.jsonl
+    extraction-adjudications.jsonl
     manual-action-queue.csv
   audit/
     stage-receipts.jsonl
@@ -83,6 +101,7 @@ Every stage advances only with a `StageReceipt`. A blocked run resumes only when
     exclusions.jsonl
     deviations.jsonl
     failures.jsonl
+    extracted-data-freezes.jsonl
   reports/
   manuscript/
   analysis/
@@ -104,9 +123,10 @@ The report command generates a researcher audit report, count table, determinist
 | Count-invariant report and review-flow SVG | Results table and study-flow figure |
 | Deviation and DecisionRecord ledger | Protocol amendments and deviations |
 | Analysis-readiness table | Analysis plan, missing statistics, dependency and author-contact needs |
+| Extraction profile, reliability, conflict/adjudication, and data-freeze ledger | Methods: data items and coding; Results: reliability, missingness, and final analytic dataset |
 | Paragraph/table provenance map | Internal audit before submission |
 
-Planned work renders future-tense protocol language. Completed work renders past-tense Methods and observed Results. Rendering fails when count equations do not balance or when database execution, full-text verification, or analysis approval is absent.
+Planned work renders future-tense protocol language. Completed work renders past-tense Methods and observed Results. Rendering fails when count equations do not balance or when database execution, full-text verification, extracted-data freeze, or analysis approval is absent.
 
 The review-flow output is an internal deterministic representation, not a claim that every document corpus is a systematic review. Final reporting should be checked against the [PRISMA 2020 checklist and flow materials](https://www.prisma-statement.org/prisma-2020) and, for literature-search reporting, the [PRISMA-S extension](https://doi.org/10.1186/s13643-020-01542-z).
 

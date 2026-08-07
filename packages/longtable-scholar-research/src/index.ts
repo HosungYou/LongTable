@@ -17,6 +17,7 @@ export * from "./adapters.js";
 export * from "./institutions.js";
 export * from "./browser-recipes.js";
 export * from "./screening.js";
+export * from "./extraction.js";
 export * from "./prisma.js";
 export * from "./reporting.js";
 export * from "./references.js";

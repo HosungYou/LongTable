@@ -77,7 +77,13 @@ const manuscript = research.buildApprovedManuscript({
   inputArtifactIds: ["corpus-frozen-1", "screening-ledger-1"],
   generatedAt: "2026-08-06T08:00:00.000Z",
   generatorVersion: "0.1.72",
-  approvals: { databasesExecuted: true, fulltextAvailabilityVerified: true, analysisApproved: true },
+  approvals: { databasesExecuted: true, fulltextAvailabilityVerified: true, analysisApproved: true, extractedDataFrozen: true },
+  extraction: {
+    profileId: "extraction-v1", profileHash: "b".repeat(64), corpusType: "scholarly_study", unitOfAnalysis: "included study",
+    doubleExtractionRequired: true, recordCount: 2, unitCount: 1, reliabilityStatistic: "cohens_kappa",
+    reliabilityThreshold: 0.8, reliabilityObserved: 0.9, conflictCount: 0, adjudicatedCount: 0,
+    missingRequiredValueCount: 0, datasetFreezeId: "freeze-v1", datasetHash: "c".repeat(64)
+  },
   analysisPlan: "structured_document_analysis",
   abstract: "본 연구는 해커톤형 집중 프로그램을 직무역량 수요와 교육 공급의 불일치 관점에서 분석하기 위한 재현 가능한 체계적 문서분석 절차를 제안한다."
 });
@@ -95,7 +101,13 @@ for (const objectId of [
 assert.throws(() => research.buildApprovedManuscript({
   title: "Blocked", authorLines: [], language: "en", keywords: [], protocol: manuscript.protocol,
   counts, papers, inputArtifactIds: ["corpus-frozen-1"], generatedAt: "2026-08-06T08:00:00.000Z", generatorVersion: "0.1.72",
-  approvals: { databasesExecuted: false, fulltextAvailabilityVerified: true, analysisApproved: true }, analysisPlan: "meta_analysis"
+  approvals: { databasesExecuted: false, fulltextAvailabilityVerified: true, analysisApproved: true, extractedDataFrozen: true },
+  extraction: {
+    profileId: "extraction-v1", profileHash: "b".repeat(64), corpusType: "scholarly_study", unitOfAnalysis: "included study",
+    doubleExtractionRequired: true, recordCount: 2, unitCount: 1, reliabilityStatistic: "cohens_kappa",
+    reliabilityThreshold: 0.8, reliabilityObserved: 0.9, conflictCount: 0, adjudicatedCount: 0,
+    missingRequiredValueCount: 0, datasetFreezeId: "freeze-v1", datasetHash: "c".repeat(64)
+  }, analysisPlan: "meta_analysis"
 }), /unexecuted database/i);
 
 const retainedOutputDir = process.env.LONGTABLE_MANUSCRIPT_OUTPUT_DIR;

@@ -12,7 +12,7 @@ const vaultRoot = join(temp, "pdf-vault");
 const stagingRoot = join(temp, "staging");
 
 try {
-  assert.deepEqual(research.INSTITUTIONAL_RESEARCH_COMMANDS, ["pilot", "freeze", "ingest-export", "screen", "acquire", "report", "package", "live-smoke"]);
+  assert.deepEqual(research.INSTITUTIONAL_RESEARCH_COMMANDS, ["pilot", "freeze", "ingest-export", "screen", "acquire", "freeze-extraction", "extract", "adjudicate-extraction", "freeze-data", "report", "package", "live-smoke"]);
   const pilot = await research.executeInstitutionalResearchCommand("pilot", {
     cwd: projectRoot,
     runId: "run-e2e",
@@ -83,6 +83,41 @@ try {
   const screenedAgain = await research.executeInstitutionalResearchCommand("screen", { cwd: projectRoot, decisionsFile: decisionsPath });
   assert.equal(screenedAgain.appended, 0);
 
+  const extractionProfileFile = join(temp, "extraction-profile.json");
+  await writeFile(extractionProfileFile, JSON.stringify({
+    id: "study-extraction-v1", version: 1, corpusType: "scholarly_study", unitOfAnalysis: "included study",
+    approvedDecisionRecordId: "decision-extraction", frozenAt: "2026-08-06T09:35:00.000Z",
+    doubleExtractionRequired: true, reliability: { statistic: "cohens_kappa", threshold: 0.8, observed: 0.9 },
+    fields: [{ id: "intervention", label: "Intervention", valueType: "categorical", required: true, evidenceRequired: true, allowedValues: ["hackathon", "other"] }]
+  }));
+  const extractionProfile = await research.executeInstitutionalResearchCommand("freeze-extraction", { cwd: projectRoot, profileFile: extractionProfileFile });
+  const extractionRecordsFile = join(temp, "extraction-records.json");
+  const extractionRecord = (id, extractorId, type) => ({
+    id, unitId: ingested.corpus.papers[0].paperId, profileId: extractionProfile.profile.id,
+    profileHash: extractionProfile.profile.profileHash, extractor: { id: extractorId, type },
+    extractedAt: "2026-08-06T09:36:00.000Z", status: "submitted",
+    values: [{ fieldId: "intervention", value: "hackathon", evidence: [{ sourceArtifactId: `fulltext-${ingested.corpus.papers[0].paperId}`, locator: "Methods" }] }]
+  });
+  await writeFile(extractionRecordsFile, JSON.stringify([
+    extractionRecord("extract-human", "reviewer-hy", "human"),
+    extractionRecord("extract-ai", "configured-extractor", "ai")
+  ]));
+  const extracted = await research.executeInstitutionalResearchCommand("extract", { cwd: projectRoot, profileFile: extractionProfileFile, recordsFile: extractionRecordsFile });
+  assert.deepEqual(extracted, { appended: 2, total: 2, conflicts: 0 });
+  const extractedAgain = await research.executeInstitutionalResearchCommand("extract", { cwd: projectRoot, profileFile: extractionProfileFile, recordsFile: extractionRecordsFile });
+  assert.equal(extractedAgain.appended, 0);
+  const freezeFile = join(temp, "data-freeze.json");
+  await writeFile(freezeFile, JSON.stringify({ id: "dataset-freeze-v1", decisionRecordId: "decision-data-freeze", frozenAt: "2026-08-06T09:38:00.000Z" }));
+  const dataFreeze = await research.executeInstitutionalResearchCommand("freeze-data", { cwd: projectRoot, profileFile: extractionProfileFile, freezeFile });
+  assert.equal(dataFreeze.freeze.datasetHash.length, 64);
+  const extractionSummary = {
+    profileId: extractionProfile.profile.id, profileHash: extractionProfile.profile.profileHash,
+    corpusType: "scholarly_study", unitOfAnalysis: "included study", doubleExtractionRequired: true,
+    recordCount: 2, unitCount: 1, reliabilityStatistic: "cohens_kappa", reliabilityThreshold: 0.8,
+    reliabilityObserved: 0.9, conflictCount: 0, adjudicatedCount: 0, missingRequiredValueCount: 0,
+    datasetFreezeId: dataFreeze.freeze.id, datasetHash: dataFreeze.freeze.datasetHash
+  };
+
   await mkdir(stagingRoot, { recursive: true });
   await writeFile(join(stagingRoot, "paper.pdf"), "%PDF-1.7\n1 0 obj<</Type /Page>>endobj\nxref\n0 1\n0000000000 65535 f \ntrailer<</Size 1>>\nstartxref\n9\n%%EOF\n", { flag: "wx" });
   const acquired = await research.executeInstitutionalResearchCommand("acquire", {
@@ -139,7 +174,7 @@ try {
     run: { ...run, stage: "RESEARCHER_REPORT" }, protocol: frozen.protocol, counts,
     databaseYields: [{ databaseId: "web-of-science", searchedAt: "2026-08-06T09:15:00.000Z", resultCount: 2, exportedCount: 2 }],
     failures: [{ code: "FILE_PROVIDER_HYDRATION_DELAY", count: 1, resolution: "retry_succeeded" }], unresolvedIssues: [], deviations: [],
-    analysisReadiness: "ready", requiredActions: ["Researcher final review"], generatedArtifacts: ["corpus/papers.jsonl"],
+    analysisReadiness: "ready", extraction: extractionSummary, requiredActions: ["Researcher final review"], generatedArtifacts: ["corpus/papers.jsonl"],
     inputArtifactIds: [ingested.parsed.artifactSha256], renderTimestamp: "2026-08-06T10:30:00.000Z", generatorVersion: "0.1.72"
   }));
   const report = await research.executeInstitutionalResearchCommand("report", { cwd: projectRoot, inputFile: reportInputFile });
@@ -151,7 +186,8 @@ try {
     abstract: "해커톤형 집중 프로그램과 직무역량 수요-공급 불일치를 재현 가능한 문서분석 절차로 검토하였다.",
     keywords: ["해커톤", "직무역량", "수요-공급 불일치"], protocol: frozen.protocol, counts, papers: ingested.corpus.papers,
     inputArtifactIds: [ingested.parsed.artifactSha256], generatedAt: "2026-08-06T10:31:00.000Z", generatorVersion: "0.1.72",
-    approvals: { databasesExecuted: true, fulltextAvailabilityVerified: true, analysisApproved: true }, analysisPlan: "structured_document_analysis"
+    approvals: { databasesExecuted: true, fulltextAvailabilityVerified: true, analysisApproved: true, extractedDataFrozen: true },
+    extraction: extractionSummary, analysisPlan: "structured_document_analysis"
   }));
   const profileFile = join(repoRoot, "packages", "longtable-scholar-research", "fixtures", "render-profiles", "apa7.json");
   const outputPath = join(projectRoot, "manuscript", "review.docx");
