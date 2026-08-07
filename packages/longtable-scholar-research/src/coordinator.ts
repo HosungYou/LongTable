@@ -252,7 +252,7 @@ async function adjudicateExtraction(args: InstitutionalResearchCommandArgs) {
   return { appended, total: adjudications.length };
 }
 
-type FreezeDataFile = Pick<ExtractedDatasetFreezeInput, "id" | "decisionRecordId" | "frozenAt">;
+type FreezeDataFile = Pick<ExtractedDatasetFreezeInput, "id" | "decisionRecordId" | "frozenAt" | "reliability">;
 
 async function freezeData(args: InstitutionalResearchCommandArgs) {
   const layout = await writeResearchProjectScaffold(projectRoot(args));

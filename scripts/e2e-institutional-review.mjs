@@ -87,7 +87,7 @@ try {
   await writeFile(extractionProfileFile, JSON.stringify({
     id: "study-extraction-v1", version: 1, corpusType: "scholarly_study", unitOfAnalysis: "included study",
     approvedDecisionRecordId: "decision-extraction", frozenAt: "2026-08-06T09:35:00.000Z",
-    doubleExtractionRequired: true, reliability: { statistic: "cohens_kappa", threshold: 0.8, observed: 0.9 },
+    doubleExtractionRequired: true, reliability: { statistic: "cohens_kappa", threshold: 0.8 },
     fields: [{ id: "intervention", label: "Intervention", valueType: "categorical", required: true, evidenceRequired: true, allowedValues: ["hackathon", "other"] }]
   }));
   const extractionProfile = await research.executeInstitutionalResearchCommand("freeze-extraction", { cwd: projectRoot, profileFile: extractionProfileFile });
@@ -107,7 +107,10 @@ try {
   const extractedAgain = await research.executeInstitutionalResearchCommand("extract", { cwd: projectRoot, profileFile: extractionProfileFile, recordsFile: extractionRecordsFile });
   assert.equal(extractedAgain.appended, 0);
   const freezeFile = join(temp, "data-freeze.json");
-  await writeFile(freezeFile, JSON.stringify({ id: "dataset-freeze-v1", decisionRecordId: "decision-data-freeze", frozenAt: "2026-08-06T09:38:00.000Z" }));
+  await writeFile(freezeFile, JSON.stringify({
+    id: "dataset-freeze-v1", decisionRecordId: "decision-data-freeze", frozenAt: "2026-08-06T09:38:00.000Z",
+    reliability: { statistic: "cohens_kappa", observed: 0.9, sampleSize: 20, assessedAt: "2026-08-06T09:37:00.000Z" }
+  }));
   const dataFreeze = await research.executeInstitutionalResearchCommand("freeze-data", { cwd: projectRoot, profileFile: extractionProfileFile, freezeFile });
   assert.equal(dataFreeze.freeze.datasetHash.length, 64);
   const extractionSummary = {

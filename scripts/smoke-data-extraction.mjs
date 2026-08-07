@@ -12,7 +12,7 @@ const profileInput = {
   approvedDecisionRecordId: "decision-extraction-profile",
   frozenAt: "2026-08-07T00:00:00.000Z",
   doubleExtractionRequired: true,
-  reliability: { statistic: "cohens_kappa", threshold: 0.8, observed: 0.9 },
+  reliability: { statistic: "cohens_kappa", threshold: 0.8 },
   fields: [
     { id: "hackathon_protocol", label: "Hackathon protocol", valueType: "boolean", required: true, evidenceRequired: true },
     { id: "competency", label: "Target competency", valueType: "categorical", required: true, evidenceRequired: true, allowedValues: ["digital", "collaboration", "problem_solving"] },
@@ -21,6 +21,7 @@ const profileInput = {
 };
 
 const profile = research.createExtractionProfile(profileInput);
+const reliability = { statistic: "cohens_kappa", observed: 0.9, sampleSize: 50, assessedAt: "2026-08-07T01:45:00.000Z" };
 const sameProfile = research.createExtractionProfile({ ...profileInput, id: "copy", frozenAt: "2026-08-08T00:00:00.000Z" });
 assert.equal(profile.profileHash.length, 64);
 assert.equal(profile.profileHash, sameProfile.profileHash);
@@ -52,14 +53,15 @@ assert.throws(() => research.validateExtractionRecord(profile, {
 const conflicts = research.detectExtractionConflicts(profile, [first, second]);
 assert.equal(conflicts.length, 1);
 assert.equal(conflicts[0].fieldId, "competency");
-assert.equal(research.assessExtractionReadiness(profile, [first, second], [], []).code, "DOUBLE_EXTRACTION_CONFLICT");
-assert.equal(research.assessExtractionReadiness(profile, [], [], []).code, "EXTRACTED_DATA_FREEZE_REQUIRED");
+assert.equal(research.assessExtractionReadiness(profile, [first, second], [], [], reliability).code, "DOUBLE_EXTRACTION_CONFLICT");
+assert.equal(research.assessExtractionReadiness(profile, [], [], [], reliability).code, "EXTRACTED_DATA_FREEZE_REQUIRED");
 assert.throws(() => research.freezeExtractedDataset({
   id: "freeze-1",
   profile,
   records: [first, second],
   conflicts,
   adjudications: [],
+  reliability,
   decisionRecordId: "decision-freeze",
   frozenAt: "2026-08-07T02:00:00.000Z"
 }), /unresolved conflict/i);
@@ -78,6 +80,7 @@ const frozen = research.freezeExtractedDataset({
   records: [first, second],
   conflicts,
   adjudications: [adjudication],
+  reliability,
   decisionRecordId: "decision-freeze",
   frozenAt: "2026-08-07T02:00:00.000Z"
 });
@@ -87,19 +90,16 @@ const replay = research.freezeExtractedDataset({
   records: [second, first],
   conflicts,
   adjudications: [adjudication],
+  reliability,
   decisionRecordId: "decision-other",
   frozenAt: "2026-08-08T02:00:00.000Z"
 });
 assert.equal(frozen.datasetHash.length, 64);
 assert.equal(frozen.datasetHash, replay.datasetHash);
 assert.equal(frozen.unresolvedConflictCount, 0);
-assert.equal(research.assessExtractionReadiness(profile, [first, second], conflicts, [adjudication]).status, "ready");
+assert.equal(research.assessExtractionReadiness(profile, [first, second], conflicts, [adjudication], reliability).status, "ready");
 
-const lowReliability = research.createExtractionProfile({
-  ...profileInput,
-  id: "low-reliability",
-  reliability: { statistic: "cohens_kappa", threshold: 0.8, observed: 0.6 }
-});
-assert.equal(research.assessExtractionReadiness(lowReliability, [first, second], [], []).code, "EXTRACTION_RELIABILITY_BELOW_THRESHOLD");
+const lowReliability = { ...reliability, observed: 0.6 };
+assert.equal(research.assessExtractionReadiness(profile, [first, second], conflicts, [adjudication], lowReliability).code, "EXTRACTION_RELIABILITY_BELOW_THRESHOLD");
 
 console.log("research data extraction tests passed");

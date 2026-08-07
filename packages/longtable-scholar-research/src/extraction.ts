@@ -17,7 +17,13 @@ export interface ExtractionFieldDefinition {
 export interface ExtractionReliability {
   readonly statistic: string;
   readonly threshold: number;
-  readonly observed?: number;
+}
+
+export interface ExtractionReliabilityResult {
+  readonly statistic: string;
+  readonly observed: number;
+  readonly sampleSize: number;
+  readonly assessedAt: string;
 }
 
 export interface ExtractionProfileInput {
@@ -94,6 +100,7 @@ export interface ExtractedDatasetFreezeInput {
   readonly records: readonly ExtractionRecord[];
   readonly conflicts: readonly ExtractionConflict[];
   readonly adjudications: readonly ExtractionAdjudication[];
+  readonly reliability: ExtractionReliabilityResult;
   readonly decisionRecordId: string;
   readonly frozenAt: string;
 }
@@ -172,8 +179,7 @@ export function createExtractionProfile(input: ExtractionProfileInput): Extracti
   if (!Number.isInteger(input.version) || input.version < 1 || input.fields.length === 0) {
     throw new Error("An extraction profile requires a positive version and at least one field.");
   }
-  if (input.reliability.threshold < 0 || input.reliability.threshold > 1 ||
-      (input.reliability.observed !== undefined && (input.reliability.observed < 0 || input.reliability.observed > 1))) {
+  if (input.reliability.threshold < 0 || input.reliability.threshold > 1) {
     throw new Error("Extraction reliability values must be between zero and one.");
   }
   const ids = new Set<string>();
@@ -268,10 +274,12 @@ export function assessExtractionReadiness(
   profile: ExtractionProfile,
   records: readonly ExtractionRecord[],
   conflicts: readonly ExtractionConflict[],
-  adjudications: readonly ExtractionAdjudication[]
+  adjudications: readonly ExtractionAdjudication[],
+  reliability: ExtractionReliabilityResult
 ): ExtractionReadiness {
   if (!profile.profileHash || !profile.approvedDecisionRecordId) return { status: "hard_stop", code: "EXTRACTION_SCHEMA_UNFROZEN", reason: "The extraction profile is not frozen and approved." };
-  if (profile.reliability.observed === undefined || profile.reliability.observed < profile.reliability.threshold) {
+  if (reliability.statistic !== profile.reliability.statistic || !Number.isInteger(reliability.sampleSize) || reliability.sampleSize < 1 ||
+      reliability.observed < 0 || reliability.observed > 1 || reliability.observed < profile.reliability.threshold) {
     return { status: "hard_stop", code: "EXTRACTION_RELIABILITY_BELOW_THRESHOLD", reason: "The extraction pilot has not met its declared reliability threshold." };
   }
   if (records.length === 0) {
@@ -301,7 +309,7 @@ export function assessExtractionReadiness(
 
 export function freezeExtractedDataset(input: ExtractedDatasetFreezeInput): ExtractedDatasetFreeze {
   if (!input.id.trim() || !input.decisionRecordId.trim() || !input.frozenAt.trim()) throw new Error("An extracted dataset freeze requires stable IDs, timestamp, and DecisionRecord approval.");
-  const readiness = assessExtractionReadiness(input.profile, input.records, input.conflicts, input.adjudications);
+  const readiness = assessExtractionReadiness(input.profile, input.records, input.conflicts, input.adjudications, input.reliability);
   if (readiness.status !== "ready") {
     const wording = readiness.code === "DOUBLE_EXTRACTION_CONFLICT" ? `Unresolved conflict: ${readiness.reason}` : readiness.reason;
     throw new Error(wording);
@@ -311,7 +319,8 @@ export function freezeExtractedDataset(input: ExtractedDatasetFreezeInput): Extr
   const datasetHash = hash({
     profileHash: input.profile.profileHash,
     records: [...input.records].sort((a, b) => a.id.localeCompare(b.id)),
-    adjudications: [...input.adjudications].sort((a, b) => a.id.localeCompare(b.id))
+    adjudications: [...input.adjudications].sort((a, b) => a.id.localeCompare(b.id)),
+    reliability: input.reliability
   });
   return cloneFreeze({
     id: input.id,
