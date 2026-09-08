@@ -1,3 +1,4 @@
+import { SEARCH_SOURCE_REGISTRY, assessSearchSourceCapabilities } from "./registry.js";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
@@ -94,46 +95,8 @@ interface ConnectorRequirement {
 }
 
 const CONNECTORS: readonly ConnectorRequirement[] = [
-  {
-    name: "Crossref",
-    requiredEnv: [],
-    purpose: "DOI and publisher metadata resolution."
-  },
-  {
-    name: "OpenAlex",
-    requiredEnv: [],
-    purpose: "Open scholarly metadata and citation graph lookup; OPENALEX_API_KEY remains optional."
-  },
-  {
-    name: "Semantic Scholar",
-    requiredEnv: [],
-    purpose: "Paper metadata, abstracts, citation counts, and open PDF hints."
-  },
-  {
-    name: "arXiv",
-    requiredEnv: [],
-    purpose: "Preprint metadata and open PDF route discovery."
-  },
-  {
-    name: "PubMed/PMC",
-    requiredEnv: [],
-    purpose: "Biomedical metadata and PubMed Central open full text discovery."
-  },
-  {
-    name: "CORE",
-    requiredEnv: ["CORE_API_KEY"],
-    purpose: "Repository sweep for legal full text and institutional copies."
-  },
-  {
-    name: "DOAJ",
-    requiredEnv: [],
-    purpose: "Open-access journal metadata and full-text links."
-  },
-  {
-    name: "Local PDF folder/manual upload",
-    requiredEnv: [],
-    purpose: "Researcher-provided files when the researcher has legitimate access."
-  }
+  { name: "CORE", requiredEnv: ["CORE_API_KEY"], purpose: "External optional full-text connector; not an executable LongTable search route." },
+  { name: "Local PDF folder/manual upload", requiredEnv: [], purpose: "Researcher-provided files; extraction requires an available local reader." }
 ];
 
 const SAFETY_STATUS: ScholarResearchSafetyStatus = {
@@ -166,7 +129,16 @@ export function assessScholarResearchReadiness(
 ): ScholarResearchReadiness {
   return {
     skillName: SCHOLAR_RESEARCH_SKILL_NAME,
-    connectors: CONNECTORS.map((connector) => connectorStatus(connector, env)),
+    connectors: [
+      ...assessSearchSourceCapabilities(undefined, env).map((capability) => ({
+        name: SEARCH_SOURCE_REGISTRY[capability.source].name,
+        status: capability.enabled ? "ready" as const : "missing" as const,
+        requiredEnv: capability.requiredEnv,
+        missingEnv: capability.missingEnv,
+        purpose: SEARCH_SOURCE_REGISTRY[capability.source].purpose
+      })),
+      ...CONNECTORS.map((connector) => connectorStatus(connector, env))
+    ],
     safety: SAFETY_STATUS,
     fallbackLedgerRequired: true,
     citationSlotFilledRequiresFullTextQuote: true

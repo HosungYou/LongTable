@@ -152,3 +152,7 @@ longtable doctor --json
 to inspect hook coverage/trust plus `stopWouldBlock`, `activeBlockers`, stale
 pending-question counts, and next actions. Tmux remains an optional terminal
 transport; LongTable state and hooks own the behavior.
+
+## Research a question
+
+`lt research "question" --cwd <project> --json` collects evidence and a source comparison, then exposes a packet for the current host model to synthesize. Resume the same question or use `--run <id>` without repeating search. Attach local excerpts with `--evidence-file`, cited claims with `--answer-file`, and request a new search with `--refresh`. Partial results are usable by default; `--require-all` preserves an explicit coverage gap. No separate model API is invoked. See [the research entrypoint contract](https://github.com/HosungYou/LongTable/blob/main/docs/RESEARCH-ENTRYPOINT.md) for schemas and evidence limits.

@@ -2,9 +2,10 @@ import type { CitationSupportStatus, EvidenceCard, ResearchSearchIntent } from "
 import { normalizeSearchText } from "./query.js";
 
 function keyForCard(card: EvidenceCard): string {
+  // A preprint version is not interchangeable with its later publication, even with the same DOI.
+  if (card.arxivId) return `arxiv:${card.arxivId.toLowerCase()}`;
   if (card.doi) return `doi:${card.doi.toLowerCase()}`;
   if (card.pmid) return `pmid:${card.pmid}`;
-  if (card.arxivId) return `arxiv:${card.arxivId.toLowerCase()}`;
   if (card.openAlexId) return `openalex:${card.openAlexId}`;
   if (card.semanticScholarId) return `s2:${card.semanticScholarId}`;
   const title = normalizeSearchText(card.title).replace(/\s+/g, "-");

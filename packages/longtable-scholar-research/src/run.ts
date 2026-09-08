@@ -36,29 +36,18 @@ export async function runResearchSearch(input: RunResearchSearchInput): Promise<
   const capabilities = assessSearchSourceCapabilities(intent.requestedSources, env);
   const skippedSources = capabilities.filter((capability) => !capability.enabled);
 
-  if (skippedSources.length > 0 && input.allowPartial !== true) {
-    const updatedAt = now();
-    return {
-      id,
-      createdAt,
-      updatedAt,
-      status: "blocked",
-      intent,
-      sourceReports: skippedSources.map((capability): SourceReport => ({
-        source: capability.source,
-        status: "skipped",
-        count: 0,
-        elapsedMs: 0,
-        reason: capability.reason
-      })),
-      cards: [],
-      skippedSources,
-      warnings: skippedSources.map((capability) => capability.reason ?? `${capability.source} unavailable.`),
-      blockedReason: "One or more requested scholarly sources are unavailable. Confirm partial search or configure credentials."
-    };
-  }
-
   const httpFetch = input.fetch ?? defaultFetch();
+  const timeoutMs = input.timeoutMs ?? 15000;
+  if (!Number.isFinite(timeoutMs) || timeoutMs < 1 || timeoutMs > 120000) {
+    throw new Error("timeoutMs must be between 1 and 120000.");
+  }
+  const redact = (text: string): string => {
+    let safe = text.replace(/([?&](?:api_key|apikey|key|token|mailto)=)[^&\s]+/gi, "$1[redacted]");
+    for (const [key, value] of Object.entries(env)) {
+      if (value && /KEY|TOKEN|SECRET|PASSWORD/i.test(key)) safe = safe.split(value).join("[redacted]");
+    }
+    return safe;
+  };
   const sourceReports: SourceReport[] = [];
   const cards = [];
 
@@ -75,22 +64,30 @@ export async function runResearchSearch(input: RunResearchSearchInput): Promise<
     }
 
     const started = Date.now();
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const result = await runSourceSearch({
+      const deadline = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new Error(`Source timed out after ${timeoutMs}ms.`));
+        }, timeoutMs);
+      });
+      const result = await Promise.race([runSourceSearch({
         intent,
         source: capability.source,
         limit: intent.limit
       }, {
-        fetch: httpFetch,
+        fetch: (url, init) => httpFetch(url, { ...init, signal: controller.signal }),
         env
-      });
+      }), deadline]);
       cards.push(...result.cards);
       sourceReports.push({
         source: capability.source,
         status: "completed",
         count: result.cards.length,
         elapsedMs: Date.now() - started,
-        endpoint: result.endpoint
+        endpoint: redact(result.endpoint)
       });
     } catch (error) {
       sourceReports.push({
@@ -98,8 +95,10 @@ export async function runResearchSearch(input: RunResearchSearchInput): Promise<
         status: "failed",
         count: 0,
         elapsedMs: Date.now() - started,
-        reason: error instanceof Error ? error.message : String(error)
+        reason: redact(error instanceof Error ? error.message : String(error))
       });
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -112,7 +111,9 @@ export async function runResearchSearch(input: RunResearchSearchInput): Promise<
     })
     : rankedCards;
   const hasFailure = sourceReports.some((report) => report.status === "failed" || report.status === "skipped");
-  const status: EvidenceRunStatus = hasFailure ? "partial" : "completed";
+  const anyCompleted = sourceReports.some((report) => report.status === "completed");
+  const status: EvidenceRunStatus = !anyCompleted || (hasFailure && input.allowPartial === false)
+    ? "blocked" : hasFailure ? "partial" : "completed";
 
   return {
     id,
@@ -122,6 +123,9 @@ export async function runResearchSearch(input: RunResearchSearchInput): Promise<
     intent,
     sourceReports,
     cards: finalCards,
+    ...(status === "blocked" ? { blockedReason: anyCompleted
+      ? "Strict source coverage was not met. Available evidence is retained; coverage-dependent conclusions remain incomplete."
+      : "No requested source completed. Retry only after checking the reported failures." } : {}),
     skippedSources,
     warnings: [
       ...skippedSources.map((capability) => capability.reason ?? `${capability.source} unavailable.`),
