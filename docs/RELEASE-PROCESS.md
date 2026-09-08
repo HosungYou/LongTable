@@ -66,26 +66,50 @@ messages when the change affects provider runtime configuration, checkpoint
 policy, MCP tools, setup behavior, or state files.
 
 The release workflow publishes all public workspaces when a `v0.1.*` tag is
-pushed. It requires `NPM_TOKEN` to be configured in GitHub repository secrets.
-Packages are published in dependency order: core, memory, checkpoints, setup,
-scholar-research, research-search, provider adapters, CLI, then MCP.
+pushed. It uses npm Trusted Publishing (GitHub Actions OIDC), so the publish
+job does not need an `NPM_TOKEN`. Packages are published in dependency order:
+core, memory, checkpoints, setup, scholar-research, research-search, provider
+adapters, CLI, then MCP.
 
-`NPM_TOKEN` must be an npm automation/granular access token with `read-write`
-access to every published `@longtable/*` package. A token scoped to another npm
-organization can still authenticate but fail at publish time with a registry
-`404 Not Found` for `@longtable/<package>`. The release workflow therefore
-preflights:
+Configure one trusted publisher for each existing `@longtable/*` package in
+the npm package settings, or use the logged-in npm CLI:
+
+```bash
+for pkg in \
+  @longtable/core @longtable/memory @longtable/checkpoints @longtable/setup \
+  @longtable/scholar-research @longtable/research-search \
+  @longtable/provider-codex @longtable/provider-claude \
+  @longtable/cli @longtable/mcp; do
+  npm trust github "$pkg" --file release.yml \
+    --repo HosungYou/LongTable --allow-publish --yes
+done
+```
+
+The workflow filename is `release.yml`, the repository is
+`HosungYou/LongTable`, and the trusted publisher must allow direct `npm
+publish`. The workflow uses Node 24 and npm 11.5.1 or later, and already has
+the required `id-token: write` permission. npm generates provenance
+attestations automatically when the OIDC publish succeeds.
+
+For a temporary rollback during migration, retain the existing GitHub
+`NPM_TOKEN` secret but do not wire it back into this workflow unless the
+Trusted Publishing verification fails. A token scoped to another npm
+organization can authenticate but fail at publish time with a registry `404
+Not Found` for `@longtable/<package>`. A token fallback can be checked with:
 
 ```bash
 npm whoami
 npm access list packages @longtable --json
 ```
 
-The required packages must all report `read-write`: `@longtable/core`,
+If a token fallback is used, the required packages must all report
+`read-write`: `@longtable/core`,
 `@longtable/memory`, `@longtable/checkpoints`, `@longtable/setup`,
 `@longtable/scholar-research`, `@longtable/research-search`,
 `@longtable/provider-codex`, `@longtable/provider-claude`, `@longtable/cli`,
-and `@longtable/mcp`.
+and `@longtable/mcp`. Do not revoke the temporary token until a new tag has
+completed successfully through OIDC; after that, revoke it and enable npm's
+package setting to require 2FA and disallow tokens.
 
 If the packages were already published manually, the release workflow should
 skip existing versions and still create the GitHub Release. Confirm the workflow

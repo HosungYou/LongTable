@@ -18,20 +18,17 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
+          node-version: 24
+          package-manager-cache: false
           registry-url: https://registry.npmjs.org
+
+      - name: Pin npm for trusted publishing
+        run: |
+          npm install --global npm@11.5.1 --no-audit --no-fund
+          npm --version
 
       - name: Install
         run: npm ci
-
-      - name: Verify npm publish token
-        run: |
-          user="$(npm whoami)"
-          echo "NPM_TOKEN authenticated as ${user}."
-          echo "Package write access is verified by npm publish in the publish step."
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Release check
         run: npm run release:check
@@ -46,7 +43,7 @@ jobs:
               echo "$pkg@$version already exists; skipping publish."
               return 0
             fi
-            npm publish --workspace "$pkg" --access public --provenance
+            npm publish --workspace "$pkg" --access public
           }
 
           publish_if_needed @longtable/core packages/longtable-core
@@ -59,8 +56,6 @@ jobs:
           publish_if_needed @longtable/provider-claude packages/longtable-provider-claude
           publish_if_needed @longtable/cli packages/longtable
           publish_if_needed @longtable/mcp packages/longtable-mcp
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
