@@ -127,6 +127,186 @@
         "proceed"
       ],
       "rationale": "The strict order now fixed as study-level -> construct/coding -> source adjudication -> input mapping, with all four conditions required before any Paper 2 freeze advancement."
+    },
+    {
+      "id": "decision_msh9nbsk_fc52od",
+      "timestamp": "2026-08-06T08:40:45.428Z",
+      "checkpointKey": "institutional_browser_access_boundary",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered 기관 접근 자동화 경계: 수동 로그인 후 감독형 자동화",
+      "commitmentFamily": "evidence",
+      "epistemicBasis": "researcher_knowledge",
+      "selectedOption": "manual_login_supervised_automation",
+      "selectedOptions": [
+        "manual_login_supervised_automation"
+      ],
+      "rationale": "연구자가 로그인·MFA를 직접 완료한 뒤 LongTable이 활성 인증 세션에서 허용된 검색·반출·PDF 저장을 수행한다. 로그인 만료, CAPTCHA, 권한·약관 불명확, 검색범위 변경에서는 실제 hook이 hard stop하고 연구자 결정이 기록되기 전 재개하지 않는다."
+    },
+    {
+      "id": "decision_msh9pddd_zrc6lj",
+      "timestamp": "2026-08-06T08:42:20.785Z",
+      "checkpointKey": "institutional_search_protocol_freeze",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered 검색 프로토콜 동결: Pilot 후 승인·동결",
+      "commitmentFamily": "method",
+      "epistemicBasis": "researcher_knowledge",
+      "selectedOption": "pilot_checkpoint_freeze",
+      "selectedOptions": [
+        "pilot_checkpoint_freeze"
+      ],
+      "rationale": "기관별 UI와 검색결과 품질을 소규모 pilot으로 확인한 뒤 Researcher Checkpoint에서 DB·검색식·기간·필터·목표 범위를 승인하고 production protocol을 immutable manifest로 동결한다. 이후 변경은 hard stop과 protocol revision 승인을 요구한다."
+    },
+    {
+      "id": "decision_msh9rfum_kjz6v1",
+      "timestamp": "2026-08-06T08:43:57.310Z",
+      "checkpointKey": "screen_before_fulltext_and_manuscript_ready_outputs",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered 전문 확보·보고 계약: 선별 후 전문·논문용 패키지",
+      "commitmentFamily": "method",
+      "epistemicBasis": "researcher_knowledge",
+      "selectedOption": "screen_then_fulltext_manuscript_package",
+      "selectedOptions": [
+        "screen_then_fulltext_manuscript_package"
+      ],
+      "rationale": "전체 검색결과 메타데이터를 반출·정규화·중복제거한 뒤 제목·초록 선별을 수행하고 잠재적 포함 문헌만 전문 확보 대상으로 삼는다. 초록이 불충분한 문헌은 full_text_needed_for_screening 큐로 보낸다. 실행 절차와 결정은 프로젝트 로컬 디렉터리에 기록하며, 종료 시 연구자 보고서와 논문에 바로 반영 가능한 Methods, Results, PRISMA, 제외사유 및 corpus manifest를 생성한다."
+    },
+    {
+      "id": "decision_msh9up1f_r65s1d",
+      "timestamp": "2026-08-06T08:46:29.187Z",
+      "checkpointKey": "single_pdf_canonical_store",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered PDF 정본 소유권: PDF Vault 단일 정본",
+      "commitmentFamily": "evidence",
+      "epistemicBasis": "researcher_knowledge",
+      "selectedOption": "pdf_vault_single_canonical",
+      "selectedOptions": [
+        "pdf_vault_single_canonical"
+      ],
+      "rationale": "PDF 원문은 Research PDF Vault가 paper_id와 SHA-256 기반 단일 정본으로 보관한다. 각 연구 프로젝트는 canonical path와 접근근거를 포함한 pdf-manifest로 이를 참조하며, 프로젝트 디렉터리에는 프로토콜·검색·선별·분석·보고·원고 산출물을 보존한다."
+    },
+    {
+      "id": "decision_msh9wf2w_c8ovx7",
+      "timestamp": "2026-08-06T08:47:49.592Z",
+      "checkpointKey": "longtable_research_single_surface_architecture",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered LongTable Research 아키텍처: 단일 표면·내부 capability tree",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "selectedOption": "single_surface_capability_tree",
+      "selectedOptions": [
+        "single_surface_capability_tree"
+      ],
+      "rationale": "사용자는 LongTable Research 하나만 호출한다. LongTable core가 연구 상태·checkpoint·decision·감사기록을 소유하고, 검색·기관접근·PDF·선별·분석·보고 capability 및 기관별 adapter는 교체·테스트 가능한 내부 실행 단위로 둔다."
+    },
+    {
+      "id": "decision_msh9zxqn_h63enn",
+      "timestamp": "2026-08-06T08:50:33.743Z",
+      "checkpointKey": "research_execution_state_machine",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered 연구 실행 상태기계: 영수증 기반 상태기계",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "selectedOption": "receipt_based_hard_stop_state_machine",
+      "selectedOptions": [
+        "receipt_based_hard_stop_state_machine"
+      ],
+      "rationale": "SETUP부터 MANUSCRIPT_PACKAGE까지 명시적 상태를 사용하고, 각 단계는 실행 영수증을 기록한다. 로그인·MFA·CAPTCHA·접근조건·검색식 drift·export 불일치·선별 모호성·분석방법 변경·corpus freeze 이벤트에서 실제 실행을 BLOCKED로 전환하며 연구자 DecisionRecord 없이는 재개하지 않는다."
+    },
+    {
+      "id": "decision_msha2raa_0ewqpq",
+      "timestamp": "2026-08-06T08:52:45.346Z",
+      "checkpointKey": "adaptive_search_strategy_mcp_ux",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered 검색전략 선택형 UX: 적응형 단일 MCP 카드",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "selectedOption": "adaptive_single_mcp_card",
+      "selectedOptions": [
+        "adaptive_single_mcp_card"
+      ],
+      "rationale": "기존 설치된 longtable-state MCP의 선택형 elicitation을 기본 UX로 적극 사용한다. LongTable이 권장 DB 조합·기간·언어·문헌유형·회수율 전략을 한 카드로 제시하고 연구자는 승인 또는 수정한다. 세부 wizard는 요청 시 확장하며 MCP elicitation 미지원 환경에서만 numbered fallback을 사용한다."
+    },
+    {
+      "id": "decision_msha6r03_qtd2gx",
+      "timestamp": "2026-08-06T08:55:51.603Z",
+      "checkpointKey": "mcp_first_checkpoint_ux_contract",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered MCP 우선 Checkpoint UX: 필수는 MCP·자문은 로그",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "selectedOption": "required_mcp_advisory_log",
+      "selectedOptions": [
+        "required_mcp_advisory_log"
+      ],
+      "rationale": "필수 Researcher Checkpoint는 기존 longtable-state MCP elicit_question을 우선 사용한다. advisory와 진행상황은 비차단 로그·연구자 보고서에 누적하며, DB 또는 검색범위 수정 요청이 있을 때만 상세 multi-choice wizard를 연다. MCP 취소·거절·실패 시 QuestionRecord는 pending/BLOCKED로 유지하고 동일 레코드의 numbered fallback을 사용한다."
+    },
+    {
+      "id": "decision_msha91su_rc5qiu",
+      "timestamp": "2026-08-06T08:57:38.910Z",
+      "checkpointKey": "institution_adapter_calibration_contract",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered 기관 Adapter 계약: Capability·DB·기관 3층",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "selectedOption": "capability_database_institution_layers",
+      "selectedOptions": [
+        "capability_database_institution_layers"
+      ],
+      "rationale": "기관과 무관한 research capability, 서비스별 database adapter, 기관별 access profile을 분리한다. API/TDM을 우선하고 필요한 정상 사용자 행위만 supervised computer-use로 수행한다. 신규 기관은 calibration, 소규모 dry-run, profile/recipe 생성, MCP 연구자 승인, fixture 검증을 거친 뒤 production 실행을 허용한다. 인증정보·쿠키·토큰은 profile이나 로그에 저장하지 않는다."
+    },
+    {
+      "id": "decision_mshaayqg_4jul4u",
+      "timestamp": "2026-08-06T08:59:08.248Z",
+      "checkpointKey": "exception_based_low_token_execution",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered 저감사·저토큰 실행: 결정적 실행·예외 감독",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "selectedOption": "deterministic_exception_supervision",
+      "selectedOptions": [
+        "deterministic_exception_supervision"
+      ],
+      "rationale": "페이지 반복, export, 파싱, 정규화, 중복제거, 해시, PRISMA 집계는 결정적 코드와 단계 invariant로 처리한다. 정상 실행은 receipt만 기록하고 자동 진행하며, 복구 가능한 오류는 로컬 retry 후 advisory log로 남긴다. LLM은 검색개념 확장, 모호한 선별, 합성, 분석방법 변경 등 연구 판단 경계에서만 사용한다. context slice, 증분 cache, batch screening을 사용해 토큰을 최소화하며 연구자는 hard-stop 예외와 종료 보고만 확인한다."
+    },
+    {
+      "id": "decision_mshahg8d_ryn4tx",
+      "timestamp": "2026-08-06T09:04:10.861Z",
+      "checkpointKey": "canonical_research_to_manuscript_rendering",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered 연구·논문 산출물 계약: 정본에서 다중 렌더링",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "selectedOption": "canonical_artifacts_multi_renderer",
+      "selectedOptions": [
+        "canonical_artifacts_multi_renderer"
+      ],
+      "rationale": "machine-readable protocol, corpus, audit, decision, receipt를 정본으로 두고 동일 데이터에서 연구자 최종보고, systematic review Methods/Results, PRISMA 2020·PRISMA-S, 검색식·제외사유 부록, 메타분석 readiness와 분석 입력, CSL/RIS/BibTeX/APA7 참고문헌을 생성한다. 내용 정본과 APA7·한국어·국제저널·사용자 Word template renderer를 분리하고 문단별 provenance map을 보존한다."
+    },
+    {
+      "id": "decision_mshancvj_tz6i1l",
+      "timestamp": "2026-08-06T09:08:46.447Z",
+      "checkpointKey": "institutional_research_verification_acceptance",
+      "level": "adaptive_required",
+      "mode": "commit",
+      "summary": "Answered 검증·수용 기준: Fixture 우선·기관 smoke gate",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "selectedOption": "fixture_first_live_smoke_gate",
+      "selectedOptions": [
+        "fixture_first_live_smoke_gate"
+      ],
+      "rationale": "공통 capability contract, export parser golden fixture, browser recipe replay, checkpoint hard-stop, count invariant/property, failure injection, security/license, model-call budget, synthetic end-to-end 테스트를 로컬에서 통과해야 한다. 이후 연구자 수동 로그인으로 DB별 5~20건 export와 허용 PDF 1~2건의 live smoke를 수행하고 institution profile·recipe를 승인한 경우에만 production을 허용한다."
     }
   ],
   "invocationLog": [
@@ -1006,6 +1186,818 @@
         "surface": "numbered"
       },
       "decisionRecordId": "decision_mq7nitt9_etg0jt"
+    },
+    {
+      "id": "question_record_msh9n4nw_nwymaq",
+      "createdAt": "2026-08-06T08:40:36.187Z",
+      "updatedAt": "2026-08-06T08:40:45.428Z",
+      "status": "answered",
+      "commitmentFamily": "evidence",
+      "epistemicBasis": "researcher_knowledge",
+      "hardStop": true,
+      "hardStopScope": "evidence",
+      "prompt": {
+        "id": "question_prompt_msh9n4nw_llck3s",
+        "checkpointKey": "institutional_browser_access_boundary",
+        "title": "기관 접근 자동화 경계",
+        "question": "What should LongTable decide before proceeding with: LongTable Research의 기관 접근 기본 모델을 어떻게 고정할 것인가?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "manual_login_supervised_automation",
+            "label": "수동 로그인 후 감독형 자동화",
+            "description": "연구자가 로그인·MFA를 완료하고 LongTable이 활성 세션에서 검색·반출·허용 PDF 저장을 수행하며 위험 이벤트에서 중단한다.",
+            "recommended": true
+          },
+          {
+            "value": "official_api_only",
+            "label": "공식 API/TDM만",
+            "description": "브라우저 자동화를 제외하고 제공사가 공식 지원하는 API와 TDM 경로만 사용한다."
+          },
+          {
+            "value": "credential_automation",
+            "label": "자격증명까지 자동화",
+            "description": "로그인 입력과 인증 단계까지 자동화한다."
+          }
+        ],
+        "allowOther": false,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "displayReason": "기관 접근·인증·중단 정책은 증거 수집의 합법성, 재현성, 보안성을 결정하는 보호 결정이다.",
+        "rationale": [
+          "Product, tooling, and LongTable policy work should use response-only discussion unless the researcher explicitly records a research decision.",
+          "Trigger family: advisory.",
+          "Trigger confidence: high.",
+          "Original prompt: LongTable Research의 기관 접근 기본 모델을 어떻게 고정할 것인가?"
+        ],
+        "preferredSurfaces": [
+          "tmux_popup",
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_msh9n4nw_llck3s",
+        "selectedValues": [
+          "manual_login_supervised_automation"
+        ],
+        "selectedLabels": [
+          "수동 로그인 후 감독형 자동화"
+        ],
+        "rationale": "연구자가 로그인·MFA를 직접 완료한 뒤 LongTable이 활성 인증 세션에서 허용된 검색·반출·PDF 저장을 수행한다. 로그인 만료, CAPTCHA, 권한·약관 불명확, 검색범위 변경에서는 실제 hook이 hard stop하고 연구자 결정이 기록되기 전 재개하지 않는다.",
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_msh9nbsk_fc52od",
+      "transportStatus": {
+        "surface": "numbered",
+        "status": "accepted",
+        "updatedAt": "2026-08-06T08:40:45.428Z"
+      }
+    },
+    {
+      "id": "question_record_msh9pdd3_unkyfc",
+      "createdAt": "2026-08-06T08:42:20.773Z",
+      "updatedAt": "2026-08-06T08:42:20.785Z",
+      "status": "answered",
+      "commitmentFamily": "method",
+      "epistemicBasis": "researcher_knowledge",
+      "hardStop": true,
+      "hardStopScope": "method",
+      "prompt": {
+        "id": "question_prompt_msh9pdd3_7uffnt",
+        "checkpointKey": "institutional_search_protocol_freeze",
+        "title": "검색 프로토콜 동결",
+        "question": "What ambiguity should LongTable keep open before recommending a direction?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "pilot_checkpoint_freeze",
+            "label": "Pilot 후 승인·동결",
+            "description": "소규모 pilot으로 UI·검색식·결과 품질을 확인한 뒤 연구자가 승인하고 production 프로토콜을 immutable manifest로 고정한다.",
+            "recommended": true
+          },
+          {
+            "value": "freeze_before_pilot",
+            "label": "처음부터 완전 동결",
+            "description": "사전 확정한 검색식만 실행하며 pilot에서의 수정도 별도 protocol amendment로 처리한다."
+          },
+          {
+            "value": "adaptive_autonomous_search",
+            "label": "적응형 자동 수정",
+            "description": "AI가 결과 품질에 따라 검색식과 필터를 자율 수정하고 사후 로그만 남긴다."
+          }
+        ],
+        "allowOther": false,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "displayReason": "검색 프로토콜의 동결 시점은 기관별 적응성과 systematic review 재현성을 함께 결정한다.",
+        "rationale": [
+          "Exploration should ask tension questions before recommendation.",
+          "Trigger family: exploration.",
+          "Trigger confidence: medium.",
+          "Original prompt: 기관 학술DB 실행에서 탐색적 pilot과 production 검색을 어떻게 구분할 것인가?"
+        ],
+        "preferredSurfaces": [
+          "tmux_popup",
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_msh9pdd3_7uffnt",
+        "selectedValues": [
+          "pilot_checkpoint_freeze"
+        ],
+        "selectedLabels": [
+          "Pilot 후 승인·동결"
+        ],
+        "rationale": "기관별 UI와 검색결과 품질을 소규모 pilot으로 확인한 뒤 Researcher Checkpoint에서 DB·검색식·기간·필터·목표 범위를 승인하고 production protocol을 immutable manifest로 동결한다. 이후 변경은 hard stop과 protocol revision 승인을 요구한다.",
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_msh9pddd_zrc6lj",
+      "transportStatus": {
+        "surface": "numbered",
+        "status": "accepted",
+        "updatedAt": "2026-08-06T08:42:20.785Z"
+      }
+    },
+    {
+      "id": "question_record_msh9rfuc_chffyz",
+      "createdAt": "2026-08-06T08:43:57.300Z",
+      "updatedAt": "2026-08-06T08:43:57.310Z",
+      "status": "answered",
+      "commitmentFamily": "method",
+      "epistemicBasis": "researcher_knowledge",
+      "hardStop": true,
+      "hardStopScope": "method",
+      "prompt": {
+        "id": "question_prompt_msh9rfuc_on5avu",
+        "checkpointKey": "screen_before_fulltext_and_manuscript_ready_outputs",
+        "title": "전문 확보·보고 계약",
+        "question": "How should LongTable handle the evidence risk before using this claim?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "screen_then_fulltext_manuscript_package",
+            "label": "선별 후 전문·논문용 패키지",
+            "description": "전체 메타데이터를 정규화·중복제거하고 제목·초록 선별 후 잠재적 포함 문헌만 전문을 확보하며, 로컬 프로토콜·감사로그·PRISMA·Methods/Results 산출물을 생성한다.",
+            "recommended": true
+          },
+          {
+            "value": "download_all_then_screen",
+            "label": "전문 전수 확보 후 선별",
+            "description": "검색된 모든 문헌의 PDF 확보를 먼저 시도한 뒤 선별한다."
+          },
+          {
+            "value": "metadata_only",
+            "label": "메타데이터만 관리",
+            "description": "PDF 확보와 논문용 보고는 연구자가 별도로 수행한다."
+          }
+        ],
+        "allowOther": false,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "displayReason": "전문 확보 순서와 최종 산출물 형식은 기관 부하, 저작권, 재현성 및 논문 반영 가능성을 결정한다.",
+        "rationale": [
+          "Full-text access decisions change corpus coverage, inclusion bias, reproducibility, and TDM permission.",
+          "Trigger family: evidence.",
+          "Trigger confidence: high.",
+          "Original prompt: 검색 결과의 PDF 확보 순서와 로컬·논문용 산출물을 어떻게 고정할 것인가?"
+        ],
+        "preferredSurfaces": [
+          "tmux_popup",
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_msh9rfuc_on5avu",
+        "selectedValues": [
+          "screen_then_fulltext_manuscript_package"
+        ],
+        "selectedLabels": [
+          "선별 후 전문·논문용 패키지"
+        ],
+        "rationale": "전체 검색결과 메타데이터를 반출·정규화·중복제거한 뒤 제목·초록 선별을 수행하고 잠재적 포함 문헌만 전문 확보 대상으로 삼는다. 초록이 불충분한 문헌은 full_text_needed_for_screening 큐로 보낸다. 실행 절차와 결정은 프로젝트 로컬 디렉터리에 기록하며, 종료 시 연구자 보고서와 논문에 바로 반영 가능한 Methods, Results, PRISMA, 제외사유 및 corpus manifest를 생성한다.",
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_msh9rfum_kjz6v1",
+      "transportStatus": {
+        "surface": "numbered",
+        "status": "accepted",
+        "updatedAt": "2026-08-06T08:43:57.310Z"
+      }
+    },
+    {
+      "id": "question_record_msh9up15_4nd4p0",
+      "createdAt": "2026-08-06T08:46:29.177Z",
+      "updatedAt": "2026-08-06T08:46:29.187Z",
+      "status": "answered",
+      "commitmentFamily": "evidence",
+      "epistemicBasis": "researcher_knowledge",
+      "hardStop": true,
+      "hardStopScope": "evidence",
+      "prompt": {
+        "id": "question_prompt_msh9up15_gmr1ku",
+        "checkpointKey": "single_pdf_canonical_store",
+        "title": "PDF 정본 소유권",
+        "question": "How should LongTable handle the evidence risk before using this claim?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "pdf_vault_single_canonical",
+            "label": "PDF Vault 단일 정본",
+            "description": "PDF는 Research PDF Vault에 한 번만 보관하고 프로젝트는 paper_id·해시·경로·접근근거 manifest로 참조한다.",
+            "recommended": true
+          },
+          {
+            "value": "copy_pdfs_per_project",
+            "label": "프로젝트별 PDF 복사",
+            "description": "각 연구 프로젝트 디렉터리에 필요한 PDF를 별도로 복사한다."
+          },
+          {
+            "value": "hybrid_pdf_storage",
+            "label": "혼합 저장",
+            "description": "일부 PDF는 Vault, 일부는 프로젝트 안에 저장한다."
+          }
+        ],
+        "allowOther": false,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "displayReason": "원문 정본 위치는 중복, 동기화, 라이선스, 폐기 및 재현 가능성에 영향을 준다.",
+        "rationale": [
+          "Full-text access decisions change corpus coverage, inclusion bias, reproducibility, and TDM permission.",
+          "Trigger family: evidence.",
+          "Trigger confidence: high.",
+          "Original prompt: PDF 원문과 연구 프로젝트 산출물의 로컬 소유권을 어떻게 분리할 것인가?"
+        ],
+        "preferredSurfaces": [
+          "tmux_popup",
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_msh9up15_gmr1ku",
+        "selectedValues": [
+          "pdf_vault_single_canonical"
+        ],
+        "selectedLabels": [
+          "PDF Vault 단일 정본"
+        ],
+        "rationale": "PDF 원문은 Research PDF Vault가 paper_id와 SHA-256 기반 단일 정본으로 보관한다. 각 연구 프로젝트는 canonical path와 접근근거를 포함한 pdf-manifest로 이를 참조하며, 프로젝트 디렉터리에는 프로토콜·검색·선별·분석·보고·원고 산출물을 보존한다.",
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_msh9up1f_r65s1d",
+      "transportStatus": {
+        "surface": "numbered",
+        "status": "accepted",
+        "updatedAt": "2026-08-06T08:46:29.187Z"
+      }
+    },
+    {
+      "id": "question_record_msh9wf2n_2zmk94",
+      "createdAt": "2026-08-06T08:47:49.583Z",
+      "updatedAt": "2026-08-06T08:47:49.592Z",
+      "status": "answered",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "prompt": {
+        "id": "question_prompt_msh9wf2n_prxhbc",
+        "checkpointKey": "longtable_research_single_surface_architecture",
+        "title": "LongTable Research 아키텍처",
+        "question": "What should LongTable decide before proceeding with: LongTable Research의 사용자 표면과 내부 실행 구조를 어떻게 구성할 것인가?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "single_surface_capability_tree",
+            "label": "단일 표면·내부 capability tree",
+            "description": "LongTable core가 state·checkpoint·decision을 소유하고 검색·기관접근·PDF·선별·분석·보고 capability와 기관 adapter를 내부 라우팅한다.",
+            "recommended": true
+          },
+          {
+            "value": "single_monolithic_skill",
+            "label": "단일 거대 SKILL.md",
+            "description": "사용자 표면과 모든 실행 로직을 하나의 skill 파일에 포함한다."
+          },
+          {
+            "value": "external_research_daemon",
+            "label": "외부 연구 daemon",
+            "description": "별도 장기실행 서비스가 검색·다운로드를 수행하고 LongTable은 wrapper 역할만 한다."
+          }
+        ],
+        "allowOther": false,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "displayReason": "이 선택은 단일 사용자 경험, 모듈 테스트 가능성, 기관 확장성 및 LongTable state의 통제 범위를 결정한다.",
+        "rationale": [
+          "Product, tooling, and LongTable policy work should use response-only discussion unless the researcher explicitly records a research decision.",
+          "Trigger family: advisory.",
+          "Trigger confidence: high.",
+          "Original prompt: LongTable Research의 사용자 표면과 내부 실행 구조를 어떻게 구성할 것인가?"
+        ],
+        "preferredSurfaces": [
+          "tmux_popup",
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_msh9wf2n_prxhbc",
+        "selectedValues": [
+          "single_surface_capability_tree"
+        ],
+        "selectedLabels": [
+          "단일 표면·내부 capability tree"
+        ],
+        "rationale": "사용자는 LongTable Research 하나만 호출한다. LongTable core가 연구 상태·checkpoint·decision·감사기록을 소유하고, 검색·기관접근·PDF·선별·분석·보고 capability 및 기관별 adapter는 교체·테스트 가능한 내부 실행 단위로 둔다.",
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_msh9wf2w_c8ovx7",
+      "transportStatus": {
+        "surface": "numbered",
+        "status": "accepted",
+        "updatedAt": "2026-08-06T08:47:49.592Z"
+      }
+    },
+    {
+      "id": "question_record_msh9zxqd_pc9p7f",
+      "createdAt": "2026-08-06T08:50:33.733Z",
+      "updatedAt": "2026-08-06T08:50:33.743Z",
+      "status": "answered",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "prompt": {
+        "id": "question_prompt_msh9zxqd_wsu1xz",
+        "checkpointKey": "research_execution_state_machine",
+        "title": "연구 실행 상태기계",
+        "question": "What should LongTable decide before proceeding with: LongTable Research의 단계 전환과 hard-stop hook을 어떻게 고정할 것인가?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "receipt_based_hard_stop_state_machine",
+            "label": "영수증 기반 상태기계",
+            "description": "각 단계가 실행 영수증을 기록하고 보호 이벤트에서 BLOCKED로 전환되며 DecisionRecord 없이는 재개하지 않는다.",
+            "recommended": true
+          },
+          {
+            "value": "warning_only_execution",
+            "label": "경고 후 계속 실행",
+            "description": "위험 이벤트를 연구자에게 알리되 작업을 계속 수행한다."
+          },
+          {
+            "value": "manual_stage_execution",
+            "label": "단계별 수동 실행",
+            "description": "모든 단계를 연구자가 각각 시작한다."
+          }
+        ],
+        "allowOther": false,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "displayReason": "실제 중단·재개·감사 가능성은 기관 브라우저 자동화의 핵심 신뢰 계약이다.",
+        "rationale": [
+          "Product, tooling, and LongTable policy work should use response-only discussion unless the researcher explicitly records a research decision.",
+          "Trigger family: advisory.",
+          "Trigger confidence: high.",
+          "Original prompt: LongTable Research의 단계 전환과 hard-stop hook을 어떻게 고정할 것인가?"
+        ],
+        "preferredSurfaces": [
+          "tmux_popup",
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_msh9zxqd_wsu1xz",
+        "selectedValues": [
+          "receipt_based_hard_stop_state_machine"
+        ],
+        "selectedLabels": [
+          "영수증 기반 상태기계"
+        ],
+        "rationale": "SETUP부터 MANUSCRIPT_PACKAGE까지 명시적 상태를 사용하고, 각 단계는 실행 영수증을 기록한다. 로그인·MFA·CAPTCHA·접근조건·검색식 drift·export 불일치·선별 모호성·분석방법 변경·corpus freeze 이벤트에서 실제 실행을 BLOCKED로 전환하며 연구자 DecisionRecord 없이는 재개하지 않는다.",
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_msh9zxqn_h63enn",
+      "transportStatus": {
+        "surface": "numbered",
+        "status": "accepted",
+        "updatedAt": "2026-08-06T08:50:33.743Z"
+      }
+    },
+    {
+      "id": "question_record_msha2r9x_q3ti9y",
+      "createdAt": "2026-08-06T08:52:45.332Z",
+      "updatedAt": "2026-08-06T08:52:45.346Z",
+      "status": "answered",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "prompt": {
+        "id": "question_prompt_msha2r9x_ida2oo",
+        "checkpointKey": "adaptive_search_strategy_mcp_ux",
+        "title": "검색전략 선택형 UX",
+        "question": "What should LongTable decide before proceeding with: LongTable Research의 DB·검색전략 선택 UX를 어떻게 제공할 것인가?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "adaptive_single_mcp_card",
+            "label": "적응형 단일 MCP 카드",
+            "description": "LongTable이 권장 DB·범위·검색전략을 한 번에 구성하고 기존 MCP 선택형 elicitation으로 승인·수정하며 상세 wizard는 필요할 때만 연다.",
+            "recommended": true
+          },
+          {
+            "value": "stepwise_wizard",
+            "label": "단계별 wizard",
+            "description": "DB·기간·언어·문헌유형 등을 질문별로 순차 선택한다."
+          },
+          {
+            "value": "fully_automatic_selection",
+            "label": "완전 자동",
+            "description": "LongTable이 검색전략을 자율 결정하고 사후 보고만 한다."
+          }
+        ],
+        "allowOther": false,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "displayReason": "선택형 MCP 활용 방식은 연구자 개입 비용과 방법론적 통제의 균형을 결정한다.",
+        "rationale": [
+          "Product, tooling, and LongTable policy work should use response-only discussion unless the researcher explicitly records a research decision.",
+          "Trigger family: advisory.",
+          "Trigger confidence: high.",
+          "Original prompt: LongTable Research의 DB·검색전략 선택 UX를 어떻게 제공할 것인가?"
+        ],
+        "preferredSurfaces": [
+          "tmux_popup",
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_msha2r9x_ida2oo",
+        "selectedValues": [
+          "adaptive_single_mcp_card"
+        ],
+        "selectedLabels": [
+          "적응형 단일 MCP 카드"
+        ],
+        "rationale": "기존 설치된 longtable-state MCP의 선택형 elicitation을 기본 UX로 적극 사용한다. LongTable이 권장 DB 조합·기간·언어·문헌유형·회수율 전략을 한 카드로 제시하고 연구자는 승인 또는 수정한다. 세부 wizard는 요청 시 확장하며 MCP elicitation 미지원 환경에서만 numbered fallback을 사용한다.",
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_msha2raa_0ewqpq",
+      "transportStatus": {
+        "surface": "numbered",
+        "status": "accepted",
+        "updatedAt": "2026-08-06T08:52:45.346Z"
+      }
+    },
+    {
+      "id": "question_record_msha6qzs_q34wug",
+      "createdAt": "2026-08-06T08:55:51.592Z",
+      "updatedAt": "2026-08-06T08:55:51.603Z",
+      "status": "answered",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "prompt": {
+        "id": "question_prompt_msha6qzs_imgv7b",
+        "checkpointKey": "mcp_first_checkpoint_ux_contract",
+        "title": "MCP 우선 Checkpoint UX",
+        "question": "What should LongTable decide before proceeding with: LongTable Research의 Researcher Checkpoint 표면 우선순위를 어떻게 고정할 것인가?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "required_mcp_advisory_log",
+            "label": "필수는 MCP·자문은 로그",
+            "description": "필수 결정은 기존 MCP elicitation을 우선 사용하고 advisory는 비차단 로그로 누적하며 수정 요청 때만 상세 multi-choice를 연다.",
+            "recommended": true
+          },
+          {
+            "value": "all_events_mcp",
+            "label": "모든 이벤트 MCP",
+            "description": "진행상황과 advisory까지 모두 MCP 선택형 UI로 표시한다."
+          },
+          {
+            "value": "text_first_mcp_optional",
+            "label": "텍스트 우선",
+            "description": "numbered/text 질문을 기본으로 하고 MCP는 선택적으로만 사용한다."
+          }
+        ],
+        "allowOther": false,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "displayReason": "MCP 호출 빈도와 fallback 정책은 연구자 피로도, 중단 신뢰성, 접근성을 결정한다.",
+        "rationale": [
+          "Product, tooling, and LongTable policy work should use response-only discussion unless the researcher explicitly records a research decision.",
+          "Trigger family: advisory.",
+          "Trigger confidence: high.",
+          "Original prompt: LongTable Research의 Researcher Checkpoint 표면 우선순위를 어떻게 고정할 것인가?"
+        ],
+        "preferredSurfaces": [
+          "tmux_popup",
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_msha6qzs_imgv7b",
+        "selectedValues": [
+          "required_mcp_advisory_log"
+        ],
+        "selectedLabels": [
+          "필수는 MCP·자문은 로그"
+        ],
+        "rationale": "필수 Researcher Checkpoint는 기존 longtable-state MCP elicit_question을 우선 사용한다. advisory와 진행상황은 비차단 로그·연구자 보고서에 누적하며, DB 또는 검색범위 수정 요청이 있을 때만 상세 multi-choice wizard를 연다. MCP 취소·거절·실패 시 QuestionRecord는 pending/BLOCKED로 유지하고 동일 레코드의 numbered fallback을 사용한다.",
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_msha6r03_qtd2gx",
+      "transportStatus": {
+        "surface": "numbered",
+        "status": "accepted",
+        "updatedAt": "2026-08-06T08:55:51.603Z"
+      }
+    },
+    {
+      "id": "question_record_msha91sm_t5enk6",
+      "createdAt": "2026-08-06T08:57:38.902Z",
+      "updatedAt": "2026-08-06T08:57:38.910Z",
+      "status": "answered",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "prompt": {
+        "id": "question_prompt_msha91sm_ddv967",
+        "checkpointKey": "institution_adapter_calibration_contract",
+        "title": "기관 Adapter 계약",
+        "question": "What should LongTable treat as the human research commitment here?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "capability_database_institution_layers",
+            "label": "Capability·DB·기관 3층",
+            "description": "공통 연구행위, DB별 실행 recipe, 기관별 접근 profile을 분리하고 신규 기관은 supervised calibration·dry-run·연구자 승인 후 production에 사용한다.",
+            "recommended": true
+          },
+          {
+            "value": "institution_specific_automation",
+            "label": "기관별 독립 자동화",
+            "description": "기관마다 전체 검색·다운로드 자동화를 별도로 구현한다."
+          },
+          {
+            "value": "generic_computer_use_only",
+            "label": "범용 computer-use만",
+            "description": "사전 adapter 없이 AI가 매번 화면을 해석해 작업한다."
+          }
+        ],
+        "allowOther": false,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "displayReason": "기관 확장성, UI 변경 안전성, 재현성 및 유지보수 비용을 결정하는 핵심 구조다.",
+        "rationale": [
+          "Freezing the research question converts ambiguity into a human commitment.",
+          "Trigger family: commitment.",
+          "Trigger confidence: high.",
+          "Original prompt: 다양한 기관과 학술DB에 대응하는 adapter 구조를 어떻게 고정할 것인가?"
+        ],
+        "preferredSurfaces": [
+          "tmux_popup",
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_msha91sm_ddv967",
+        "selectedValues": [
+          "capability_database_institution_layers"
+        ],
+        "selectedLabels": [
+          "Capability·DB·기관 3층"
+        ],
+        "rationale": "기관과 무관한 research capability, 서비스별 database adapter, 기관별 access profile을 분리한다. API/TDM을 우선하고 필요한 정상 사용자 행위만 supervised computer-use로 수행한다. 신규 기관은 calibration, 소규모 dry-run, profile/recipe 생성, MCP 연구자 승인, fixture 검증을 거친 뒤 production 실행을 허용한다. 인증정보·쿠키·토큰은 profile이나 로그에 저장하지 않는다.",
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_msha91su_rc5qiu",
+      "transportStatus": {
+        "surface": "numbered",
+        "status": "accepted",
+        "updatedAt": "2026-08-06T08:57:38.910Z"
+      }
+    },
+    {
+      "id": "question_record_mshaayq7_j54i3d",
+      "createdAt": "2026-08-06T08:59:08.239Z",
+      "updatedAt": "2026-08-06T08:59:08.248Z",
+      "status": "answered",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "prompt": {
+        "id": "question_prompt_mshaayq7_f05fu5",
+        "checkpointKey": "exception_based_low_token_execution",
+        "title": "저감사·저토큰 실행",
+        "question": "What should LongTable decide before proceeding with: LongTable Research의 자율 실행, 감사 및 토큰 사용 원칙을 어떻게 고정할 것인가?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "deterministic_exception_supervision",
+            "label": "결정적 실행·예외 감독",
+            "description": "반복·검증 작업은 결정적 코드와 invariant로 처리하고 LLM은 연구판단 경계에서만 사용하며, 정상 실행은 자동 진행하고 예외에서만 연구자를 호출한다.",
+            "recommended": true
+          },
+          {
+            "value": "researcher_checks_every_stage",
+            "label": "단계별 연구자 확인",
+            "description": "각 단계가 끝날 때마다 연구자 승인을 받아 다음 단계로 진행한다."
+          },
+          {
+            "value": "continuous_llm_audit",
+            "label": "LLM 중심 연속 감사",
+            "description": "LLM이 모든 작업과 로그를 지속적으로 검토한다."
+          }
+        ],
+        "allowOther": false,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "displayReason": "연구자의 지속적 감사 부담과 토큰 비용을 줄이면서도 오류 검출과 연구 통제를 유지해야 한다.",
+        "rationale": [
+          "Product, tooling, and LongTable policy work should use response-only discussion unless the researcher explicitly records a research decision.",
+          "Trigger family: advisory.",
+          "Trigger confidence: high.",
+          "Original prompt: LongTable Research의 자율 실행, 감사 및 토큰 사용 원칙을 어떻게 고정할 것인가?"
+        ],
+        "preferredSurfaces": [
+          "tmux_popup",
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_mshaayq7_f05fu5",
+        "selectedValues": [
+          "deterministic_exception_supervision"
+        ],
+        "selectedLabels": [
+          "결정적 실행·예외 감독"
+        ],
+        "rationale": "페이지 반복, export, 파싱, 정규화, 중복제거, 해시, PRISMA 집계는 결정적 코드와 단계 invariant로 처리한다. 정상 실행은 receipt만 기록하고 자동 진행하며, 복구 가능한 오류는 로컬 retry 후 advisory log로 남긴다. LLM은 검색개념 확장, 모호한 선별, 합성, 분석방법 변경 등 연구 판단 경계에서만 사용한다. context slice, 증분 cache, batch screening을 사용해 토큰을 최소화하며 연구자는 hard-stop 예외와 종료 보고만 확인한다.",
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_mshaayqg_4jul4u",
+      "transportStatus": {
+        "surface": "numbered",
+        "status": "accepted",
+        "updatedAt": "2026-08-06T08:59:08.248Z"
+      }
+    },
+    {
+      "id": "question_record_mshahg82_k7b4kq",
+      "createdAt": "2026-08-06T09:04:10.850Z",
+      "updatedAt": "2026-08-06T09:04:10.861Z",
+      "status": "answered",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "prompt": {
+        "id": "question_prompt_mshahg82_p1bon0",
+        "checkpointKey": "canonical_research_to_manuscript_rendering",
+        "title": "연구·논문 산출물 계약",
+        "question": "How should LongTable handle the evidence risk before using this claim?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "canonical_artifacts_multi_renderer",
+            "label": "정본에서 다중 렌더링",
+            "description": "machine-readable protocol·corpus·audit 정본에서 연구자 보고서, Methods·Results, PRISMA, 부록, 메타분석 준비자료와 저널별 Word 형식을 생성한다.",
+            "recommended": true
+          },
+          {
+            "value": "report_only",
+            "label": "보고서만 자동 생성",
+            "description": "최종 연구자 보고서만 생성하고 논문 반영은 연구자가 수행한다."
+          },
+          {
+            "value": "word_as_source_of_truth",
+            "label": "Word 원고를 정본으로",
+            "description": "생성된 Word 문서를 직접 수정하며 이를 최종 정본으로 사용한다."
+          }
+        ],
+        "allowOther": false,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "displayReason": "동일 수치의 반복 입력을 없애고 논문 문장·표·PRISMA의 provenance와 재생성 가능성을 보장해야 한다.",
+        "rationale": [
+          "Full-text access decisions change corpus coverage, inclusion bias, reproducibility, and TDM permission.",
+          "Trigger family: evidence.",
+          "Trigger confidence: high.",
+          "Original prompt: 검색·선별·전문확보 결과를 연구자 보고와 논문에 어떻게 연결할 것인가?"
+        ],
+        "preferredSurfaces": [
+          "tmux_popup",
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_mshahg82_p1bon0",
+        "selectedValues": [
+          "canonical_artifacts_multi_renderer"
+        ],
+        "selectedLabels": [
+          "정본에서 다중 렌더링"
+        ],
+        "rationale": "machine-readable protocol, corpus, audit, decision, receipt를 정본으로 두고 동일 데이터에서 연구자 최종보고, systematic review Methods/Results, PRISMA 2020·PRISMA-S, 검색식·제외사유 부록, 메타분석 readiness와 분석 입력, CSL/RIS/BibTeX/APA7 참고문헌을 생성한다. 내용 정본과 APA7·한국어·국제저널·사용자 Word template renderer를 분리하고 문단별 provenance map을 보존한다.",
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_mshahg8d_ryn4tx",
+      "transportStatus": {
+        "surface": "numbered",
+        "status": "accepted",
+        "updatedAt": "2026-08-06T09:04:10.861Z"
+      }
+    },
+    {
+      "id": "question_record_mshancu3_qjxbnr",
+      "createdAt": "2026-08-06T09:08:46.395Z",
+      "updatedAt": "2026-08-06T09:08:46.447Z",
+      "status": "answered",
+      "commitmentFamily": "product_policy",
+      "epistemicBasis": "researcher_knowledge",
+      "prompt": {
+        "id": "question_prompt_mshancu3_62ip6d",
+        "checkpointKey": "institutional_research_verification_acceptance",
+        "title": "검증·수용 기준",
+        "question": "What should LongTable decide before proceeding with: 기관 학술DB 기반 LongTable Research의 테스트와 production 진입 기준을 어떻게 고정할 것인가?",
+        "type": "single_choice",
+        "options": [
+          {
+            "value": "fixture_first_live_smoke_gate",
+            "label": "Fixture 우선·기관 smoke gate",
+            "description": "contract·parser·browser replay·checkpoint·invariant·failure·security·token·E2E 테스트를 로컬에서 통과한 뒤 연구자 로그인 기반 소규모 기관 smoke test와 profile 승인을 거쳐 production을 허용한다.",
+            "recommended": true
+          },
+          {
+            "value": "live_institution_testing",
+            "label": "실기관 중심 검증",
+            "description": "대부분의 검증을 실제 기관 사이트에서 수행한다."
+          },
+          {
+            "value": "manual_researcher_validation",
+            "label": "수동 연구자 검증",
+            "description": "자동 테스트 대신 연구자가 각 실행 결과를 직접 확인한다."
+          }
+        ],
+        "allowOther": false,
+        "otherLabel": "Other decision",
+        "required": true,
+        "source": "checkpoint",
+        "displayReason": "연구자 전수 감사를 줄이면서 기관 UI 변화·중단·수치 오류·비밀정보 노출을 production 전에 검출해야 한다.",
+        "rationale": [
+          "Product, tooling, and LongTable policy work should use response-only discussion unless the researcher explicitly records a research decision.",
+          "Trigger family: advisory.",
+          "Trigger confidence: high.",
+          "Original prompt: 기관 학술DB 기반 LongTable Research의 테스트와 production 진입 기준을 어떻게 고정할 것인가?"
+        ],
+        "preferredSurfaces": [
+          "tmux_popup",
+          "mcp_elicitation",
+          "numbered"
+        ]
+      },
+      "answer": {
+        "promptId": "question_prompt_mshancu3_62ip6d",
+        "selectedValues": [
+          "fixture_first_live_smoke_gate"
+        ],
+        "selectedLabels": [
+          "Fixture 우선·기관 smoke gate"
+        ],
+        "rationale": "공통 capability contract, export parser golden fixture, browser recipe replay, checkpoint hard-stop, count invariant/property, failure injection, security/license, model-call budget, synthetic end-to-end 테스트를 로컬에서 통과해야 한다. 이후 연구자 수동 로그인으로 DB별 5~20건 export와 허용 PDF 1~2건의 live smoke를 수행하고 institution profile·recipe를 승인한 경우에만 production을 허용한다.",
+        "provider": "codex",
+        "surface": "numbered"
+      },
+      "decisionRecordId": "decision_mshancvj_tz6i1l",
+      "transportStatus": {
+        "surface": "numbered",
+        "status": "accepted",
+        "updatedAt": "2026-08-06T09:08:46.447Z"
+      }
     }
   ],
   "artifactRecords": [],
@@ -1078,7 +2070,148 @@
   "evidenceRecords": [],
   "specPatches": [],
   "specRevisions": [],
-  "questionObligations": [],
+  "questionObligations": [
+    {
+      "id": "question_obligation_msh9n4nw_062zvp",
+      "kind": "required_question",
+      "status": "satisfied",
+      "createdAt": "2026-08-06T08:40:36.187Z",
+      "updatedAt": "2026-08-06T08:40:45.428Z",
+      "prompt": "What should LongTable decide before proceeding with: LongTable Research의 기관 접근 기본 모델을 어떻게 고정할 것인가?",
+      "reason": "기관 접근·인증·중단 정책은 증거 수집의 합법성, 재현성, 보안성을 결정하는 보호 결정이다.",
+      "hardStop": true,
+      "hardStopScope": "evidence",
+      "questionId": "question_record_msh9n4nw_nwymaq",
+      "decisionId": "decision_msh9nbsk_fc52od"
+    },
+    {
+      "id": "question_obligation_msh9pdd3_i2qcbv",
+      "kind": "required_question",
+      "status": "satisfied",
+      "createdAt": "2026-08-06T08:42:20.773Z",
+      "updatedAt": "2026-08-06T08:42:20.785Z",
+      "prompt": "What ambiguity should LongTable keep open before recommending a direction?",
+      "reason": "검색 프로토콜의 동결 시점은 기관별 적응성과 systematic review 재현성을 함께 결정한다.",
+      "hardStop": true,
+      "hardStopScope": "method",
+      "questionId": "question_record_msh9pdd3_unkyfc",
+      "decisionId": "decision_msh9pddd_zrc6lj"
+    },
+    {
+      "id": "question_obligation_msh9rfuc_6euzt9",
+      "kind": "required_question",
+      "status": "satisfied",
+      "createdAt": "2026-08-06T08:43:57.300Z",
+      "updatedAt": "2026-08-06T08:43:57.310Z",
+      "prompt": "How should LongTable handle the evidence risk before using this claim?",
+      "reason": "전문 확보 순서와 최종 산출물 형식은 기관 부하, 저작권, 재현성 및 논문 반영 가능성을 결정한다.",
+      "hardStop": true,
+      "hardStopScope": "method",
+      "questionId": "question_record_msh9rfuc_chffyz",
+      "decisionId": "decision_msh9rfum_kjz6v1"
+    },
+    {
+      "id": "question_obligation_msh9up15_300ncc",
+      "kind": "required_question",
+      "status": "satisfied",
+      "createdAt": "2026-08-06T08:46:29.177Z",
+      "updatedAt": "2026-08-06T08:46:29.187Z",
+      "prompt": "How should LongTable handle the evidence risk before using this claim?",
+      "reason": "원문 정본 위치는 중복, 동기화, 라이선스, 폐기 및 재현 가능성에 영향을 준다.",
+      "hardStop": true,
+      "hardStopScope": "evidence",
+      "questionId": "question_record_msh9up15_4nd4p0",
+      "decisionId": "decision_msh9up1f_r65s1d"
+    },
+    {
+      "id": "question_obligation_msh9wf2n_b9v57c",
+      "kind": "required_question",
+      "status": "satisfied",
+      "createdAt": "2026-08-06T08:47:49.583Z",
+      "updatedAt": "2026-08-06T08:47:49.592Z",
+      "prompt": "What should LongTable decide before proceeding with: LongTable Research의 사용자 표면과 내부 실행 구조를 어떻게 구성할 것인가?",
+      "reason": "이 선택은 단일 사용자 경험, 모듈 테스트 가능성, 기관 확장성 및 LongTable state의 통제 범위를 결정한다.",
+      "questionId": "question_record_msh9wf2n_2zmk94",
+      "decisionId": "decision_msh9wf2w_c8ovx7"
+    },
+    {
+      "id": "question_obligation_msh9zxqd_sgysy0",
+      "kind": "required_question",
+      "status": "satisfied",
+      "createdAt": "2026-08-06T08:50:33.733Z",
+      "updatedAt": "2026-08-06T08:50:33.743Z",
+      "prompt": "What should LongTable decide before proceeding with: LongTable Research의 단계 전환과 hard-stop hook을 어떻게 고정할 것인가?",
+      "reason": "실제 중단·재개·감사 가능성은 기관 브라우저 자동화의 핵심 신뢰 계약이다.",
+      "questionId": "question_record_msh9zxqd_pc9p7f",
+      "decisionId": "decision_msh9zxqn_h63enn"
+    },
+    {
+      "id": "question_obligation_msha2r9x_vk80f1",
+      "kind": "required_question",
+      "status": "satisfied",
+      "createdAt": "2026-08-06T08:52:45.332Z",
+      "updatedAt": "2026-08-06T08:52:45.346Z",
+      "prompt": "What should LongTable decide before proceeding with: LongTable Research의 DB·검색전략 선택 UX를 어떻게 제공할 것인가?",
+      "reason": "선택형 MCP 활용 방식은 연구자 개입 비용과 방법론적 통제의 균형을 결정한다.",
+      "questionId": "question_record_msha2r9x_q3ti9y",
+      "decisionId": "decision_msha2raa_0ewqpq"
+    },
+    {
+      "id": "question_obligation_msha6qzs_dg1fte",
+      "kind": "required_question",
+      "status": "satisfied",
+      "createdAt": "2026-08-06T08:55:51.592Z",
+      "updatedAt": "2026-08-06T08:55:51.603Z",
+      "prompt": "What should LongTable decide before proceeding with: LongTable Research의 Researcher Checkpoint 표면 우선순위를 어떻게 고정할 것인가?",
+      "reason": "MCP 호출 빈도와 fallback 정책은 연구자 피로도, 중단 신뢰성, 접근성을 결정한다.",
+      "questionId": "question_record_msha6qzs_q34wug",
+      "decisionId": "decision_msha6r03_qtd2gx"
+    },
+    {
+      "id": "question_obligation_msha91sm_dh5zip",
+      "kind": "required_question",
+      "status": "satisfied",
+      "createdAt": "2026-08-06T08:57:38.902Z",
+      "updatedAt": "2026-08-06T08:57:38.910Z",
+      "prompt": "What should LongTable treat as the human research commitment here?",
+      "reason": "기관 확장성, UI 변경 안전성, 재현성 및 유지보수 비용을 결정하는 핵심 구조다.",
+      "questionId": "question_record_msha91sm_t5enk6",
+      "decisionId": "decision_msha91su_rc5qiu"
+    },
+    {
+      "id": "question_obligation_mshaayq7_bpdv29",
+      "kind": "required_question",
+      "status": "satisfied",
+      "createdAt": "2026-08-06T08:59:08.239Z",
+      "updatedAt": "2026-08-06T08:59:08.248Z",
+      "prompt": "What should LongTable decide before proceeding with: LongTable Research의 자율 실행, 감사 및 토큰 사용 원칙을 어떻게 고정할 것인가?",
+      "reason": "연구자의 지속적 감사 부담과 토큰 비용을 줄이면서도 오류 검출과 연구 통제를 유지해야 한다.",
+      "questionId": "question_record_mshaayq7_j54i3d",
+      "decisionId": "decision_mshaayqg_4jul4u"
+    },
+    {
+      "id": "question_obligation_mshahg82_tf10y5",
+      "kind": "required_question",
+      "status": "satisfied",
+      "createdAt": "2026-08-06T09:04:10.850Z",
+      "updatedAt": "2026-08-06T09:04:10.861Z",
+      "prompt": "How should LongTable handle the evidence risk before using this claim?",
+      "reason": "동일 수치의 반복 입력을 없애고 논문 문장·표·PRISMA의 provenance와 재생성 가능성을 보장해야 한다.",
+      "questionId": "question_record_mshahg82_k7b4kq",
+      "decisionId": "decision_mshahg8d_ryn4tx"
+    },
+    {
+      "id": "question_obligation_mshancu3_mm8cj0",
+      "kind": "required_question",
+      "status": "satisfied",
+      "createdAt": "2026-08-06T09:08:46.395Z",
+      "updatedAt": "2026-08-06T09:08:46.447Z",
+      "prompt": "What should LongTable decide before proceeding with: 기관 학술DB 기반 LongTable Research의 테스트와 production 진입 기준을 어떻게 고정할 것인가?",
+      "reason": "연구자 전수 감사를 줄이면서 기관 UI 변화·중단·수치 오류·비밀정보 노출을 production 전에 검출해야 한다.",
+      "questionId": "question_record_mshancu3_qjxbnr",
+      "decisionId": "decision_mshancvj_tz6i1l"
+    }
+  ],
   "currentGoal": "Review LongTable checkpoint behavior, version alignment, and workspace policy",
   "currentBlocker": "Paper 2 strict Gate C2 is active (study-level, construct/coding, source adjudication, input-mapping all required); strict pass is required before any Paper 2 freeze candidate advancement.",
   "nextAction": "Execute Paper 2 strict Gate C2 in order: study-level -> construct/coding -> source adjudication -> input mapping, and record a full pass/fail trace.",
