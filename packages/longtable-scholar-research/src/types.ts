@@ -223,7 +223,10 @@ export interface SourceSearchResult {
 export interface RunResearchSearchInput extends BuildSearchIntentInput {
   env?: Record<string, string | undefined>;
   fetch?: SearchFetch;
+  /** Partial progress is the default; false requires every requested route. */
   allowPartial?: boolean;
+  /** Per-source deadline including response body parsing. Defaults to 15000. */
+  timeoutMs?: number;
   publisherAccess?: boolean;
 }
 

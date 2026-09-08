@@ -77,21 +77,13 @@ export function splitCsvTerms(value?: string): string[] {
 
 export function extractSearchKeywords(text: string, limit = 12): string[] {
   const normalized = normalizeSearchText(text);
-  const counts = new Map<string, number>();
+  const seen = new Set<string>();
   for (const token of normalized.split(" ")) {
-    if (token.length < 3 || STOP_WORDS.has(token)) {
-      continue;
-    }
-    counts.set(token, (counts.get(token) ?? 0) + 1);
+    // Keep short technical abbreviations and Korean words; preserve query order.
+    if (!token || STOP_WORDS.has(token) || (token.length < 2 && !/[가-힣]/.test(token))) continue;
+    seen.add(token);
   }
-
-  return [...counts.entries()]
-    .sort((a, b) => {
-      const countDelta = b[1] - a[1];
-      return countDelta !== 0 ? countDelta : a[0].localeCompare(b[0]);
-    })
-    .slice(0, limit)
-    .map(([token]) => token);
+  return [...seen].slice(0, limit);
 }
 
 export function parseSearchSources(value?: string): SearchSource[] {
@@ -182,7 +174,7 @@ export function buildResearchSearchIntent(input: BuildSearchIntentInput): Resear
   const keywordText = [baseText, field, ...mustTerms].filter(Boolean).join(" ");
   const keywords = extractSearchKeywords(keywordText);
   const normalizedQuery = normalizeSearchText(baseText);
-  const query = keywords.length > 0 ? keywords.slice(0, 10).join(" ") : normalizedQuery;
+  const query = explicitQuery || normalizedQuery;
   const limit = Number.isInteger(input.limit) && input.limit && input.limit > 0
     ? Math.min(input.limit, 50)
     : 10;

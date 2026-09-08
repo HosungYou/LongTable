@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { runResearch, renderResearchRun } from "./research.js";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { execSync, spawnSync } from "node:child_process";
@@ -411,7 +412,8 @@ function usage(): string {
     "  longtable access status [--json]",
     "  longtable access doctor [--doi <doi>] [--publisher auto|elsevier|springer_nature|wiley|taylor_francis|all] [--json]",
     "  longtable access probe --doi <doi> [--publisher auto|elsevier|springer_nature|wiley|taylor_francis] [--json]",
-    "  longtable search --query <text> [--intent literature|theory|measurement|citation|metadata|venue] [--field <text>] [--source all|crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj] [--must <term[,term]>] [--exclude <term[,term]>] [--limit <n>] [--allow-partial] [--publisher-access] [--record] [--cwd <path>] [--json]",
+    '  lt research "question" [--source <sources>] [--search-query <text>] [--run <id>] [--refresh] [--require-all] [--require-full-text] [--evidence-file <json>] [--answer-file <json>] [--cwd <path>] [--json]',
+    "  longtable search --query <text> [--intent literature|theory|measurement|citation|metadata|venue] [--field <text>] [--source all|crossref,arxiv,openalex,semantic_scholar,pubmed,eric,doaj] [--must <term[,term]>] [--exclude <term[,term]>] [--limit <n>] [--require-all] [--publisher-access] [--record] [--cwd <path>] [--json]",
     "  longtable scholar-research doctor [--json]",
     "  longtable scholar-research scaffold [--cwd <path>] [--run-id <id>] [--json]",
     "  longtable scholar-research smoke-fixture [--json]",
@@ -465,8 +467,9 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   const modeCommand = command && VALID_MODES.has(command as InteractionMode);
   const directCommand =
-    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "handoff", "decide", "sentinel", "access", "search", "scholar-research", "spec"].includes(command);
+    command && ["init", "setup", "start", "resume", "doctor", "status", "audit", "roles", "show", "install", "mcp", "codex", "claude", "ask", "clarify", "question", "clear-question", "prune-questions", "panel", "handoff", "decide", "sentinel", "access", "search", "research", "scholar-research", "spec"].includes(command);
 
+  if (command === "research" && maybeSubcommand && !maybeSubcommand.startsWith("--")) values.question = maybeSubcommand;
   let startIndex = 1;
   if (modeCommand) {
     subcommand = undefined;
@@ -3814,24 +3817,6 @@ function parseLimit(value: string | boolean | undefined): number | undefined {
   return parsed;
 }
 
-async function confirmPartialSearch(skippedSources: SearchSourceCapability[]): Promise<boolean> {
-  if (!input.isTTY || !output.isTTY) {
-    return false;
-  }
-
-  const rl = createInterface({ input, output });
-  try {
-    console.log("Some scholarly sources are unavailable:");
-    for (const source of skippedSources) {
-      console.log(`- ${source.source}: ${source.reason ?? "unavailable"}`);
-    }
-    const answer = await rl.question("Continue with the available sources? [y/N] ");
-    return /^y(es)?$/i.test(answer.trim());
-  } finally {
-    rl.close();
-  }
-}
-
 function renderEvidenceRunSummary(run: EvidenceRun, recordedPath?: string): string {
   const lines = [
     "LongTable Search",
@@ -4335,19 +4320,10 @@ async function runSearch(subcommand: string | undefined, args: Record<string, st
     source: "cli" as const
   };
 
-  const plannedIntent = buildResearchSearchIntent(searchInput);
-  const skippedSources = assessSearchSourceCapabilities(plannedIntent.requestedSources, env)
-    .filter((capability) => !capability.enabled);
-  let allowPartial = args["allow-partial"] === true;
-
-  if (skippedSources.length > 0 && !allowPartial) {
-    allowPartial = await confirmPartialSearch(skippedSources);
-  }
-
   const run = await runResearchSearch({
     ...searchInput,
     env,
-    allowPartial,
+    allowPartial: args["require-all"] !== true,
     publisherAccess: args["publisher-access"] === true
   });
 
@@ -5736,6 +5712,25 @@ async function main(): Promise<void> {
 
   if (command === "access") {
     await runAccess(subcommand, values);
+    return;
+  }
+
+  if (command === "research") {
+    const result = await runResearch({
+      cwd: typeof values.cwd === "string" ? values.cwd : cwd(),
+      question: typeof values.question === "string" ? values.question : undefined,
+      searchQuery: typeof values["search-query"] === "string" ? values["search-query"] : undefined,
+      runId: typeof values.run === "string" ? values.run : undefined,
+      sources: typeof values.source === "string" ? values.source : undefined,
+      limit: parseLimit(values.limit),
+      refresh: values.refresh === true,
+      allowPartial: values["require-all"] === true ? false : undefined,
+      requiredFullText: values["require-full-text"] === true ? true : undefined,
+      evidenceFile: typeof values["evidence-file"] === "string" ? values["evidence-file"] : undefined,
+      answerFile: typeof values["answer-file"] === "string" ? values["answer-file"] : undefined,
+      env
+    });
+    console.log(values.json === true ? JSON.stringify(result, null, 2) : renderResearchRun(result.run));
     return;
   }
 

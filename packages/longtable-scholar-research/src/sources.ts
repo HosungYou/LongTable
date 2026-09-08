@@ -1,3 +1,5 @@
+import { assessSearchSourceCapabilities } from "./registry.js";
+export { assessSearchSourceCapabilities } from "./registry.js";
 import {
   SEARCH_SOURCES,
   type AccessStatus,
@@ -191,7 +193,7 @@ async function fetchJson(context: SourceSearchContext, url: string): Promise<unk
   const response = await context.fetch(url, {
     headers: {
       "accept": "application/json",
-      "user-agent": "LongTable/0.1.60 (https://github.com/HosungYou/LongTable)"
+      "user-agent": "LongTable (https://github.com/HosungYou/LongTable)"
     }
   });
   if (!response.ok) {
@@ -204,7 +206,7 @@ async function fetchText(context: SourceSearchContext, url: string): Promise<str
   const response = await context.fetch(url, {
     headers: {
       "accept": "application/xml, text/xml, application/atom+xml, text/plain",
-      "user-agent": "LongTable/0.1.60 (https://github.com/HosungYou/LongTable)"
+      "user-agent": "LongTable (https://github.com/HosungYou/LongTable)"
     }
   });
   if (!response.ok) {
@@ -215,32 +217,6 @@ async function fetchText(context: SourceSearchContext, url: string): Promise<str
 
 function queryForSource(intent: ResearchSearchIntent): string {
   return intent.queryVariants[0] ?? intent.query;
-}
-
-function getCapability(source: SearchSource, env: Record<string, string | undefined>): SearchSourceCapability {
-  if (source === "openalex" && !env.OPENALEX_API_KEY) {
-    return {
-      source,
-      enabled: false,
-      requiredEnv: ["OPENALEX_API_KEY"],
-      missingEnv: ["OPENALEX_API_KEY"],
-      reason: "OpenAlex route is disabled because OPENALEX_API_KEY is missing.",
-      setupHint: "Set OPENALEX_API_KEY to enable reliable OpenAlex API use."
-    };
-  }
-  return {
-    source,
-    enabled: true,
-    requiredEnv: [],
-    missingEnv: []
-  };
-}
-
-export function assessSearchSourceCapabilities(
-  sources: SearchSource[],
-  env: Record<string, string | undefined> = process.env
-): SearchSourceCapability[] {
-  return sources.map((source) => getCapability(source, env));
 }
 
 export function enabledSearchSources(
