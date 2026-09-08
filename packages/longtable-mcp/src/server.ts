@@ -24,6 +24,7 @@ import type {
 import { evaluateResearchSpecificationReadiness } from "@longtable/core";
 import { loadSetupOutput } from "@longtable/setup";
 import {
+  runResearch,
   answerWorkspaceQuestion,
   applyResearchSpecificationAuditUpdate,
   applyResearchSpecificationPatch,
@@ -57,6 +58,7 @@ const require = createRequire(import.meta.url);
 const SERVER_VERSION = String((require("../package.json") as { version?: unknown }).version ?? "0.0.0");
 
 const TOOL_NAMES = [
+  "research",
   "read_project",
   "read_session",
   "inspect_workspace",
@@ -1443,6 +1445,29 @@ export function createLongTableMcpServer(): McpServer {
     {
       instructions:
         "Use LongTable state tools to inspect .longtable workspaces, evaluate Researcher Checkpoints, write QuestionRecords, append DecisionRecords, and regenerate CURRENT.md. Treat .longtable as the source of truth."
+    }
+  );
+
+  server.registerTool(
+    "research",
+    {
+      title: "Research a question or resume evidence",
+      description: "Search available scholarly sources, preserve evidence in a local sidecar, and resume without repeating retrieval. Read packet.json with the current host model, then attach source-bound claims using answerFile. Does not call a separate model, confirm research decisions, or bypass access controls.",
+      inputSchema: z.object({
+        cwd: z.string().optional(), question: z.string().optional(), searchQuery: z.string().optional(), runId: z.string().optional(),
+        sources: z.string().optional(), limit: z.number().int().min(1).max(50).optional(),
+        refresh: z.boolean().optional(), requireAllSources: z.boolean().optional(), requiredFullText: z.boolean().optional(),
+        evidenceFile: z.string().optional(), answerFile: z.string().optional()
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true }
+    },
+    async ({ cwd: inputCwd, requireAllSources, ...args }) => {
+      try {
+        return textResult(await runResearch({ ...args, cwd: inputCwd ?? cwd(),
+          allowPartial: requireAllSources === undefined ? undefined : !requireAllSources }));
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
+      }
     }
   );
 

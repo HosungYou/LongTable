@@ -1,0 +1,22 @@
+[
+  {"id":"ai-1","bundle":"ai_agents","question":"Do retrieval-augmented agents outperform long-context models on current factual questions?"},
+  {"id":"ai-2","bundle":"ai_agents","question":"Which agent benchmarks measure successful real-world task completion?"},
+  {"id":"ai-3","bundle":"ai_agents","question":"When does multi-agent research improve citation reliability over a single agent?"},
+  {"id":"ai-4","bundle":"ai_agents","question":"How should agent memory distinguish observations, beliefs, and user decisions?"},
+  {"id":"ai-5","bundle":"ai_agents","question":"What evidence contradicts claims that more tool calls always improve agent quality?"},
+  {"id":"ai-6","bundle":"ai_agents","question":"How do preprint and published versions differ in evidence for agent evaluation?"},
+  {"id":"ai-7","bundle":"ai_agents","question":"What recent research measures citation support rather than citation presence?"},
+  {"id":"edu-1","bundle":"social_science_education","question":"Does generative AI tutoring improve independently measured student learning?"},
+  {"id":"edu-2","bundle":"social_science_education","question":"What distinguishes short-term AI assistance from durable learning gains?"},
+  {"id":"edu-3","bundle":"social_science_education","question":"Which randomized studies report heterogeneous effects of AI tutoring?"},
+  {"id":"edu-4","bundle":"social_science_education","question":"How valid are self-report measures of calibrated trust in educational AI?"},
+  {"id":"edu-5","bundle":"social_science_education","question":"What counterevidence challenges automated feedback benefits in higher education?"},
+  {"id":"edu-6","bundle":"social_science_education","question":"How do longitudinal and cross-sectional studies differ on AI literacy outcomes?"},
+  {"id":"edu-7","bundle":"social_science_education","question":"What evidence gaps prevent a systematic-review conclusion on AI-mediated learning?"},
+  {"id":"kr-1","bundle":"korean_policy","question":"한국 공공기관의 생성형 AI 도입 지침은 어떤 업무와 데이터 경계를 정하는가?"},
+  {"id":"kr-2","bundle":"korean_policy","question":"한국 교육기관의 AI 디지털 교육 정책에서 확인된 성과와 계획은 어떻게 다른가?"},
+  {"id":"kr-3","bundle":"korean_policy","question":"한국 정부 AI 역량 교육 보고서의 원자료와 발표 시점을 어떻게 검증할 수 있는가?"},
+  {"id":"kr-4","bundle":"korean_policy","question":"공공부문 AI 활용 보고서에서 실증 결과와 기관의 해석을 어떻게 구분하는가?"},
+  {"id":"kr-5","bundle":"korean_policy","question":"개정된 AI 도입 지침이 이전 기관 보고서와 충돌하는 부분은 무엇인가?"},
+  {"id":"kr-6","bundle":"korean_policy","question":"원문 접근이 제한된 한국 정책 보고서로 어떤 결론까지 뒷받침할 수 있는가?"}
+]

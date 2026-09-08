@@ -206,8 +206,8 @@ const blocked = await search.runResearchSearch({
   env: {},
   fetch: mockFetch
 });
-assertEqual(blocked.status, "blocked", "missing credential route blocks without partial approval");
-assertEqual(blocked.skippedSources.length, 1, "blocked route skipped source count");
+assertEqual(blocked.status, "completed", "OpenAlex basic anonymous queries execute without setup");
+assertEqual(blocked.skippedSources.length, 0, "anonymous source is eligible");
 assert(!blocked.intent.query.includes("checkpoint"), "explicit query should not be polluted by workspace context");
 
 const run = await search.runResearchSearch({
@@ -265,22 +265,6 @@ const publisherRun = await search.runResearchSearch({
 const publisherCard = publisherRun.cards.find((card) => card.doi === "10.1234/trust.2024.1");
 assert(publisherCard.publisherAccess, "publisher access enrichment should attach probe record");
 assertEqual(publisherCard.accessStatus, "licensed_full_text_checked", "publisher-enriched access status");
-
-const cliBlocked = JSON.parse(execFileSync("node", [
-  cli,
-  "search",
-  "--query", "trust calibration measurement",
-  "--source", "openalex",
-  "--json"
-], {
-  cwd: repoRoot,
-  encoding: "utf8",
-  env: {
-    PATH: process.env.PATH ?? "",
-    HOME: process.env.HOME ?? ""
-  }
-}));
-assertEqual(cliBlocked.run.status, "blocked", "CLI non-TTY missing credential status");
 
 const cliDoctor = JSON.parse(execFileSync("node", [
   cli,

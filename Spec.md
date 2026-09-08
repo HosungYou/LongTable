@@ -10,6 +10,7 @@ Repository framing and migration boundary are defined in `README.md`, `RELATIONS
 
 Active supporting docs are:
 
+- `docs/RESEARCH-ENTRYPOINT.md`
 - `docs/ARCHITECTURE.md`
 - `docs/ACTIVE-DECISIONS.md`
 - `docs/CHECKPOINTING.md`
