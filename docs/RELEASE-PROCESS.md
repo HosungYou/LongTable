@@ -22,13 +22,14 @@ npm run release:check
 
 `release:check` runs:
 
-- workspace typecheck
-- workspace build
+- workspace build, including TypeScript checks
+- behavioral smoke checks
 - npm pack dry-run for publishable workspaces
 
-The root build and typecheck scripts intentionally run workspaces in dependency
-order. Do not switch them back to generic `--workspaces` ordering unless package
-references are changed to source-level project references.
+The root build runs workspaces in dependency order. Do not switch it to generic
+`--workspaces` ordering unless package references are changed to source-level
+project references. `typecheck` is an alternative when emitted output is not
+needed; do not run it again after a successful build of the same source.
 
 After publishing a version manually, run `npm ci` again before merging or
 tagging. This catches lockfile entries whose `integrity` values were generated

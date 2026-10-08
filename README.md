@@ -226,12 +226,14 @@ with explicit assumptions instead of interrupting.
 
 ```bash
 npm ci
-npm run build
 npm run test
-npm run release:check
 ```
 
-Useful smoke checks:
+`test` builds the workspaces (including TypeScript checks) and runs the smoke
+checks. For a focused change, run the affected workspace build and smoke check.
+Use `release:check` once for a release; it includes `test` and the pack dry run.
+
+Focused smoke checks:
 
 ```bash
 npm run smoke:setup
