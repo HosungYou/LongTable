@@ -14,12 +14,7 @@ This note records the verification lane for the visible writable panel worker br
 Run from the repository root after implementation lanes are integrated:
 
 ```bash
-npm run build
-npm run smoke:panel-workers
-npm run smoke:panel-handoff
-npm run typecheck
-npm run test
-npm run pack:check
+npm run release:check
 ```
 
 ## Evidence expectations
@@ -41,7 +36,7 @@ npm run pack:check
   - panel skills retain the normalized `PanelResult` contract;
   - hidden reasoning and raw tool log fields are stripped from recorded state;
   - generated handoff includes provider-neutral continuation guidance and unincorporated evidence.
-- `build`, `typecheck`, `test`, and `pack:check` must pass before the bridge is considered integration-ready.
+- `release:check` includes the build, panel smoke checks, and pack dry run required for integration.
 
 ## Worker-4 run result
 
